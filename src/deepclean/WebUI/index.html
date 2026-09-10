@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#070a10">
+  <title>DeepClean Pro — macOS System Optimizer & Cleaner</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Ana içeriğe geç</a>
+  <!-- Ambient background glow elements -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+
+  <!-- Confetti Canvas -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <div class="app-layout">
+    <div class="main-body">
+      <!-- Left Navigation Sidebar -->
+      <aside class="sidebar">
+        <!-- Sidebar Top: macOS Window Controls & App Brand -->
+        <div class="sidebar-header">
+          <div class="window-controls" aria-hidden="true">
+            <span class="control-dot close"></span>
+            <span class="control-dot minimize"></span>
+            <span class="control-dot zoom"></span>
+          </div>
+
+          <div class="brand-block">
+            <div class="brand-logo">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="brand-text-wrap">
+              <span class="brand-name">DeepClean <span class="badge-pro">PRO</span></span>
+              <span class="version-tag">v0.9.16 Python</span>
+            </div>
+          </div>
+        </div>
+
+        <nav class="nav-menu" aria-label="DeepClean araçları">
+          <div class="nav-section-title">DEEPCLEAN (ANA MENÜ)</div>
+          
+          <!-- 1. Clean -->
+          <button class="nav-item active" data-tab="cleaner">
+            <span class="nav-symbol">✦</span>
+            <div class="nav-text-group">
+              <span class="nav-main-title">Clean</span>
+              <span class="nav-sub-title">Akıllı Temizlik</span>
+            </div>
+            <span class="nav-task-dot hidden" id="dot-cleaner"></span>
+          </button>
+
+          <!-- 2. Uninstall Apps -->
+          <button class="nav-item" data-tab="apps">
+            <span class="nav-symbol">⌫</span>
+            <div class="nav-text-group">
+              <span class="nav-main-title">Uninstall Apps</span>
+              <span class="nav-sub-title">Uygulama Kaldırıcı</span>
+            </div>
+            <span class="nav-task-dot hidden" id="dot-apps"></span>
+          </button>
+
+          <!-- 3. Optimize -->
+          <button class="nav-item" data-tab="optimize">
+            <span class="nav-symbol">⚙</span>
+            <div class="nav-text-group">
+              <span class="nav-main-title">Optimize</span>
+              <span class="nav-sub-title">Mac İyileştirme</span>
+            </div>
+            <span class="nav-task-dot hidden" id="dot-optimize"></span>
+          </button>
+
+          <!-- 4. Analyze -->
+          <button class="nav-item" data-tab="analyzer">
+            <span class="nav-symbol">◫</span>
+            <div class="nav-text-group">
+              <span class="nav-main-title">Analyze</span>
+              <span class="nav-sub-title">Disk Alanı Analizörü</span>
+            </div>
+            <span class="nav-task-dot hidden" id="dot-analyzer"></span>
+          </button>
+
+          <!-- 5. Project Purge -->
+          <button class="nav-item" data-tab="purge">
+            <span class="nav-symbol">⌁</span>
+            <div class="nav-text-group">
+              <span class="nav-main-title">Project Purge</span>
+              <span class="nav-sub-title">Geliştirici Projeleri</span>
+            </div>
+            <span class="nav-task-dot hidden" id="dot-purge"></span>
+          </button>
+
+          <!-- 6. Developer Tools -->
+          <button class="nav-item" data-tab="developer">
+            <span class="nav-symbol">⌘</span>
+            <div class="nav-text-group">
+              <span class="nav-main-title">Developer Tools</span>
+              <span class="nav-sub-title">Runtimes, SDKs & Caches</span>
+            </div>
+            <span class="nav-task-dot hidden" id="dot-developer"></span>
+          </button>
+
+          <!-- 7. Status -->
+          <button class="nav-item" data-tab="dashboard">
+            <span class="nav-symbol">●</span>
+            <div class="nav-text-group">
+              <span class="nav-main-title">Status</span>
+              <span class="nav-sub-title">Sistem & Metrikler</span>
+            </div>
+            <span class="nav-task-dot hidden" id="dot-dashboard"></span>
+          </button>
+
+          <!-- 8. More Tools -->
+          <button class="nav-item" data-tab="more">
+            <span class="nav-symbol">⋯</span>
+            <div class="nav-text-group">
+              <span class="nav-main-title">More Tools</span>
+              <span class="nav-sub-title">Artıklar, Teşhis & Geçmiş</span>
+            </div>
+            <span class="nav-task-dot hidden" id="dot-more"></span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <!-- Sidebar Live System Metric Pills -->
+          <div class="sidebar-metrics">
+            <div class="quick-pill" id="quick-cpu" title="Canlı CPU Kullanımı">
+              <span class="pill-dot cpu-dot"></span>
+              <span class="pill-label">CPU:</span>
+              <span class="pill-val" id="header-cpu-val">--%</span>
+            </div>
+            <div class="quick-pill" id="quick-ram" title="Canlı RAM Kullanımı">
+              <span class="pill-dot ram-dot"></span>
+              <span class="pill-label">RAM:</span>
+              <span class="pill-val" id="header-ram-val">-- GB</span>
+            </div>
+            <div class="quick-pill" id="quick-disk" title="Disk Doluluğu">
+              <span class="pill-dot disk-dot"></span>
+              <span class="pill-label">Disk:</span>
+              <span class="pill-val" id="header-disk-val">-- GB</span>
+            </div>
+          </div>
+
+          <!-- Bottom Tools Row: Theme, Sound, Safety -->
+          <div class="sidebar-tools-row">
+            <div class="theme-dropdown">
+              <button class="btn-icon" id="theme-btn" title="Görünüm Teması" aria-label="Sonraki görünüm temasına geç">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="5"></circle>
+                  <line x1="12" y1="1" x2="12" y2="3"></line>
+                  <line x1="12" y1="21" x2="12" y2="23"></line>
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                  <line x1="1" y1="12" x2="3" y2="12"></line>
+                  <line x1="21" y1="12" x2="23" y2="12"></line>
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+              </button>
+            </div>
+
+            <button class="btn-icon" id="sound-toggle" title="Ses Efektleri" aria-label="Ses efektlerini aç veya kapat">
+              <svg class="icon-sound-on" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              </svg>
+              <svg class="icon-sound-off hidden" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <line x1="23" y1="9" x2="17" y2="15"></line>
+                <line x1="17" y1="9" x2="23" y2="15"></line>
+              </svg>
+            </button>
+
+            <div class="safety-badge" title="SIP ve Sistem Verileri Korumalıdır">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span>SIP Safe</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content Area -->
+      <main class="content-container" id="main-content">
+
+        <!-- ================= TAB 7: STATUS (CLI MENU ITEM 7) ================= -->
+        <section class="tab-pane" id="pane-dashboard">
+          <div class="pane-header">
+            <div>
+              <h1 class="pane-title">Sistem Durumu (Status)</h1>
+              <p class="pane-subtitle">Live CPU, RAM, disk, ağ, batarya, termal ve çalışan süreçleri canlı takip edin.</p>
+            </div>
+            <button class="btn btn-primary btn-hero-scan" id="dash-quick-scan-btn">
+              <span style="margin-right: 6px;">✦</span>
+              <span>Clean Ekranına Git</span>
+            </button>
+          </div>
+
+          <!-- Gauges Grid -->
+          <div class="gauges-grid">
+            <!-- CPU Gauge Card -->
+            <div class="glass-card gauge-card">
+              <div class="card-header">
+                <div class="card-title-wrap">
+                  <div class="card-icon icon-cpu">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                      <rect x="9" y="9" width="6" height="6"></rect>
+                      <line x1="9" y1="1" x2="9" y2="4"></line>
+                      <line x1="15" y1="1" x2="15" y2="4"></line>
+                      <line x1="9" y1="20" x2="9" y2="23"></line>
+                      <line x1="15" y1="20" x2="15" y2="23"></line>
+                      <line x1="20" y1="9" x2="23" y2="9"></line>
+                      <line x1="20" y1="14" x2="23" y2="14"></line>
+                      <line x1="1" y1="9" x2="4" y2="9"></line>
+                      <line x1="1" y1="14" x2="4" y2="14"></line>
+                    </svg>
+                  </div>
+                  <h3>İşlemci (CPU)</h3>
+                </div>
+                <span class="badge-status live-status">Canlı</span>
+              </div>
+
+              <div class="gauge-content">
+                <div class="svg-gauge-container">
+                  <svg class="circular-chart" viewBox="0 0 100 100">
+                    <circle class="circle-bg" cx="50" cy="50" r="42" />
+                    <circle class="circle-bar cpu-bar" id="gauge-cpu-circle" cx="50" cy="50" r="42" stroke-dasharray="264" stroke-dashoffset="264" />
+                  </svg>
+                  <div class="gauge-center-text">
+                    <span class="gauge-val" id="dash-cpu-val">0%</span>
+                    <span class="gauge-label">Yük</span>
+                  </div>
+                </div>
+                <div class="gauge-stats">
+                  <div class="stat-row">
+                    <span class="stat-lbl">Termal Durum:</span>
+                    <span class="stat-val" id="dash-thermal-val">Normal</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-lbl">Yük Ortalaması:</span>
+                    <span class="stat-val" id="dash-load-val">--</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-lbl">Uptime:</span>
+                    <span class="stat-val" id="dash-uptime-val">--</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- RAM Gauge Card -->
+            <div class="glass-card gauge-card">
+              <div class="card-header">
+                <div class="card-title-wrap">
+                  <div class="card-icon icon-ram">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                      <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                      <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                      <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                    </svg>
+                  </div>
+                  <h3>Bellek (RAM)</h3>
+                </div>
+                <span class="badge-status live-status">Canlı</span>
+              </div>
+
+              <div class="gauge-content">
+                <div class="svg-gauge-container">
+                  <svg class="circular-chart" viewBox="0 0 100 100">
+                    <circle class="circle-bg" cx="50" cy="50" r="42" />
+                    <circle class="circle-bar ram-bar" id="gauge-ram-circle" cx="50" cy="50" r="42" stroke-dasharray="264" stroke-dashoffset="264" />
+                  </svg>
+                  <div class="gauge-center-text">
+                    <span class="gauge-val" id="dash-ram-val">0%</span>
+                    <span class="gauge-label">Kullanım</span>
+                  </div>
+                </div>
+                <div class="gauge-stats">
+                  <div class="stat-row">
+                    <span class="stat-lbl">Kullanılan:</span>
+                    <span class="stat-val" id="dash-ram-used-val">-- GB</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-lbl">Toplam:</span>
+                    <span class="stat-val" id="dash-ram-total-val">-- GB</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-lbl">Boş / Rezerve:</span>
+                    <span class="stat-val" id="dash-ram-free-val">-- GB</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Disk Gauge Card -->
+            <div class="glass-card gauge-card">
+              <div class="card-header">
+                <div class="card-title-wrap">
+                  <div class="card-icon icon-disk">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="22" y1="12" x2="2" y2="12"></line>
+                      <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+                      <line x1="6" y1="16" x2="6.01" y2="16"></line>
+                      <line x1="10" y1="16" x2="10.01" y2="16"></line>
+                    </svg>
+                  </div>
+                  <h3>Depolama (SSD/Disk)</h3>
+                </div>
+                <span class="badge-status live-status">Canlı</span>
+              </div>
+
+              <div class="gauge-content">
+                <div class="svg-gauge-container">
+                  <svg class="circular-chart" viewBox="0 0 100 100">
+                    <circle class="circle-bg" cx="50" cy="50" r="42" />
+                    <circle class="circle-bar disk-bar" id="gauge-disk-circle" cx="50" cy="50" r="42" stroke-dasharray="264" stroke-dashoffset="264" />
+                  </svg>
+                  <div class="gauge-center-text">
+                    <span class="gauge-val" id="dash-disk-percent-val">0%</span>
+                    <span class="gauge-label">Dolu</span>
+                  </div>
+                </div>
+                <div class="gauge-stats">
+                  <div class="stat-row">
+                    <span class="stat-lbl">Boş Alan:</span>
+                    <span class="stat-val highlight-green" id="dash-disk-free-val">-- GB</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-lbl">Kullanılan:</span>
+                    <span class="stat-val" id="dash-disk-used-val">-- GB</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-lbl">Kapasite:</span>
+                    <span class="stat-val" id="dash-disk-total-val">-- GB</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Secondary Dashboard Widgets: Network, Battery & Top Processes -->
+          <div class="dash-widgets-grid">
+            <!-- Network & Battery Card -->
+            <div class="glass-card">
+              <div class="card-header">
+                <h3>Ağ & Batarya Durumu</h3>
+              </div>
+              <div class="net-battery-wrapper">
+                <div class="net-meter">
+                  <div class="net-metric-box">
+                    <div class="net-icon down-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <polyline points="19 12 12 19 5 12"></polyline>
+                      </svg>
+                    </div>
+                    <div>
+                      <span class="net-lbl">İndirme (Download)</span>
+                      <div class="net-speed" id="dash-net-down">0 KB/s</div>
+                    </div>
+                  </div>
+
+                  <div class="net-metric-box">
+                    <div class="net-icon up-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="19" x2="12" y2="5"></line>
+                        <polyline points="5 12 12 5 19 12"></polyline>
+                      </svg>
+                    </div>
+                    <div>
+                      <span class="net-lbl">Yükleme (Upload)</span>
+                      <div class="net-speed" id="dash-net-up">0 KB/s</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="battery-section" id="battery-box">
+                  <div class="battery-header">
+                    <span class="battery-title">Pil Sağlığı</span>
+                    <span class="battery-percent" id="dash-batt-pct">--%</span>
+                  </div>
+                  <div class="battery-track">
+                    <div class="battery-fill" id="dash-batt-bar" style="width: 0%"></div>
+                  </div>
+                  <div class="battery-meta">
+                    <span id="dash-batt-state">Durum Bilinmiyor</span>
+                    <span id="dash-batt-cycles">-- Döngü</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Top Processes Card -->
+            <div class="glass-card">
+              <div class="card-header">
+                <h3>En Çok Kaynak Tüketen Süreçler</h3>
+                <span class="hint-text">Aktif Uygulamalar</span>
+              </div>
+              <div class="table-container">
+                <table class="data-table" id="table-top-processes">
+                  <thead>
+                    <tr>
+                      <th>Süreç / Uygulama</th>
+                      <th>PID</th>
+                      <th>CPU %</th>
+                      <th>RAM %</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-top-processes">
+                    <tr><td colspan="4" class="empty-state">Yükleniyor...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ================= TAB 1: CLEAN (CLI MENU ITEM 0) ================= -->
+        <section class="tab-pane active" id="pane-cleaner">
+          <div class="pane-header">
+            <div>
+              <h1 class="pane-title">Clean — Akıllı Sistem Temizliği</h1>
+              <p class="pane-subtitle">Scan safely, choose a profile, then reclaim space. (Güvenli önbellek, log ve kırıntı temizliği)</p>
+            </div>
+          </div>
+
+          <!-- In-Page Live Progress Card for Clean -->
+          <div class="inpage-progress-card hidden" id="cleaner-progress-card">
+            <div class="inpage-progress-header">
+              <div class="inpage-title-group">
+                <span class="live-pulse-dot"></span>
+                <span class="inpage-action-label" id="cleaner-action-label">Sistem Taranıyor...</span>
+                <span class="inpage-phase-badge" id="cleaner-phase-badge">ÇALIŞIYOR</span>
+              </div>
+              <div class="inpage-stats-group">
+                <span class="inpage-count" id="cleaner-progress-count"></span>
+                <span class="inpage-percent" id="cleaner-progress-percent">0%</span>
+              </div>
+            </div>
+            <div class="inpage-progress-track">
+              <div class="inpage-progress-fill" id="cleaner-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div class="inpage-path-ticker">
+              <span class="inpage-path-icon">📂</span>
+              <span class="inpage-path-text" id="cleaner-path-text">Hazırlanıyor...</span>
+            </div>
+            <div class="inpage-logs-drawer">
+              <button class="inpage-logs-btn" type="button" data-log-service="cleaner">
+                <span id="cleaner-logs-btn-text">▸ Canlı Log Akışı</span>
+              </button>
+              <div class="inpage-logs-container hidden" id="cleaner-logs-container"></div>
+            </div>
+          </div>
+
+          <!-- Configuration & Trigger Bar -->
+          <div class="glass-card scan-config-card">
+            <div class="config-row">
+              <div class="config-group">
+                <label class="control-label">Temizlik Profili:</label>
+                <div class="profile-pills">
+                  <button class="profile-pill active" data-profile="safe">
+                    <span class="pill-dot safe-dot"></span>
+                    <span class="pill-title">Safe (Güvenli)</span>
+                    <span class="pill-badge">Düşük Risk</span>
+                  </button>
+                  <button class="profile-pill" data-profile="deep">
+                    <span class="pill-dot deep-dot"></span>
+                    <span class="pill-title">Deep (Derin)</span>
+                    <span class="pill-badge">Orta Risk</span>
+                  </button>
+                  <button class="profile-pill" data-profile="developer">
+                    <span class="pill-dot dev-dot"></span>
+                    <span class="pill-title">Developer</span>
+                    <span class="pill-badge">Geliştirici</span>
+                  </button>
+                  <button class="profile-pill" data-profile="aggressive">
+                    <span class="pill-dot agg-dot"></span>
+                    <span class="pill-title">Aggressive</span>
+                    <span class="pill-badge">Kapsamlı</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="config-switches">
+                <label class="switch-item" title="Çöp Sepetini de boşalt">
+                  <input type="checkbox" id="chk-trash" checked>
+                  <span class="switch-toggle"></span>
+                  <span class="switch-text">Çöp Sepeti (~/.Trash)</span>
+                </label>
+                <label class="switch-item" title="Eski geçici sistem dosyalarını tara">
+                  <input type="checkbox" id="chk-temp">
+                  <span class="switch-toggle"></span>
+                  <span class="switch-text">Geçici Dosyalar (/private/tmp)</span>
+                </label>
+                <label class="switch-item" title="Dosyaları silmeden yalnızca simülasyon yap">
+                  <input type="checkbox" id="chk-dryrun">
+                  <span class="switch-toggle"></span>
+                  <span class="switch-text">Simülasyon Modu (Dry Run)</span>
+                </label>
+              </div>
+
+              <div class="scan-action-wrap">
+                <button class="btn btn-primary btn-large" id="btn-start-scan">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <span>Sistemi Tara</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scan Results View -->
+          <div class="scan-results-area hidden" id="scan-results-box">
+            <!-- Results Summary Banner -->
+            <div class="results-summary-card">
+              <div class="summary-stat">
+                <span class="summary-label">Kazanılabilir Alan:</span>
+                <span class="summary-value highlight-cyan" id="res-total-bytes">0 GB</span>
+              </div>
+              <div class="summary-divider"></div>
+              <div class="summary-stat">
+                <span class="summary-label">Tespit Edilen Öğe:</span>
+                <span class="summary-value" id="res-total-items">0</span>
+              </div>
+              <div class="summary-divider"></div>
+              <div class="summary-stat">
+                <span class="summary-label">Seçilen Alan:</span>
+                <span class="summary-value highlight-green" id="res-selected-bytes">0 GB</span>
+              </div>
+
+              <div class="summary-actions">
+                <button class="btn btn-secondary btn-sm" id="btn-select-all">Tümünü Seç</button>
+                <button class="btn btn-secondary btn-sm" id="btn-deselect-all">Seçimi Kaldır</button>
+                <button class="btn btn-danger btn-large" id="btn-execute-clean">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                  <span>Temizliği Başlat</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Categories and Items Table -->
+            <div class="glass-card">
+              <div class="table-toolbar">
+                <h3>Bulunan Temizlik Öğeleri</h3>
+                <div class="filter-box">
+                  <input type="text" id="search-clean-items" placeholder="Öğe ara..." class="input-search">
+                </div>
+              </div>
+
+              <div class="table-container clean-items-container">
+                <table class="data-table" id="table-clean-items">
+                  <thead>
+                    <tr>
+                      <th width="40"><input type="checkbox" id="master-clean-chk" aria-label="Tüm güvenli temizlik öğelerini seç" disabled></th>
+                      <th>Kategori & Başlık</th>
+                      <th>Konum / Yol</th>
+                      <th>Risk</th>
+                      <th>Gerekçe</th>
+                      <th width="120" style="text-align: right;">Boyut</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-clean-items">
+                    <!-- Dynamic Rows -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ================= TAB 3: APP UNINSTALLER ================= -->
+        <section class="tab-pane" id="pane-apps">
+          <div class="pane-header">
+            <div>
+              <h1 class="pane-title">Uninstall Apps — Uygulama Kaldırıcı</h1>
+              <p class="pane-subtitle">Remove applications plus exact, reviewable leftovers. (Uygulamalar ve arkalarındaki artıklar)</p>
+            </div>
+            <button class="btn btn-primary" id="btn-refresh-apps">
+              <span style="margin-right: 6px;">⌫</span>
+              <span>Uygulamaları Tara</span>
+            </button>
+          </div>
+
+          <!-- In-Page Live Progress Card for Apps -->
+          <div class="inpage-progress-card hidden" id="apps-progress-card">
+            <div class="inpage-progress-header">
+              <div class="inpage-title-group">
+                <span class="live-pulse-dot"></span>
+                <span class="inpage-action-label" id="apps-action-label">Uygulamalar Taranıyor...</span>
+                <span class="inpage-phase-badge" id="apps-phase-badge">ÇALIŞIYOR</span>
+              </div>
+              <div class="inpage-stats-group">
+                <span class="inpage-count" id="apps-progress-count"></span>
+                <span class="inpage-percent" id="apps-progress-percent">0%</span>
+              </div>
+            </div>
+            <div class="inpage-progress-track">
+              <div class="inpage-progress-fill" id="apps-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div class="inpage-path-ticker">
+              <span class="inpage-path-icon">📂</span>
+              <span class="inpage-path-text" id="apps-path-text">Hazırlanıyor...</span>
+            </div>
+            <div class="inpage-logs-drawer">
+              <button class="inpage-logs-btn" type="button" data-log-service="apps">
+                <span id="apps-logs-btn-text">▸ Canlı Log Akışı</span>
+              </button>
+              <div class="inpage-logs-container hidden" id="apps-logs-container"></div>
+            </div>
+          </div>
+
+          <div class="apps-layout">
+            <!-- Left: Apps List -->
+            <div class="glass-card apps-list-card">
+              <div class="table-toolbar">
+                <div class="search-wrap">
+                  <input type="text" id="search-apps-input" placeholder="Uygulama ara (örn. Slack, Chrome)..." class="input-search">
+                </div>
+                <div class="sort-wrap">
+                  <select id="sort-apps-select" class="select-box">
+                    <option value="size">Boyuta Göre (Büyükten Küçüğe)</option>
+                    <option value="name">İsme Göre (A-Z)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="apps-scroll-list" id="apps-list-container">
+                <div class="empty-state" style="padding: 40px; text-align: center;">Yüklü uygulamaları listelemek ve artıklarını analiz etmek için yukarıdaki <strong>"Uygulamaları Tara"</strong> butonuna tıklayın.</div>
+              </div>
+            </div>
+
+            <!-- Right: App Detail & Leftovers Inspector -->
+            <div class="glass-card app-detail-card" id="app-detail-card">
+              <div class="empty-selection" id="app-detail-empty">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="9" y1="9" x2="15" y2="15"></line>
+                  <line x1="15" y1="9" x2="9" y2="15"></line>
+                </svg>
+                <p>Detayları ve geriye kalan artıkları görüntülemek için soldan bir uygulama seçin.</p>
+              </div>
+
+              <div class="app-detail-content hidden" id="app-detail-view">
+                <div class="detail-header">
+                  <div class="detail-app-avatar" id="detail-app-icon"></div>
+                  <div class="detail-app-meta">
+                    <h2 id="detail-app-name">Uygulama Adı</h2>
+                    <span class="detail-bundle" id="detail-app-bundle">com.example.app</span>
+                    <span class="detail-version" id="detail-app-version">v1.0.0</span>
+                  </div>
+                  <div class="detail-app-size" id="detail-app-size">-- MB</div>
+                </div>
+
+                <div class="leftovers-section">
+                  <div class="leftovers-title-bar">
+                    <h4>Tespit Edilen Artıklar & Bağlantılı Dosyalar</h4>
+                    <span class="badge-status" id="detail-leftovers-count">0 öğe</span>
+                  </div>
+
+                  <div class="leftovers-list" id="detail-leftovers-list">
+                    <!-- Dynamic leftovers list -->
+                  </div>
+                </div>
+
+                <div class="detail-footer">
+                  <button class="btn btn-danger btn-large" id="btn-uninstall-selected-app">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    <span>Uygulamayı ve Artıkları Kaldır</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= TAB 3: OPTIMIZE (CLI MENU ITEM 2) ================= -->
+        <section class="tab-pane" id="pane-optimize">
+          <div class="pane-header">
+            <div>
+              <h1 class="pane-title">Optimize — Mac İyileştirme</h1>
+              <p class="pane-subtitle">Refresh safe macOS caches and services. (DNS, RAM temizliği, Spotlight ve QuickLook)</p>
+            </div>
+            <button class="btn btn-primary" id="btn-run-all-optimize">
+              <span style="margin-right: 6px;">⚙</span>
+              <span>Önerilen Tüm Görevleri Çalıştır</span>
+            </button>
+          </div>
+
+          <!-- In-Page Live Progress Card for Optimize -->
+          <div class="inpage-progress-card hidden" id="optimize-progress-card">
+            <div class="inpage-progress-header">
+              <div class="inpage-title-group">
+                <span class="live-pulse-dot"></span>
+                <span class="inpage-action-label" id="optimize-action-label">Optimizasyon Çalıştırılıyor...</span>
+                <span class="inpage-phase-badge" id="optimize-phase-badge">ÇALIŞIYOR</span>
+              </div>
+              <div class="inpage-stats-group">
+                <span class="inpage-count" id="optimize-progress-count"></span>
+                <span class="inpage-percent" id="optimize-progress-percent">0%</span>
+              </div>
+            </div>
+            <div class="inpage-progress-track">
+              <div class="inpage-progress-fill" id="optimize-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div class="inpage-path-ticker">
+              <span class="inpage-path-icon">📂</span>
+              <span class="inpage-path-text" id="optimize-path-text">Hazırlanıyor...</span>
+            </div>
+            <div class="inpage-logs-drawer">
+              <button class="inpage-logs-btn" type="button" data-log-service="optimize">
+                <span id="optimize-logs-btn-text">▸ Canlı Log Akışı</span>
+              </button>
+              <div class="inpage-logs-container hidden" id="optimize-logs-container"></div>
+            </div>
+          </div>
+
+          <div class="tasks-grid" id="optimize-tasks-grid">
+            <!-- Dynamic Task Cards -->
+          </div>
+        </section>
+
+
+        <!-- ================= TAB 6: DISK ANALYZER (NEW) ================= -->
+        <section class="tab-pane" id="pane-analyzer">
+          <div class="pane-header">
+            <div>
+              <h1 class="pane-title">Analyze — Disk Alanı Analizörü</h1>
+              <p class="pane-subtitle">Browse disk usage, search, multi-select and move items to Trash. (Görsel disk kullanım oranları)</p>
+            </div>
+          </div>
+
+          <!-- In-Page Live Progress Card for Analyzer -->
+          <div class="inpage-progress-card hidden" id="analyzer-progress-card">
+            <div class="inpage-progress-header">
+              <div class="inpage-title-group">
+                <span class="live-pulse-dot"></span>
+                <span class="inpage-action-label" id="analyzer-action-label">Dizin Analiz Ediliyor...</span>
+                <span class="inpage-phase-badge" id="analyzer-phase-badge">ÇALIŞIYOR</span>
+              </div>
+              <div class="inpage-stats-group">
+                <span class="inpage-count" id="analyzer-progress-count"></span>
+                <span class="inpage-percent" id="analyzer-progress-percent">0%</span>
+              </div>
+            </div>
+            <div class="inpage-progress-track">
+              <div class="inpage-progress-fill" id="analyzer-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div class="inpage-path-ticker">
+              <span class="inpage-path-icon">📂</span>
+              <span class="inpage-path-text" id="analyzer-path-text">Hazırlanıyor...</span>
+            </div>
+            <div class="inpage-logs-drawer">
+              <button class="inpage-logs-btn" type="button" data-log-service="analyzer">
+                <span id="analyzer-logs-btn-text">▸ Canlı Log Akışı</span>
+              </button>
+              <div class="inpage-logs-container hidden" id="analyzer-logs-container"></div>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <div class="analyzer-bar">
+              <button class="btn-sm btn-secondary" id="btn-analyzer-parent" title="Bir üst dizine dön">
+                <span style="font-weight: 700; margin-right: 4px;">↑</span>
+                <span>Üst Dizin</span>
+              </button>
+              <div class="analyzer-input-group">
+                <span class="analyzer-path-prefix">Dizin:</span>
+                <input type="text" id="analyzer-path-input" class="analyzer-path-input" value="~">
+              </div>
+              <div class="analyzer-quick-paths">
+                <button class="btn-sm btn-secondary btn-quick-path" data-path="~">Ev Dizinim (~)</button>
+                <button class="btn-sm btn-secondary btn-quick-path" data-path="~/Downloads">İndirilenler</button>
+                <button class="btn-sm btn-secondary btn-quick-path" data-path="~/Library">Library</button>
+                <button class="btn-sm btn-secondary btn-quick-path" data-path="~/Developer">Developer</button>
+              </div>
+              <button class="btn btn-primary" id="btn-run-analyzer">
+                <span style="margin-right: 6px;">◫</span>
+                <span>Analiz Et</span>
+              </button>
+            </div>
+
+            <!-- Idle State Prompt before scan -->
+            <div class="tab-hero-state" id="analyzer-idle-state" style="margin: 20px 0;">
+              <div class="hero-state-symbol">◫</div>
+              <h2 class="hero-state-title">Disk Alanı Analizörü</h2>
+              <p class="hero-state-desc">İncelemek istediğiniz dizini yukarıdan seçin veya yazın, ardından <strong>"Analiz Et"</strong> butonuna tıklayın.</p>
+            </div>
+
+            <!-- Visual Bar Chart of Child Folders -->
+            <div class="analyzer-results-wrap hidden" id="analyzer-results-box">
+              <div class="analyzer-summary-row">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="text-muted">Aktif Konum: </span>
+                  <strong id="analyzer-current-path" style="font-family: var(--font-mono);">~</strong>
+                  <span class="badge-status badge-cyan hidden" id="analyzer-cached-badge">⚡ Önbellekten</span>
+                </div>
+                <div>
+                  <span class="text-muted">Toplam İncelenen Boyut: </span>
+                  <strong class="highlight-cyan" id="analyzer-total-size">0 GB</strong>
+                </div>
+              </div>
+
+              <!-- Visual Proportion Bars -->
+              <div class="folder-bars-list" id="folder-bars-container">
+                <!-- Dynamic Folder Bars -->
+              </div>
+
+              <!-- Largest Files in This Folder -->
+              <div class="largest-files-section" style="margin-top: 24px;">
+                <h4 style="margin-bottom: 12px;">Bu Konumdaki En Büyük Dosyalar</h4>
+                <div class="table-container">
+                  <table class="data-table" id="table-analyzer-files">
+                    <thead>
+                      <tr>
+                        <th>Dosya Adı</th>
+                        <th>Tam Yol</th>
+                        <th width="120" style="text-align: right;">Boyut</th>
+                        <th width="80">İşlem</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-analyzer-files">
+                      <!-- Dynamic -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ================= TAB 7: PROJECT PURGE ================= -->
+        <section class="tab-pane" id="pane-purge">
+          <div class="pane-header">
+            <div>
+              <h1 class="pane-title">Project Purge — Geliştirici Projeleri</h1>
+              <p class="pane-subtitle">Find old rebuildable project artifacts and dependency folders. (node_modules, target, .build, Pods)</p>
+            </div>
+            <button class="btn btn-primary" id="btn-scan-projects">
+              <span style="margin-right: 6px;">⌁</span>
+              <span>Projeleri Tara</span>
+            </button>
+          </div>
+
+          <!-- In-Page Live Progress Card for Project Purge -->
+          <div class="inpage-progress-card hidden" id="purge-progress-card">
+            <div class="inpage-progress-header">
+              <div class="inpage-title-group">
+                <span class="live-pulse-dot"></span>
+                <span class="inpage-action-label" id="purge-action-label">Projeler Taranıyor...</span>
+                <span class="inpage-phase-badge" id="purge-phase-badge">ÇALIŞIYOR</span>
+              </div>
+              <div class="inpage-stats-group">
+                <span class="inpage-count" id="purge-progress-count"></span>
+                <span class="inpage-percent" id="purge-progress-percent">0%</span>
+              </div>
+            </div>
+            <div class="inpage-progress-track">
+              <div class="inpage-progress-fill" id="purge-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div class="inpage-path-ticker">
+              <span class="inpage-path-icon">📂</span>
+              <span class="inpage-path-text" id="purge-path-text">Hazırlanıyor...</span>
+            </div>
+            <div class="inpage-logs-drawer">
+              <button class="inpage-logs-btn" type="button" data-log-service="purge">
+                <span id="purge-logs-btn-text">▸ Canlı Log Akışı</span>
+              </button>
+              <div class="inpage-logs-container hidden" id="purge-logs-container"></div>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <div class="table-toolbar">
+              <div class="purge-summary">
+                <span>Kurtarılabilir Alan: </span>
+                <strong class="highlight-cyan" id="purge-total-size">0 GB</strong>
+                <span class="text-muted" id="purge-artifacts-count">(0 dizin tespit edildi)</span>
+              </div>
+
+              <div class="purge-actions">
+                <button class="btn btn-secondary btn-sm" id="btn-purge-select-all">Tümünü Seç</button>
+                <button class="btn btn-danger btn-sm" id="btn-execute-purge">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                  <span>Seçili Dizinleri Çöpe Taşı</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="table-container">
+              <table class="data-table" id="table-purge-items">
+                <thead>
+                  <tr>
+                    <th width="40"><input type="checkbox" id="master-purge-chk" aria-label="Tüm proje artıklarını seç" disabled></th>
+                    <th>Proje Adı</th>
+                    <th>Artık Türü</th>
+                    <th>Tam Yol</th>
+                    <th>Son Değişiklik</th>
+                    <th width="120" style="text-align: right;">Kurtarılabilir</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-purge-items">
+                  <tr><td colspan="6" class="empty-state">Projelerinizi taramak için yukarıdaki butona tıklayın.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ================= TAB 6: DEVELOPER TOOLS ================= -->
+        <section class="tab-pane" id="pane-developer">
+          <div class="pane-header">
+            <div>
+              <h1 class="pane-title">Developer Tools — Geliştirici Alanı</h1>
+              <p class="pane-subtitle">Inspect runtimes, SDKs, global tools and package caches. (Çalışma zamanları, ortamlar, araçlar ve önbellekler)</p>
+            </div>
+          </div>
+
+          <!-- Developer Tools Subnav Pills -->
+          <div class="subnav-pill-group">
+            <button class="subnav-pill active" data-devtab="caches">
+              <span class="subnav-pill-symbol">▦</span>
+              <span>Package Caches</span>
+            </button>
+            <button class="subnav-pill" data-devtab="runtimes">
+              <span class="subnav-pill-symbol">{}</span>
+              <span>Runtimes & Languages</span>
+            </button>
+            <button class="subnav-pill" data-devtab="environments">
+              <span class="subnav-pill-symbol">◌</span>
+              <span>Environments</span>
+            </button>
+            <button class="subnav-pill" data-devtab="tools">
+              <span class="subnav-pill-symbol">⌁</span>
+              <span>Global CLI Tools</span>
+            </button>
+            <button class="subnav-pill" data-devtab="sdks">
+              <span class="subnav-pill-symbol">▣</span>
+              <span>SDKs & Simulators</span>
+            </button>
+          </div>
+
+          <!-- Sub-Pane 1: Package Caches -->
+          <div class="sub-pane active" id="subpane-dev-caches">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Paket Yöneticisi Önbellekleri</h3>
+                <p class="pane-subtitle">Xcode, Homebrew, Conda, npm, cargo, pip ve diğer paket önbellekleri.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-scan-devcaches">
+                <span style="margin-right: 6px;">⌘</span>
+                <span>Önbellekleri Tara</span>
+              </button>
+            </div>
+
+            <!-- In-Page Live Progress Card for Dev Caches -->
+            <div class="inpage-progress-card hidden" id="devcaches-progress-card">
+              <div class="inpage-progress-header">
+                <div class="inpage-title-group">
+                  <span class="live-pulse-dot"></span>
+                  <span class="inpage-action-label" id="devcaches-action-label">Önbellekler Taranıyor...</span>
+                  <span class="inpage-phase-badge" id="devcaches-phase-badge">ÇALIŞIYOR</span>
+                </div>
+                <div class="inpage-stats-group">
+                  <span class="inpage-count" id="devcaches-progress-count"></span>
+                  <span class="inpage-percent" id="devcaches-progress-percent">0%</span>
+                </div>
+              </div>
+              <div class="inpage-progress-track">
+                <div class="inpage-progress-fill" id="devcaches-progress-bar" style="width: 0%;"></div>
+              </div>
+              <div class="inpage-path-ticker">
+                <span class="inpage-path-icon">📂</span>
+                <span class="inpage-path-text" id="devcaches-path-text">Hazırlanıyor...</span>
+              </div>
+              <div class="inpage-logs-drawer">
+                <button class="inpage-logs-btn" type="button" data-log-service="devcaches">
+                  <span id="devcaches-logs-btn-text">▸ Canlı Log Akışı</span>
+                </button>
+                <div class="inpage-logs-container hidden" id="devcaches-logs-container"></div>
+              </div>
+            </div>
+
+            <div class="glass-card">
+              <div class="table-toolbar">
+                <div class="purge-summary">
+                  <span>Kurtarılabilir Önbellek: </span>
+                  <strong class="highlight-cyan" id="devcaches-total-size">0 GB</strong>
+                  <span class="text-muted" id="devcaches-count">(0 önbellek öğesi)</span>
+                </div>
+                <div class="summary-actions">
+                  <button class="btn btn-secondary btn-sm" id="btn-devcaches-select-all">Tümünü Seç</button>
+                  <button class="btn btn-danger btn-sm" id="btn-execute-devcaches-clean">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    <span>Önbellekleri Temizle</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <table class="data-table" id="table-devcaches">
+                  <thead>
+                    <tr>
+                      <th width="40"><input type="checkbox" id="master-devcaches-chk" aria-label="Tüm güvenli geliştirici önbelleklerini seç" disabled></th>
+                      <th>Araç / Paket Yöneticisi</th>
+                      <th>Önbellek Yolu</th>
+                      <th>Risk Seviyesi</th>
+                      <th>Temizlik Yöntemi</th>
+                      <th width="120" style="text-align: right;">Boyut</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-devcaches">
+                    <tr><td colspan="6" class="empty-state">Geliştirici önbelleklerini listelemek için yukarıdaki butona tıklayın.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 2: Runtimes & Languages -->
+          <div class="sub-pane" id="subpane-dev-runtimes">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Çalışma Zamanları & Programlama Dilleri</h3>
+                <p class="pane-subtitle">Python (pyenv), Ruby (rbenv), Rust (rustup), Node (nvm), Go, Java kurulumları.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-scan-runtimes">
+                <span style="margin-right: 6px;">{}</span>
+                <span>Çalışma Zamanlarını Tara</span>
+              </button>
+            </div>
+
+            <!-- In-Page Live Progress Card for Runtimes -->
+            <div class="inpage-progress-card hidden" id="runtimes-progress-card">
+              <div class="inpage-progress-header">
+                <div class="inpage-title-group">
+                  <span class="live-pulse-dot"></span>
+                  <span class="inpage-action-label" id="runtimes-action-label">Çalışma Zamanları Taranıyor...</span>
+                  <span class="inpage-phase-badge" id="runtimes-phase-badge">ÇALIŞIYOR</span>
+                </div>
+                <div class="inpage-stats-group">
+                  <span class="inpage-count" id="runtimes-progress-count"></span>
+                  <span class="inpage-percent" id="runtimes-progress-percent">0%</span>
+                </div>
+              </div>
+              <div class="inpage-progress-track">
+                <div class="inpage-progress-fill" id="runtimes-progress-bar" style="width: 0%;"></div>
+              </div>
+              <div class="inpage-path-ticker">
+                <span class="inpage-path-icon">📂</span>
+                <span class="inpage-path-text" id="runtimes-path-text">Hazırlanıyor...</span>
+              </div>
+            </div>
+
+            <div class="glass-card">
+              <div class="table-toolbar">
+                <div class="purge-summary">
+                  <span>Toplam Alan: </span>
+                  <strong class="highlight-cyan" id="devruntimes-total-size">0 GB</strong>
+                  <span class="text-muted" id="devruntimes-count">(0 çalışma zamanı tespit edildi)</span>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <table class="data-table" id="table-devruntimes">
+                  <thead>
+                    <tr>
+                      <th>Dil / Runtime</th>
+                      <th>Sürüm</th>
+                      <th>Yönetici</th>
+                      <th>Kurulum Yolu</th>
+                      <th>Durum</th>
+                      <th width="120" style="text-align: right;">Boyut</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-devruntimes">
+                    <tr><td colspan="6" class="empty-state">Çalışma zamanlarını listelemek için yukarıdaki "Çalışma Zamanlarını Tara" butonuna tıklayın.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 3: Environments -->
+          <div class="sub-pane" id="subpane-dev-environments">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Sanal Ortamlar & Depolama</h3>
+                <p class="pane-subtitle">Conda, Micromamba ve Poetry sanal ortam (virtualenv) dizinleri.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-scan-environments">
+                <span style="margin-right: 6px;">◌</span>
+                <span>Ortamları Tara</span>
+              </button>
+            </div>
+
+            <!-- In-Page Live Progress Card for Environments -->
+            <div class="inpage-progress-card hidden" id="environments-progress-card">
+              <div class="inpage-progress-header">
+                <div class="inpage-title-group">
+                  <span class="live-pulse-dot"></span>
+                  <span class="inpage-action-label" id="environments-action-label">Ortamlar Taranıyor...</span>
+                  <span class="inpage-phase-badge" id="environments-phase-badge">ÇALIŞIYOR</span>
+                </div>
+                <div class="inpage-stats-group">
+                  <span class="inpage-count" id="environments-progress-count"></span>
+                  <span class="inpage-percent" id="environments-progress-percent">0%</span>
+                </div>
+              </div>
+              <div class="inpage-progress-track">
+                <div class="inpage-progress-fill" id="environments-progress-bar" style="width: 0%;"></div>
+              </div>
+              <div class="inpage-path-ticker">
+                <span class="inpage-path-icon">📂</span>
+                <span class="inpage-path-text" id="environments-path-text">Hazırlanıyor...</span>
+              </div>
+            </div>
+
+            <div class="glass-card">
+              <div class="table-toolbar">
+                <div class="purge-summary">
+                  <span>Toplam Alan: </span>
+                  <strong class="highlight-cyan" id="devenvironments-total-size">0 GB</strong>
+                  <span class="text-muted" id="devenvironments-count">(0 ortam tespit edildi)</span>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <table class="data-table" id="table-devenvironments">
+                  <thead>
+                    <tr>
+                      <th>Ortam Adı</th>
+                      <th>Yönetici</th>
+                      <th>Dizin Yolu</th>
+                      <th>Not</th>
+                      <th width="120" style="text-align: right;">Boyut</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-devenvironments">
+                    <tr><td colspan="5" class="empty-state">Sanal ortamları listelemek için yukarıdaki "Ortamları Tara" butonuna tıklayın.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 4: Global CLI Tools -->
+          <div class="sub-pane" id="subpane-dev-tools">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Global CLI Araçları</h3>
+                <p class="pane-subtitle">Homebrew leaves, pipx, uv, npm global, pnpm, Cargo ve Pixi araçları.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-scan-devtools">
+                <span style="margin-right: 6px;">⌁</span>
+                <span>Global Araçları Tara</span>
+              </button>
+            </div>
+
+            <!-- In-Page Live Progress Card for Global Tools -->
+            <div class="inpage-progress-card hidden" id="devtools-progress-card">
+              <div class="inpage-progress-header">
+                <div class="inpage-title-group">
+                  <span class="live-pulse-dot"></span>
+                  <span class="inpage-action-label" id="devtools-action-label">Global Araçlar Taranıyor...</span>
+                  <span class="inpage-phase-badge" id="devtools-phase-badge">ÇALIŞIYOR</span>
+                </div>
+                <div class="inpage-stats-group">
+                  <span class="inpage-count" id="devtools-progress-count"></span>
+                  <span class="inpage-percent" id="devtools-progress-percent">0%</span>
+                </div>
+              </div>
+              <div class="inpage-progress-track">
+                <div class="inpage-progress-fill" id="devtools-progress-bar" style="width: 0%;"></div>
+              </div>
+              <div class="inpage-path-ticker">
+                <span class="inpage-path-icon">📂</span>
+                <span class="inpage-path-text" id="devtools-path-text">Hazırlanıyor...</span>
+              </div>
+            </div>
+
+            <div class="glass-card">
+              <div class="table-toolbar">
+                <div class="purge-summary">
+                  <span>Toplam Alan: </span>
+                  <strong class="highlight-cyan" id="devtools-total-size">0 GB</strong>
+                  <span class="text-muted" id="devtools-count">(0 araç tespit edildi)</span>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <table class="data-table" id="table-devtools">
+                  <thead>
+                    <tr>
+                      <th>Araç Adı</th>
+                      <th>Yönetici</th>
+                      <th>Konum Yolu</th>
+                      <th>Not</th>
+                      <th width="120" style="text-align: right;">Boyut</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-devtools">
+                    <tr><td colspan="5" class="empty-state">Global araçları listelemek için yukarıdaki "Global Araçları Tara" butonuna tıklayın.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 5: SDKs & Simulators -->
+          <div class="sub-pane" id="subpane-dev-sdks">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">SDK & Simülatörler</h3>
+                <p class="pane-subtitle">Android SDK/NDK/AVDs, Xcode platform runtimes, devices ve DeviceSupport.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-scan-sdks">
+                <span style="margin-right: 6px;">▣</span>
+                <span>SDK & Simülatörleri Tara</span>
+              </button>
+            </div>
+
+            <!-- In-Page Live Progress Card for SDKs -->
+            <div class="inpage-progress-card hidden" id="sdks-progress-card">
+              <div class="inpage-progress-header">
+                <div class="inpage-title-group">
+                  <span class="live-pulse-dot"></span>
+                  <span class="inpage-action-label" id="sdks-action-label">SDK & Simülatörler Taranıyor...</span>
+                  <span class="inpage-phase-badge" id="sdks-phase-badge">ÇALIŞIYOR</span>
+                </div>
+                <div class="inpage-stats-group">
+                  <span class="inpage-count" id="sdks-progress-count"></span>
+                  <span class="inpage-percent" id="sdks-progress-percent">0%</span>
+                </div>
+              </div>
+              <div class="inpage-progress-track">
+                <div class="inpage-progress-fill" id="sdks-progress-bar" style="width: 0%;"></div>
+              </div>
+              <div class="inpage-path-ticker">
+                <span class="inpage-path-icon">📂</span>
+                <span class="inpage-path-text" id="sdks-path-text">Hazırlanıyor...</span>
+              </div>
+            </div>
+
+            <div class="glass-card">
+              <div class="table-toolbar">
+                <div class="purge-summary">
+                  <span>Toplam Alan: </span>
+                  <strong class="highlight-cyan" id="devsdks-total-size">0 GB</strong>
+                  <span class="text-muted" id="devsdks-count">(0 SDK/Simülatör tespit edildi)</span>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <table class="data-table" id="table-devsdks">
+                  <thead>
+                    <tr>
+                      <th>SDK / Simülatör</th>
+                      <th>Platform / Yönetici</th>
+                      <th>Dizin Yolu</th>
+                      <th>Not</th>
+                      <th width="120" style="text-align: right;">Boyut</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-devsdks">
+                    <tr><td colspan="5" class="empty-state">SDK ve simülatörleri listelemek için yukarıdaki "SDK & Simülatörleri Tara" butonuna tıklayın.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= TAB 8: MORE TOOLS ================= -->
+        <section class="tab-pane" id="pane-more">
+          <div class="pane-header">
+            <div>
+              <h1 class="pane-title">More Tools — Ekstra Araçlar & Bakım</h1>
+              <p class="pane-subtitle">Uygulama artıkları, eski yükleyiciler, Time Machine snapshot daraltma, sistem teşhisi ve beyaz liste.</p>
+            </div>
+          </div>
+
+          <!-- More Tools Subnav Pills -->
+          <div class="subnav-pill-group">
+            <button class="subnav-pill active" data-moretab="leftovers">
+              <span class="subnav-pill-symbol">◇</span>
+              <span>Leftovers</span>
+            </button>
+            <button class="subnav-pill" data-moretab="installers">
+              <span class="subnav-pill-symbol">↓</span>
+              <span>Installers</span>
+            </button>
+            <button class="subnav-pill" data-moretab="snapshots">
+              <span class="subnav-pill-symbol">◷</span>
+              <span>Snapshots</span>
+            </button>
+            <button class="subnav-pill" data-moretab="doctor">
+              <span class="subnav-pill-symbol">✚</span>
+              <span>Doctor</span>
+            </button>
+            <button class="subnav-pill" data-moretab="history">
+              <span class="subnav-pill-symbol">≡</span>
+              <span>History</span>
+            </button>
+            <button class="subnav-pill" data-moretab="whitelist">
+              <span class="subnav-pill-symbol">✓</span>
+              <span>Whitelist & Ayarlar</span>
+            </button>
+          </div>
+
+          <!-- Sub-Pane 1: Leftovers -->
+          <div class="sub-pane active" id="subpane-more-leftovers">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Uygulama Artıkları (Leftovers)</h3>
+                <p class="pane-subtitle">Kaldırılmış uygulamalardan geriye kalan öksüz artıklar ve konfigürasyon dosyaları.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-scan-leftovers">
+                <span style="margin-right: 6px;">◇</span>
+                <span>Artıkları Tara</span>
+              </button>
+            </div>
+
+            <!-- In-Page Live Progress Card for Leftovers -->
+            <div class="inpage-progress-card hidden" id="leftovers-progress-card">
+              <div class="inpage-progress-header">
+                <div class="inpage-title-group">
+                  <span class="live-pulse-dot"></span>
+                  <span class="inpage-action-label" id="leftovers-action-label">Artıklar Taranıyor...</span>
+                  <span class="inpage-phase-badge" id="leftovers-phase-badge">ÇALIŞIYOR</span>
+                </div>
+                <div class="inpage-stats-group">
+                  <span class="inpage-count" id="leftovers-progress-count"></span>
+                  <span class="inpage-percent" id="leftovers-progress-percent">0%</span>
+                </div>
+              </div>
+              <div class="inpage-progress-track">
+                <div class="inpage-progress-fill" id="leftovers-progress-bar" style="width: 0%;"></div>
+              </div>
+              <div class="inpage-path-ticker">
+                <span class="inpage-path-icon">📂</span>
+                <span class="inpage-path-text" id="leftovers-path-text">Hazırlanıyor...</span>
+              </div>
+              <div class="inpage-logs-drawer">
+                <button class="inpage-logs-btn" type="button" data-log-service="leftovers">
+                  <span id="leftovers-logs-btn-text">▸ Canlı Log Akışı</span>
+                </button>
+                <div class="inpage-logs-container hidden" id="leftovers-logs-container"></div>
+              </div>
+            </div>
+
+            <div class="glass-card">
+              <div class="config-row" style="margin-bottom: 20px;">
+                <div class="config-group">
+                  <label class="control-label">Artık Yaşı:</label>
+                  <div class="profile-pills">
+                    <button class="profile-pill active leftover-age-pill" data-days="30">30 günden eski</button>
+                    <button class="profile-pill leftover-age-pill" data-days="14">14 günden eski</button>
+                    <button class="profile-pill leftover-age-pill" data-days="0">Tümü</button>
+                  </div>
+                </div>
+                <div class="config-switches">
+                  <label class="switch-item" title="Application Support ve Container verilerini de dahil et">
+                    <input type="checkbox" id="chk-leftovers-data">
+                    <span class="switch-toggle"></span>
+                    <span class="switch-text">Uygulama Veri Klasörlerini Dahil Et (Application Support/Containers)</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="table-toolbar">
+                <div class="purge-summary">
+                  <span>Kurtarılabilir Alan: </span>
+                  <strong class="highlight-cyan" id="leftovers-total-size">0 GB</strong>
+                  <span class="text-muted" id="leftovers-count">(0 artık tespit edildi)</span>
+                </div>
+                <div class="summary-actions">
+                  <button class="btn btn-secondary btn-sm" id="btn-leftovers-select-all">Tümünü Seç</button>
+                  <button class="btn btn-danger btn-sm" id="btn-execute-leftovers-clean">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    <span>Seçili Artıkları Sil</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <table class="data-table" id="table-leftovers">
+                  <thead>
+                    <tr>
+                      <th width="40"><input type="checkbox" id="master-leftovers-chk" aria-label="Tüm güvenli uygulama artıklarını seç" disabled></th>
+                      <th>Uygulama Kimliği (Bundle ID)</th>
+                      <th>Konum</th>
+                      <th>Risk Seviyesi</th>
+                      <th width="120" style="text-align: right;">Boyut</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-leftovers">
+                    <tr><td colspan="5" class="empty-state">Öksüz artıkları taramak için yukarıdaki butona tıklayın.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 2: Installers -->
+          <div class="sub-pane" id="subpane-more-installers">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Eski Yükleyiciler (DMG, PKG, ISO, IPSW)</h3>
+                <p class="pane-subtitle">İndirilenler ve Masaüstündeki eski imaj ve kurulum paketleri.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-scan-installers">
+                <span style="margin-right: 6px;">↓</span>
+                <span>Yükleyicileri Tara</span>
+              </button>
+            </div>
+
+            <!-- In-Page Live Progress Card for Installers -->
+            <div class="inpage-progress-card hidden" id="installers-progress-card">
+              <div class="inpage-progress-header">
+                <div class="inpage-title-group">
+                  <span class="live-pulse-dot"></span>
+                  <span class="inpage-action-label" id="installers-action-label">Yükleyiciler Taranıyor...</span>
+                  <span class="inpage-phase-badge" id="installers-phase-badge">ÇALIŞIYOR</span>
+                </div>
+                <div class="inpage-stats-group">
+                  <span class="inpage-count" id="installers-progress-count"></span>
+                  <span class="inpage-percent" id="installers-progress-percent">0%</span>
+                </div>
+              </div>
+              <div class="inpage-progress-track">
+                <div class="inpage-progress-fill" id="installers-progress-bar" style="width: 0%;"></div>
+              </div>
+              <div class="inpage-path-ticker">
+                <span class="inpage-path-icon">📂</span>
+                <span class="inpage-path-text" id="installers-path-text">Hazırlanıyor...</span>
+              </div>
+              <div class="inpage-logs-drawer">
+                <button class="inpage-logs-btn" type="button" data-log-service="installers">
+                  <span id="installers-logs-btn-text">▸ Canlı Log Akışı</span>
+                </button>
+                <div class="inpage-logs-container hidden" id="installers-logs-container"></div>
+              </div>
+            </div>
+
+            <div class="glass-card">
+              <div class="config-row" style="margin-bottom: 20px;">
+                <div class="config-group">
+                  <label class="control-label">Minimum Yaş:</label>
+                  <div class="profile-pills">
+                    <button class="profile-pill active installer-age-pill" data-days="30">30 günden eski</button>
+                    <button class="profile-pill installer-age-pill" data-days="14">14 günden eski</button>
+                    <button class="profile-pill installer-age-pill" data-days="7">7 günden eski</button>
+                    <button class="profile-pill installer-age-pill" data-days="0">Tümü (Tüm İmajlar)</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="table-toolbar">
+                <div class="purge-summary">
+                  <span>Kazanılabilir Alan: </span>
+                  <strong class="highlight-cyan" id="installers-total-size">0 GB</strong>
+                  <span class="text-muted" id="installers-count">(0 dosya)</span>
+                </div>
+                <div class="summary-actions">
+                  <button class="btn btn-secondary btn-sm" id="btn-installers-select-all">Tümünü Seç</button>
+                  <button class="btn btn-danger btn-sm" id="btn-execute-installers-clean">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    <span>Seçilenleri Çöpe Taşı</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <table class="data-table" id="table-installers">
+                  <thead>
+                    <tr>
+                      <th width="40"><input type="checkbox" id="master-installers-chk" aria-label="Tüm yükleyicileri seç" disabled></th>
+                      <th>Dosya Adı</th>
+                      <th>Konum</th>
+                      <th>Gerekçe</th>
+                      <th width="120" style="text-align: right;">Boyut</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-installers">
+                    <tr><td colspan="5" class="empty-state">Yükleyicileri taramak için yukarıdaki butona tıklayın.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 3: Snapshots -->
+          <div class="sub-pane" id="subpane-more-snapshots">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Time Machine Anlık Görüntüleri (APFS Snapshots)</h3>
+                <p class="pane-subtitle">Yerel APFS anlık görüntüleri ve depolama daraltma.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-refresh-snapshots">
+                <span style="margin-right: 6px;">◷</span>
+                <span>Snapshot'ları Listele</span>
+              </button>
+            </div>
+
+            <!-- In-Page Live Progress Card for Snapshots -->
+            <div class="inpage-progress-card hidden" id="snapshots-progress-card">
+              <div class="inpage-progress-header">
+                <div class="inpage-title-group">
+                  <span class="live-pulse-dot"></span>
+                  <span class="inpage-action-label" id="snapshots-action-label">Snapshot'lar Denetleniyor...</span>
+                  <span class="inpage-phase-badge" id="snapshots-phase-badge">ÇALIŞIYOR</span>
+                </div>
+                <div class="inpage-stats-group">
+                  <span class="inpage-count" id="snapshots-progress-count"></span>
+                  <span class="inpage-percent" id="snapshots-progress-percent">0%</span>
+                </div>
+              </div>
+              <div class="inpage-progress-track">
+                <div class="inpage-progress-fill" id="snapshots-progress-bar" style="width: 0%;"></div>
+              </div>
+              <div class="inpage-path-ticker">
+                <span class="inpage-path-icon">📂</span>
+                <span class="inpage-path-text" id="snapshots-path-text">Hazırlanıyor...</span>
+              </div>
+              <div class="inpage-logs-drawer">
+                <button class="inpage-logs-btn" type="button" data-log-service="snapshots">
+                  <span id="snapshots-logs-btn-text">▸ Canlı Log Akışı</span>
+                </button>
+                <div class="inpage-logs-container hidden" id="snapshots-logs-container"></div>
+              </div>
+            </div>
+
+            <div class="doctor-grid">
+              <div class="glass-card">
+                <div class="card-header">
+                  <h3>Tespit Edilen APFS Snapshot'lar</h3>
+                </div>
+                <div id="snapshots-list-box" class="code-terminal-block" style="max-height: 250px;">
+                  Yerel APFS anlık görüntülerini listelemek için yukarıdaki "Snapshot'ları Listele" butonuna tıklayın.
+                </div>
+              </div>
+
+              <div class="glass-card">
+                <div class="card-header">
+                  <h3>Snapshot Alanı Daraltma (Thinning)</h3>
+                </div>
+                <p class="card-desc">Apple normalde snapshot'ları otomatik siler. Ancak acil depolama alanı gerektiğinde güvenli daraltma komutu çalıştırabilirsiniz.</p>
+                
+                <div style="margin: 20px 0;">
+                  <label class="control-label" style="display:block; margin-bottom: 8px;">Kurtarılmak İstenen Alan:</label>
+                  <div class="profile-pills">
+                    <button class="profile-pill active snapshot-thin-pill" data-gb="10">10 GB Geri Kazan</button>
+                    <button class="profile-pill snapshot-thin-pill" data-gb="20">20 GB Geri Kazan</button>
+                    <button class="profile-pill snapshot-thin-pill" data-gb="50">50 GB Geri Kazan</button>
+                  </div>
+                </div>
+
+                <button class="btn btn-danger btn-large" id="btn-execute-snapshot-thin">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                  </svg>
+                  <span>Snapshot'ları Daralt (Alan Aç)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 4: Doctor -->
+          <div class="sub-pane" id="subpane-more-doctor">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Sistem Doktoru (macOS Health Diagnostics)</h3>
+                <p class="pane-subtitle">SIP durumu, APFS, izinler ve donanım sağlık kontrolleri.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-refresh-doctor">
+                <span style="margin-right: 6px;">✚</span>
+                <span>Teşhisi Başlat</span>
+              </button>
+            </div>
+
+            <!-- In-Page Live Progress Card for Doctor -->
+            <div class="inpage-progress-card hidden" id="doctor-progress-card">
+              <div class="inpage-progress-header">
+                <div class="inpage-title-group">
+                  <span class="live-pulse-dot"></span>
+                  <span class="inpage-action-label" id="doctor-action-label">Sistem Sağlığı Denetleniyor...</span>
+                  <span class="inpage-phase-badge" id="doctor-phase-badge">ÇALIŞIYOR</span>
+                </div>
+                <div class="inpage-stats-group">
+                  <span class="inpage-count" id="doctor-progress-count"></span>
+                  <span class="inpage-percent" id="doctor-progress-percent">0%</span>
+                </div>
+              </div>
+              <div class="inpage-progress-track">
+                <div class="inpage-progress-fill" id="doctor-progress-bar" style="width: 0%;"></div>
+              </div>
+              <div class="inpage-path-ticker">
+                <span class="inpage-path-icon">📂</span>
+                <span class="inpage-path-text" id="doctor-path-text">Hazırlanıyor...</span>
+              </div>
+              <div class="inpage-logs-drawer">
+                <button class="inpage-logs-btn" type="button" data-log-service="doctor">
+                  <span id="doctor-logs-btn-text">▸ Canlı Log Akışı</span>
+                </button>
+                <div class="inpage-logs-container hidden" id="doctor-logs-container"></div>
+              </div>
+            </div>
+
+            <div class="doctor-grid">
+              <div class="glass-card">
+                <div class="card-header">
+                  <h3>Donanım & macOS Bilgileri</h3>
+                </div>
+                <div class="key-val-list" id="doc-sys-list">
+                  <div class="key-val-row"><span class="k">macOS:</span><span class="v" id="doc-macos">Yükleniyor...</span></div>
+                  <div class="key-val-row"><span class="k">İşlemci Mimarisi:</span><span class="v" id="doc-arch">--</span></div>
+                  <div class="key-val-row"><span class="k">SIP Durumu:</span><span class="v highlight-green" id="doc-sip">--</span></div>
+                  <div class="key-val-row"><span class="k">Disk Mount:</span><span class="v" id="doc-disk">--</span></div>
+                </div>
+              </div>
+
+              <div class="glass-card">
+                <div class="card-header">
+                  <h3>Güvenlik & İzin Taraması</h3>
+                </div>
+                <p class="card-desc">DeepClean hassas kullanıcı dizinlerini (Mail, Safari) asla izinsiz silmez ve SIP durumunu asla değiştirmez.</p>
+                <div class="probes-list" id="doc-probes-list">
+                  <div class="probe-item ok">
+                    <span class="probe-status">OK</span>
+                    <span class="probe-path">~/Library/Caches</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 5: History -->
+          <div class="sub-pane" id="subpane-more-history">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Temizlik Geçmişi & Tasarruf Analizi</h3>
+                <p class="pane-subtitle">İşlenen hedef tahminleri; Trash ve ölçülemeyen manager etkileri kazanım sayılmaz.</p>
+              </div>
+            </div>
+
+            <div class="history-banner glass-card">
+              <div class="history-stat">
+                <span class="h-label">Toplam Tahmini Geri Kazanım</span>
+                <span class="h-val highlight-green" id="hist-total-freed">0 GB</span>
+              </div>
+              <div class="history-stat">
+                <span class="h-label">Toplam Temizlenen Öğe</span>
+                <span class="h-val" id="hist-total-items">0</span>
+              </div>
+              <div class="history-stat">
+                <span class="h-label">Son Temizlik</span>
+                <span class="h-val" id="hist-last-run">Hiç yapılmadı</span>
+              </div>
+            </div>
+
+            <div class="glass-card">
+              <div class="card-header">
+                <h3>İşlem Günlüğü</h3>
+              </div>
+              <div class="table-container">
+                <table class="data-table" id="table-history">
+                  <thead>
+                    <tr>
+                      <th>Tarih / Saat</th>
+                      <th>İşlem Türü</th>
+                      <th>Öğe / Kategori</th>
+                      <th>Tahmini Geri Kazanım</th>
+                      <th>Sonuç</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-history">
+                    <tr><td colspan="5" class="empty-state">Geçmiş işlem bulunamadı.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 6: Whitelist & Ayarlar -->
+          <div class="sub-pane" id="subpane-more-whitelist">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Ayarlar ve Beyaz Liste (Whitelist)</h3>
+                <p class="pane-subtitle">DeepClean'in kesinlikle dokunmasını istemediğiniz dizinleri ve tercihlerinizi yapılandırın.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-save-settings">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                  <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+                <span>Ayarları Kaydet</span>
+              </button>
+            </div>
+
+            <div class="settings-grid">
+              <div class="glass-card">
+                <div class="card-header">
+                  <h3>Dizin Beyaz Listesi (~/.config/deepclean/whitelist)</h3>
+                </div>
+                <p class="card-desc">Her satıra bir dosya yolu veya glob deseni girin. Bu konumlardaki dosyalar taramalarda asla silinmeyecektir.</p>
+                <textarea id="whitelist-textarea" class="settings-textarea" rows="10" placeholder="~/Library/Caches/MySpecialApp&#10;~/Developer/important-builds/*"></textarea>
+              </div>
+
+              <div class="glass-card">
+                <div class="card-header">
+                  <h3>Arayüz & Ses Tercihleri</h3>
+                </div>
+                <div class="settings-options">
+                  <div class="setting-row">
+                    <div>
+                      <strong>Arayüz Teması</strong>
+                      <p class="text-muted">Favori macOS renk paletinizi belirleyin.</p>
+                    </div>
+                    <select id="theme-selector-setting" class="select-box">
+                      <option value="dark">Obsidian</option>
+                      <option value="midnight">Midnight Indigo</option>
+                      <option value="cyber">Emerald Noir</option>
+                      <option value="light">Porcelain</option>
+                    </select>
+                  </div>
+
+                  <div class="setting-row">
+                    <div>
+                      <strong>UI Ses Efektleri</strong>
+                      <p class="text-muted">Temizlik tamamlama sesi ve buton tıklama tınıları.</p>
+                    </div>
+                    <label class="switch-item">
+                      <input type="checkbox" id="chk-sound-setting" checked>
+                      <span class="switch-toggle"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+
+
+  </div>
+
+  <!-- Modal Dialog for Clean Confirmation / Details -->
+  <div class="modal-backdrop hidden" id="modal-container" role="presentation">
+    <div class="glass-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <h3 id="modal-title">İşlem Onayı</h3>
+        <button class="btn-icon" id="modal-close-btn" aria-label="Pencereyi kapat">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-body">
+        <!-- Content -->
+      </div>
+      <div class="modal-footer" id="modal-footer">
+        <!-- Buttons -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Persistent feedback for every scan, cleanup and uninstall operation -->
+  <div class="global-operation-hud hidden" id="global-operation-hud" role="status" aria-live="polite" aria-atomic="true">
+    <span class="operation-spinner" id="global-operation-spinner" aria-hidden="true"></span>
+    <div class="global-operation-copy">
+      <strong id="global-operation-title">İşlem başlatılıyor…</strong>
+      <span id="global-operation-detail">Hazırlanıyor</span>
+    </div>
+    <span class="global-operation-percent" id="global-operation-percent">…</span>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
