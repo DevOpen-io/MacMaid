@@ -272,7 +272,7 @@ def test_clean_profile_switch_discards_results_and_late_callbacks(monkeypatch, l
         def __init__(self, config):
             pass
 
-        def scan(self, profile, progress):
+        def scan(self, profile, progress, cancellation=None):
             if profile is tui.CleanupProfile.AGGRESSIVE:
                 started.set()
                 assert release.wait(10)

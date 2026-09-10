@@ -53,6 +53,14 @@ def _progress(percent: int, phase: str, path: str) -> None:
     if percent == 100: print()
 
 
+def _run_interruptible_scan(operation):
+    try:
+        return operation()
+    except KeyboardInterrupt:
+        print("\nScan cancelled. No changes were made.")
+        return None
+
+
 def _print_scan(result) -> None:
     if not result.items:
         print("Nothing found."); return
@@ -105,6 +113,11 @@ def _print_history_record(record: dict) -> None:
 
 def _run_clean_result(result, args) -> None:
     _print_scan(result)
+    if not result.is_complete:
+        print(f"\nScan status: {result.status}. Results are incomplete and cleanup is blocked.")
+        for issue in result.issues[:20]: print(f"  {issue}")
+        for note in result.notes: print(f"  {note}")
+        return
     if getattr(args, "scan_only", False) or not getattr(args, "apply", False):
         print("\nNo changes made. Add --apply after reviewing the scan."); return
     _print_review(cleanup_plan("Apply cleanup", result.items))
@@ -144,14 +157,20 @@ def main(argv: list[str] | None = None) -> None:
     if args.command != "uninstall": config.ensure_files()
     command = args.command
     if command in ("scan", "clean"):
-        result = Scanner(config).scan(CleanupProfile(args.profile), include_trash=args.trash, include_system_temp=args.system_temp, progress=_progress)
-        _run_clean_result(result, args)
+        result = _run_interruptible_scan(lambda: Scanner(config).scan(
+            CleanupProfile(args.profile), include_trash=args.trash,
+            include_system_temp=args.system_temp, progress=_progress,
+        ))
+        if result is not None: _run_clean_result(result, args)
     elif command == "leftovers":
-        result = scan_leftovers(config, args.older_than, args.include_data); args.scan_only = not args.apply; _run_clean_result(result, args)
+        result = _run_interruptible_scan(lambda: scan_leftovers(config, args.older_than, args.include_data)); args.scan_only = not args.apply
+        if result is not None: _run_clean_result(result, args)
     elif command == "installers":
-        result = scan_installers(args.older_than); args.scan_only = not args.apply; _run_clean_result(result, args)
+        result = _run_interruptible_scan(lambda: scan_installers(args.older_than)); args.scan_only = not args.apply
+        if result is not None: _run_clean_result(result, args)
     elif command == "developer-caches":
-        result = PackageManagerCacheScanner(config).scan(); _run_clean_result(result, args)
+        result = _run_interruptible_scan(lambda: PackageManagerCacheScanner(config).scan())
+        if result is not None: _run_clean_result(result, args)
     elif command == "doctor":
         for check in doctor(): print(f"{check['name']:<28} {check['value']}")
     elif command == "status":
@@ -161,16 +180,21 @@ def main(argv: list[str] | None = None) -> None:
         raw = args.min_size.upper().strip(); suffix = next((u for u in units if raw.endswith(u)), None)
         try: minimum = int(float(raw[:-len(suffix)]) * units[suffix]) if suffix else int(raw)
         except ValueError: minimum = 1_000_000_000
-        result = analyze_directory(Path(args.path), args.top, minimum); print(f"Path: {result['path']}")
+        result = _run_interruptible_scan(lambda: analyze_directory(Path(args.path), args.top, minimum))
+        if result is None: return
+        print(f"Path: {result['path']}")
         for item in result["entries"]: print(f"  {human_bytes(item['bytes']):>10}  {'[VIEW ONLY] ' if item['viewOnly'] else ''}{item['name']}")
         print("\nLargest files")
         for item in result.get("largestFiles", []): print(f"  {human_bytes(item['bytes']):>10}  {item['path']}")
     elif command == "apps":
-        apps = ApplicationManager().scan()
+        apps = _run_interruptible_scan(lambda: ApplicationManager(config).scan())
+        if apps is None: return
         for index, app in enumerate(apps, 1): print(f"{index:3}. {human_bytes(app.bytes):>10}  {app.name} {app.version or ''}\n     {app.path}")
         print("\nApp removal is available in the reviewed Web UI: deepclean ui")
     elif command == "purge":
-        manager = ProjectPurgeManager(); artifacts = manager.scan([Path(p) for p in args.path] or None)
+        manager = ProjectPurgeManager(config)
+        artifacts = _run_interruptible_scan(lambda: manager.scan([Path(p) for p in args.path] or None))
+        if artifacts is None: return
         for item in artifacts: print(f"{'*' if item.selected else ' '} {human_bytes(item.bytes):>10}  {item.project_name} · {item.artifact_name} · {item.path}")
         selected = [item for item in artifacts if item.selected]
         if args.apply:
@@ -179,7 +203,9 @@ def main(argv: list[str] | None = None) -> None:
             _print_mapping_space_result(manager.purge(selected))
         else: print("\nNo changes made. Use --apply after review.")
     elif command == "developer":
-        for item in developer_inventory(args.kind): print(f"{item['name']:<16} {item['version']}\n{item['detail']}\n")
+        inventory = _run_interruptible_scan(lambda: developer_inventory(args.kind))
+        if inventory is None: return
+        for item in inventory: print(f"{item['name']:<16} {item['version']}\n{item['detail']}\n")
     elif command == "optimize":
         selected = [task for task in OPTIMIZATIONS if task["id"] == args.task] if args.task else [task for task in OPTIMIZATIONS if args.all_tasks or task["recommended"]]
         for task in selected: print(f"  {task['risk']:<12} {task['id']:<20} {task['title']}")

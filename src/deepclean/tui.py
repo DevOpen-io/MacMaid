@@ -16,6 +16,7 @@ from textual.widgets import ContentSwitcher, DataTable, Input, Label, ListItem, 
 
 from . import __version__
 from .analyzer import IncrementalAnalyzer
+from .cancellation import CancellationToken, ScanCancelled
 from .cleaner import Cleaner
 from .config import Config
 from .developer import DeveloperInventory, DeveloperItem
@@ -83,7 +84,7 @@ class DeepCleanTUI(App[None]):
         ("q", "quit_or_back", "İptal/Çıkış"), ("escape", "back", "Geri"),
         ("ctrl+n", "focus_navigation", "Menü"), ("m", "focus_navigation", "Menü"), ("h", "focus_navigation", "Menü"), ("l", "focus_content", "İçerik"),
         ("j", "cursor_down", "Aşağı"), ("k", "cursor_up", "Yukarı"), ("backspace", "analyzer_parent", "Üst dizin"), ("left", "analyzer_parent", "Üst dizin"), ("t", "trash_file", "Trash"), ("d", "context_destructive", "Remove/Trash"),
-        ("r", "refresh", "Yenile"),
+        ("r", "refresh", "Yenile"), ("c", "cancel_scan", "Taramayı durdur"),
         ("space", "toggle_selected", "Seç/Kaldır"), ("question_mark", "help", "Kısayollar"),
     ]
 
@@ -166,6 +167,7 @@ class DeepCleanTUI(App[None]):
         self.more_result: ScanResult | None = None; self.more_selected: set[int] = set()
         self.optimize_selected = {i for i, task in enumerate(OPTIMIZATIONS) if task["recommended"]}
         self.analyzer = IncrementalAnalyzer(); self.analyzer_path = Path.home(); self.analyzer_focus = 0
+        self.scan_cancellations: dict[str, CancellationToken] = {}
         self.analyzer_snapshot: dict[str, Any] | None = None; self.analyzer_views: dict[str, dict[str, Any]] = {}
         self._status_running = threading.Event()
         self.operation_done = False
@@ -269,7 +271,7 @@ class DeepCleanTUI(App[None]):
         ]), Static("↑↓ / j k  Navigate     Enter  Scan     1–4  Jump     Esc/B  Back", classes="hint"))
 
     def _clean_results_page(self) -> Vertical:
-        return self._page("clean-results", "Review Cleanup", "Safe items start enabled. Move with ↑↓ and press Space to exclude/include an item.", Horizontal(ProgressBar(total=100, show_eta=False, id="clean-progress"), Static("", id="clean-target", markup=False), id="clean-progress-line"), Static("Starting scan…", id="clean-state", classes="state"), DataTable(id="clean-table", zebra_stripes=True), Static("The selected item's reason, path and impact appear here.", id="clean-detail", classes="detail", markup=False), Static("↑↓  Navigate     Space  Include / exclude     Enter  Continue     Esc  Cancel", classes="hint"))
+        return self._page("clean-results", "Review Cleanup", "Safe items start enabled. Move with ↑↓ and press Space to exclude/include an item.", Horizontal(ProgressBar(total=100, show_eta=False, id="clean-progress"), Static("", id="clean-target", markup=False), id="clean-progress-line"), Static("Starting scan…", id="clean-state", classes="state"), DataTable(id="clean-table", zebra_stripes=True), Static("The selected item's reason, path and impact appear here.", id="clean-detail", classes="detail", markup=False), Static("↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Cancel", classes="hint"))
 
     def _apps_page(self) -> Vertical:
         return self._page("apps", "Uygulama Kaldırıcı", "Ayrı tarama ekranında app paketlerini ve exact bundle-ID bileşenlerini incele.", self._action_menu("apps-actions", [
@@ -277,7 +279,7 @@ class DeepCleanTUI(App[None]):
         ]), Static("Enter ile taramayı aç · Esc ile ana menü", classes="hint"))
 
     def _apps_results_page(self) -> Vertical:
-        return self._page("apps-results", "App Uninstaller", "Exact bundle sizes and bundle-ID leftovers remain reviewable before removal.", ProgressBar(total=None, show_eta=False, id="apps-progress"), Static("Discovering applications…", id="apps-state", classes="state"), Horizontal(DataTable(id="apps-table", zebra_stripes=True), DataTable(id="components-table", zebra_stripes=True), id="apps-split"), Static("User-data locations start disabled and require explicit opt-in.", id="apps-detail", classes="detail", markup=False), Static("↑↓  Navigate     Enter  Review uninstall     Space  Include/exclude     Esc  Back", classes="hint"))
+        return self._page("apps-results", "App Uninstaller", "Exact bundle sizes and bundle-ID leftovers remain reviewable before removal.", ProgressBar(total=None, show_eta=False, id="apps-progress"), Static("Discovering applications…", id="apps-state", classes="state"), Horizontal(DataTable(id="apps-table", zebra_stripes=True), DataTable(id="components-table", zebra_stripes=True), id="apps-split"), Static("User-data locations start disabled and require explicit opt-in.", id="apps-detail", classes="detail", markup=False), Static("↑↓ Navigate · Enter Review · Space Select · C Stop scan · Esc Back", classes="hint"))
 
     def _analyzer_page(self) -> Vertical:
         return self._page("analyzer", "Disk Alanı Analizörü", "Başlangıç konumunu seç; analiz ve canlı boyut ölçümü ayrı ekranda açılır.", self._action_menu("analyzer-actions", [
@@ -286,7 +288,7 @@ class DeepCleanTUI(App[None]):
         ]), Static("Enter ile analiz ekranını aç · Esc ile ana menü", classes="hint"))
 
     def _analyzer_results_page(self) -> Vertical:
-        return self._page("analyzer-results", "Disk Analyzer", "Completed rows are usable immediately; you do not need to wait for the whole folder.", Input(value=str(Path.home()), id="analyzer-input"), ProgressBar(total=100, show_eta=False, id="analyzer-progress"), Static("Choose a folder.", id="analyzer-state", classes="state"), DataTable(id="analyzer-table", zebra_stripes=True), Static("Trash is recoverable. Protected home anchors remain view-only.", id="analyzer-detail", classes="detail", markup=False), Static("↑↓  Navigate     Enter  Open     Space  Select     D  Trash selected     Esc / ←  Parent", classes="hint"))
+        return self._page("analyzer-results", "Disk Analyzer", "Completed rows are usable immediately; you do not need to wait for the whole folder.", Input(value=str(Path.home()), id="analyzer-input"), ProgressBar(total=100, show_eta=False, id="analyzer-progress"), Static("Choose a folder.", id="analyzer-state", classes="state"), DataTable(id="analyzer-table", zebra_stripes=True), Static("Trash is recoverable. Protected home anchors remain view-only.", id="analyzer-detail", classes="detail", markup=False), Static("↑↓ Navigate · Enter Open · Space Select · D Trash · C Stop analysis · Esc / ← Parent", classes="hint"))
 
     def _purge_page(self) -> Vertical:
         return self._page("purge", "Project Purge", "Doğrulanmış proje köklerinde yeniden üretilebilir artefakt taraması başlat.", self._action_menu("purge-actions", [
@@ -294,7 +296,7 @@ class DeepCleanTUI(App[None]):
         ]), Static("Enter ile taramayı aç · Esc ile ana menü", classes="hint"))
 
     def _purge_results_page(self) -> Vertical:
-        return self._page("purge-results", "Project Purge", "Only proven rebuildable artifacts are shown; project source remains protected.", ProgressBar(total=None, show_eta=False, id="purge-progress"), Static("Scanning projects…", id="purge-state", classes="state"), DataTable(id="purge-table", zebra_stripes=True), Static("The selected artifact's rebuild class and exact path appear here.", id="purge-detail", classes="detail", markup=False), Static("↑↓  Navigate     Space  Include/exclude     Enter  Purge selected     Esc  Back", classes="hint"))
+        return self._page("purge-results", "Project Purge", "Only proven rebuildable artifacts are shown; project source remains protected.", ProgressBar(total=None, show_eta=False, id="purge-progress"), Static("Scanning projects…", id="purge-state", classes="state"), DataTable(id="purge-table", zebra_stripes=True), Static("The selected artifact's rebuild class and exact path appear here.", id="purge-detail", classes="detail", markup=False), Static("↑↓ Navigate · Space Select · Enter Purge · C Stop scan · Esc Back", classes="hint"))
 
     def _developer_page(self) -> Vertical:
         return self._page("developer", "Developer Tools", "Developer storage with manager-aware removal and cache cleanup", self._action_menu("developer-actions", [
@@ -307,7 +309,7 @@ class DeepCleanTUI(App[None]):
         ]), Static("↑↓ / j k  Navigate     Enter  Select     Esc/B  Back", classes="hint"))
 
     def _developer_results_page(self) -> Vertical:
-        return self._page("developer-results", "Developer Inventory", "Only manager-owned items are removable. Active and protected items remain view-only.", ProgressBar(total=None, show_eta=False, id="developer-progress"), Static("Scanning developer inventory…", id="developer-state", classes="state"), DataTable(id="developer-table", zebra_stripes=True), Static("Active, base and manager-protected items cannot be removed.", id="developer-detail", classes="detail", markup=False), Static("↑↓  Navigate     Enter/D  Remove selected     R  Rescan     Esc  Back", classes="hint"))
+        return self._page("developer-results", "Developer Inventory", "Only manager-owned items are removable. Active and protected items remain view-only.", ProgressBar(total=None, show_eta=False, id="developer-progress"), Static("Scanning developer inventory…", id="developer-state", classes="state"), DataTable(id="developer-table", zebra_stripes=True), Static("Active, base and manager-protected items cannot be removed.", id="developer-detail", classes="detail", markup=False), Static("↑↓ Navigate · Enter/D Remove · R Rescan · C Stop scan · Esc Back", classes="hint"))
 
     def _optimize_page(self) -> Vertical:
         return self._page("optimize", "macOS Optimize", "Bakım görevlerini ayrı seçim ekranında incele; her görev etkisini ve riskini açıklar.", self._action_menu("optimize-actions", [
@@ -337,7 +339,7 @@ class DeepCleanTUI(App[None]):
         ]), Static("↑↓ / j k  Navigate     Enter  Select     Esc/B  Back", classes="hint"))
 
     def _more_results_page(self) -> Vertical:
-        return self._page("more-results", "Araç Sonuçları", "Seçilen aracın ilerlemesi ve sonuçları bu ekranda gösterilir.", ProgressBar(total=None, show_eta=False, id="more-progress"), Static("Starting tool…", id="more-state", classes="state"), DataTable(id="more-table", zebra_stripes=True), Static("The selected result's safety reason appears here.", id="more-detail", classes="detail", markup=False), Static("", id="more-output", markup=False), Static("↑↓  Navigate     Space  Include/exclude     Enter  Continue     Esc  Back", classes="hint"))
+        return self._page("more-results", "Araç Sonuçları", "Seçilen aracın ilerlemesi ve sonuçları bu ekranda gösterilir.", ProgressBar(total=None, show_eta=False, id="more-progress"), Static("Starting tool…", id="more-state", classes="state"), DataTable(id="more-table", zebra_stripes=True), Static("The selected result's safety reason appears here.", id="more-detail", classes="detail", markup=False), Static("", id="more-output", markup=False), Static("↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Back", classes="hint"))
 
     def _review_page(self) -> Vertical:
         return self._page(
@@ -381,8 +383,14 @@ class DeepCleanTUI(App[None]):
     def _set_progress(self, widget_id: str, total: float | None, progress: float) -> None:
         self.query_one(f"#{widget_id}", ProgressBar).update(total=total, progress=progress)
     def _scan_failed(self, page: str, progress_id: str, message: str) -> None:
+        self.scan_cancellations.pop(page, None)
         self._set_progress(progress_id, 100, 0)
         self._set_state(page, message)
+
+    def _scan_cancelled(self, page: str, progress_id: str) -> None:
+        self.scan_cancellations.pop(page, None)
+        self._set_progress(progress_id, 100, 0)
+        self._set_state(page, "Tarama iptal edildi · sonuçlar eksik ve işlem yapılamaz")
 
     @staticmethod
     def _system_snapshot() -> dict[str, Any]:
@@ -516,6 +524,8 @@ class DeepCleanTUI(App[None]):
         has_warning = (
             "korumalı" in lowered
             or "bulunamadı" in lowered
+            or "iptal" in lowered
+            or "kısmi" in lowered
             or re.search(r"\b[1-9]\d* atlandı\b", lowered) is not None
         )
         if has_error:
@@ -665,7 +675,10 @@ class DeepCleanTUI(App[None]):
             handler()
 
     def _reset_scan(self, section: str) -> None:
-        """Discard review state and invalidate read-only workers, never mutations."""
+        """Discard review state and cooperatively stop read-only workers, never mutations."""
+        token = self.scan_cancellations.pop(section, None)
+        if token:
+            token.cancel()
         groups = {"clean": ("clean-scan",), "apps": ("apps", "app-components"),
                   "purge": ("purge",), "developer": ("developer",),
                   "more": ("more",), "analyzer": ("analyzer-request",)}
@@ -845,6 +858,21 @@ class DeepCleanTUI(App[None]):
         elif self.current_page == "developer-results": self._confirm_developer_remove()
     def action_help(self) -> None: self._set_activity("↑↓/j/k Gezin · Enter Aç · Space Seç · İncelemede y Onay / Enter İptal · R Yenile · Q Geri/Çıkış")
 
+    def action_cancel_scan(self) -> None:
+        if self.current_page == "analyzer-results" and self.analyzer.cancel_active():
+            self.analyzer_focus += 1
+            result = self.analyzer.snapshot(self.analyzer_path, focus_id=self.analyzer_focus)
+            self._finish_analysis(result, self.analyzer_focus)
+            self._set_activity("!  Analiz iptal edildi · ölçülmemiş satırlar işlem için kullanılamaz")
+            return
+        section = self.current_page.removesuffix("-results")
+        token = self.scan_cancellations.get(section)
+        if token and not token.cancelled:
+            token.cancel()
+            self._set_activity("!  Tarama iptal ediliyor · çalışan salt-okunur ölçüm güvenli noktada duracak")
+        else:
+            self._warn("Durdurulabilecek aktif tarama yok")
+
     def action_refresh(self) -> None:
         if self._mutation_requested:
             self._warn("İşlem sürerken yeniden tarama başlatılamaz")
@@ -923,8 +951,8 @@ class DeepCleanTUI(App[None]):
         if not self.analyzer_snapshot:
             raise ValueError("analysis changed")
         entry = next((item for item in self.analyzer_snapshot.get("entries", []) if Path(item["path"]) == path), None)
-        if entry is None:
-            raise ValueError("analysis selection changed")
+        if entry is None or entry.get("state") != "ready":
+            raise ValueError("analysis selection changed or measurement is incomplete")
         return analyzer_trash_plan([path], {path: int(entry.get("bytes", 0))})
 
     # Smart Clean
@@ -946,16 +974,32 @@ class DeepCleanTUI(App[None]):
         self.query_one("#clean-target", Static).update("")
         self.query_one("#clean-progress", ProgressBar).update(progress=0)
         self._set_state("clean", f"{profile.value} profili taranıyor…")
-        self._clean_worker(profile)
+        token = CancellationToken(); self.scan_cancellations["clean"] = token
+        self._clean_worker(profile, token)
 
     @work(thread=True, exclusive=True, group="clean-scan")
-    def _clean_worker(self, profile: CleanupProfile) -> None:
-        try: self._scan_update(self._finish_clean, Scanner(self.config).scan(profile, progress=self._scan_progress))
-        except Exception as exc: self._scan_update(self._set_state, "clean", f"Tarama hatası: {exc}")
+    def _clean_worker(self, profile: CleanupProfile, token: CancellationToken) -> None:
+        try:
+            self._scan_update(self._finish_clean, Scanner(self.config).scan(
+                profile, progress=self._scan_progress, cancellation=token,
+            ))
+        except ScanCancelled:
+            self._scan_update(self._finish_clean, ScanResult(status="cancelled", notes=["Tarama kullanıcı tarafından iptal edildi."]))
+        except Exception as exc:
+            self._scan_update(self._set_state, "clean", f"Tarama başarısız: {exc}")
 
     def _finish_clean(self, result: ScanResult) -> None:
-        self.clean_result = result; self.clean_selected = {i for i, item in enumerate(result.items) if item.risk is not RiskLevel.MANUAL_ONLY}; self.query_one("#clean-progress", ProgressBar).update(progress=100); self.query_one("#clean-progress", ProgressBar).add_class("complete"); self.query_one("#clean-progress-line").add_class("complete"); self._render_clean()
+        self.scan_cancellations.pop("clean", None)
+        self.clean_result = result
+        self.clean_selected = ({i for i, item in enumerate(result.items) if item.risk is not RiskLevel.MANUAL_ONLY}
+                               if result.is_complete else set())
+        self.query_one("#clean-progress", ProgressBar).update(progress=100 if result.is_complete else 0)
+        self.query_one("#clean-progress", ProgressBar).add_class("complete"); self.query_one("#clean-progress-line").add_class("complete"); self._render_clean()
         if result.items: self.query_one("#clean-table", DataTable).focus()
+        if result.status == "cancelled":
+            self._set_state("clean", f"Tarama iptal edildi · {len(result.items)} eksik sonuç salt-okunur")
+        elif result.is_partial:
+            self._set_state("clean", f"Kısmi tarama · {len(result.issues)} erişim/ölçüm sorunu · temizlik engellendi")
 
     def _render_clean(self, cursor: int | None = None) -> None:
         table = self.query_one("#clean-table", DataTable); table.clear()
@@ -971,7 +1015,7 @@ class DeepCleanTUI(App[None]):
         if table.row_count: self._update_row_detail("clean-table", table.cursor_row)
 
     def _current_clean_plan(self) -> ReviewPlan:
-        if not self.clean_result or not self.clean_selected:
+        if not self.clean_result or not self.clean_result.is_complete or not self.clean_selected:
             raise ValueError("cleanup selection changed")
         return cleanup_plan("Apply cleanup", [self.clean_result.items[i] for i in sorted(self.clean_selected)])
 
@@ -1002,14 +1046,17 @@ class DeepCleanTUI(App[None]):
         self._reset_scan("apps")
         self.query_one("#apps-progress", ProgressBar).update(total=None, progress=0)
         self._set_state("apps", "/Applications ve ~/Applications taranıyor…")
-        self._apps_worker()
+        token = CancellationToken(); self.scan_cancellations["apps"] = token
+        self._apps_worker(token)
 
     @work(thread=True, exclusive=True, group="apps")
-    def _apps_worker(self) -> None:
-        try: self._scan_update(self._finish_apps, ApplicationManager(self.config).scan())
+    def _apps_worker(self, token: CancellationToken) -> None:
+        try: self._scan_update(self._finish_apps, ApplicationManager(self.config).scan(token))
+        except ScanCancelled: self._scan_update(self._scan_cancelled, "apps", "apps-progress")
         except Exception as exc: self._scan_update(self._scan_failed, "apps", "apps-progress", f"Tarama hatası: {exc}")
 
     def _finish_apps(self, apps: list[InstalledApplication]) -> None:
+        self.scan_cancellations.pop("apps", None)
         self.apps = apps; self.current_app = None; self.app_components = []; self.component_selected.clear(); left = self.query_one("#apps-table", DataTable); left.clear(); self.query_one("#components-table", DataTable).clear()
         for app in apps: left.add_row(human_bytes(app.bytes), app.name, app.version or "—", str(app.path))
         self.query_one("#apps-progress", ProgressBar).update(total=100, progress=100)
@@ -1028,19 +1075,23 @@ class DeepCleanTUI(App[None]):
         self.query_one("#components-table", DataTable).clear()
         self.query_one("#apps-progress", ProgressBar).update(total=None, progress=0)
         self._set_state("apps", f"{self.current_app.name} bundle-ID bileşenleri taranıyor…")
-        self._app_components_worker(self.current_app)
+        token = CancellationToken(); self.scan_cancellations["apps"] = token
+        self._app_components_worker(self.current_app, token)
 
     @work(thread=True, exclusive=True, group="app-components")
-    def _app_components_worker(self, app: InstalledApplication) -> None:
+    def _app_components_worker(self, app: InstalledApplication, token: CancellationToken) -> None:
         try:
-            components = ApplicationManager(self.config).components(app)
+            components = ApplicationManager(self.config).components(app, token)
             self._scan_update(self._finish_components, app, components)
+        except ScanCancelled:
+            self._scan_update(self._scan_cancelled, "apps", "apps-progress")
         except Exception as exc:
             self._scan_update(self._scan_failed, "apps", "apps-progress", f"Bileşen tarama hatası: {exc}")
 
     def _finish_components(self, app: InstalledApplication, components: list[AppComponent]) -> None:
         if not self.current_app or self.current_app.path != app.path:
             return
+        self.scan_cancellations.pop("apps", None)
         self.app_components = components
         self.component_selected = {i for i, component in enumerate(components) if component.selected}
         self._render_components()
@@ -1113,15 +1164,23 @@ class DeepCleanTUI(App[None]):
         self.analyzer_snapshot = result; self.analyzer_path = Path(result["path"]); self._render_analysis(result)
 
     def _render_analysis(self, result: dict[str, Any]) -> None:
-        table = self.query_one("#analyzer-table", DataTable); cursor = table.cursor_row if table.row_count else 0; table.clear(); icons = {"ready": "✓", "scanning": "◌", "pending": "·", "failed": "!"}
+        table = self.query_one("#analyzer-table", DataTable); cursor = table.cursor_row if table.row_count else 0; table.clear(); icons = {"ready": "✓", "scanning": "◌", "pending": "·", "failed": "!", "cancelled": "×"}
         for e in result.get("entries", []):
             percent = e.get("percent", 0)
             table.add_row(icons.get(e["state"], "·"), e.get("humanBytes", "—") if e["state"] == "ready" else "measuring…", self._compact_bar(percent / 100, 10) if e["state"] == "ready" else "[··········]", "▸" if e["directory"] else "·", e["name"], e["path"])
         self._restore_cursor(table, cursor); done = result.get("completed", 0) + result.get("failed", 0); total = result.get("total", 0); self.query_one("#analyzer-progress", ProgressBar).update(total=max(total, 1), progress=done if total else 1)
-        suffix = "tamamlandı" if result.get("isComplete") else f"{done}/{total} · {result.get('currentScanPath') or 'sırada'}"; self._set_state("analyzer", f"{result['path']} · {human_bytes(result.get('totalBytes', 0))} ölçüldü · {suffix}{' · cache' if result.get('cached') else ''}")
+        if result.get("isCancelled"):
+            suffix = f"iptal edildi · {done}/{total} ölçüldü · sonuç eksik"
+        elif result.get("isComplete") and result.get("failed"):
+            suffix = f"kısmi tamamlandı · {result['failed']} ölçüm hatası"
+        else:
+            suffix = "tamamlandı" if result.get("isComplete") else f"{done}/{total} · {result.get('currentScanPath') or 'sırada'}"
+        self._set_state("analyzer", f"{result['path']} · {human_bytes(result.get('totalBytes', 0))} ölçüldü · {suffix}{' · cache' if result.get('cached') else ''}")
 
     def _periodic_analyzer(self) -> None:
-        if self.current_page == "analyzer-results" and self.analyzer_snapshot and not self.analyzer_snapshot.get("isComplete"): self._analysis_worker(self.analyzer_path, False, self.analyzer_focus)
+        if (self.current_page == "analyzer-results" and self.analyzer_snapshot
+                and not self.analyzer_snapshot.get("isComplete") and not self.analyzer_snapshot.get("isCancelled")):
+            self._analysis_worker(self.analyzer_path, False, self.analyzer_focus)
 
     def _trash_file(self, path: Path) -> None:
         self._set_state("analyzer", f"{path.name} yeniden doğrulanıyor ve Trash'e taşınıyor…")
@@ -1149,12 +1208,15 @@ class DeepCleanTUI(App[None]):
         self._reset_scan("purge")
         self.query_one("#purge-progress", ProgressBar).update(total=None, progress=0)
         self._set_state("purge", "Home içindeki doğrulanmış proje kökleri taranıyor…")
-        self._projects_worker()
+        token = CancellationToken(); self.scan_cancellations["purge"] = token
+        self._projects_worker(token)
     @work(thread=True, exclusive=True, group="purge")
-    def _projects_worker(self) -> None:
-        try: self._scan_update(self._finish_projects, ProjectPurgeManager().scan())
+    def _projects_worker(self, token: CancellationToken) -> None:
+        try: self._scan_update(self._finish_projects, ProjectPurgeManager(self.config).scan(cancellation=token))
+        except ScanCancelled: self._scan_update(self._scan_cancelled, "purge", "purge-progress")
         except Exception as exc: self._scan_update(self._scan_failed, "purge", "purge-progress", f"Tarama hatası: {exc}")
     def _finish_projects(self, items: list[ProjectArtifact]) -> None:
+        self.scan_cancellations.pop("purge", None)
         self.artifacts = items; self.purge_selected = {i for i, x in enumerate(items) if x.selected}; self._render_projects()
         self.query_one("#purge-progress", ProgressBar).update(total=100, progress=100)
         self._set_state("purge", f"{len(items)} artefakt · {human_bytes(sum(x.bytes for x in items))}")
@@ -1203,22 +1265,32 @@ class DeepCleanTUI(App[None]):
         kind = self.developer_kind
         self.query_one("#developer-progress", ProgressBar).update(total=None, progress=0)
         self._set_state("developer", f"{kind} manager envanteri taranıyor…")
-        self._developer_worker(kind)
+        token = CancellationToken(); self.scan_cancellations["developer"] = token
+        self._developer_worker(kind, token)
     @work(thread=True, exclusive=True, group="developer")
-    def _developer_worker(self, kind: str) -> None:
+    def _developer_worker(self, kind: str, token: CancellationToken) -> None:
         try:
-            if kind == "cache": self._scan_update(self._finish_dev_cache, PackageManagerCacheScanner(self.config).scan())
-            else: self._scan_update(self._finish_developer, DeveloperInventory().scan(kind))
+            if kind == "cache": self._scan_update(self._finish_dev_cache, PackageManagerCacheScanner(self.config).scan(token))
+            else: self._scan_update(self._finish_developer, DeveloperInventory(self.config).scan(kind, token))
+        except ScanCancelled: self._scan_update(self._scan_cancelled, "developer", "developer-progress")
         except Exception as exc: self._scan_update(self._scan_failed, "developer", "developer-progress", f"Envanter hatası: {exc}")
     def _finish_developer(self, items: list[DeveloperItem]) -> None:
+        self.scan_cancellations.pop("developer", None)
         self.dev_cache_result = None; self.developer_items = items; self.dev_selected.clear(); self._render_developer()
         self.query_one("#developer-progress", ProgressBar).update(total=100, progress=100)
         self._set_state("developer", f"{len(items)} öğe · {sum(x.removable and not x.is_active for x in items)} kaldırılabilir")
         if items: self.query_one("#developer-table", DataTable).focus()
     def _finish_dev_cache(self, result: ScanResult) -> None:
-        self.developer_items = []; self.dev_cache_result = result; self.dev_selected = {i for i, x in enumerate(result.items) if x.risk is not RiskLevel.MANUAL_ONLY}; self._render_developer()
+        self.scan_cancellations.pop("developer", None)
+        self.developer_items = []; self.dev_cache_result = result
+        self.dev_selected = ({i for i, x in enumerate(result.items) if x.risk is not RiskLevel.MANUAL_ONLY}
+                             if result.is_complete else set())
+        self._render_developer()
         self.query_one("#developer-progress", ProgressBar).update(total=100, progress=100)
-        self._set_state("developer", f"{len(result.items)} cache · {human_bytes(result.total_bytes)}")
+        if result.is_complete:
+            self._set_state("developer", f"{len(result.items)} cache · {human_bytes(result.total_bytes)}")
+        else:
+            self._set_state("developer", f"Kısmi cache taraması · {len(result.issues)} sorun · temizlik engellendi")
         if result.items: self.query_one("#developer-table", DataTable).focus()
     def _render_developer(self, cursor: int | None = None) -> None:
         table = self.query_one("#developer-table", DataTable); table.clear()
@@ -1244,8 +1316,8 @@ class DeepCleanTUI(App[None]):
         kind = self.developer_kind
         self._confirm(developer_plan(item), lambda: self._dev_remove_worker(item, kind), self._current_developer_plan)
     def _current_dev_cache_plan(self) -> ReviewPlan:
-        if not self.dev_cache_result or not self.dev_selected:
-            raise ValueError("developer cache selection changed")
+        if not self.dev_cache_result or not self.dev_cache_result.is_complete or not self.dev_selected:
+            raise ValueError("developer cache selection changed or scan is incomplete")
         return cleanup_plan("Clean developer caches", [self.dev_cache_result.items[i] for i in sorted(self.dev_selected)])
 
     def _current_developer_plan(self) -> ReviewPlan:
@@ -1396,30 +1468,39 @@ class DeepCleanTUI(App[None]):
         self.more_kind = kind
         self.query_one("#more-progress", ProgressBar).update(total=None, progress=0)
         self._set_state("more", f"{kind} yükleniyor…")
-        self._more_worker(kind)
+        token = CancellationToken(); self.scan_cancellations["more"] = token
+        self._more_worker(kind, token)
     @work(thread=True, exclusive=True, group="more")
-    def _more_worker(self, kind: str) -> None:
+    def _more_worker(self, kind: str, token: CancellationToken) -> None:
         try:
+            token.check()
             if kind == "leftovers":
-                result = scan_leftovers(self.config); self._scan_update(self._finish_more_scan, kind, result); return
+                result = scan_leftovers(self.config, cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "installers":
-                result = scan_installers(); self._scan_update(self._finish_more_scan, kind, result); return
+                result = scan_installers(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "snapshots": text = "\n".join(list_snapshots()) or "Local snapshot bulunamadı."
             elif kind == "doctor": text = "\n".join(f"{x['name']:<30} {x['value']}" for x in doctor())
             elif kind == "history": text = self._history_text(history(100))
             else: text = f"Whitelist dosyası:\n{self.config.whitelist_file}\n\nHer satıra korunacak tam yol veya glob eklenebilir."
+            token.check()
             self._scan_update(self._finish_more, kind, text)
+        except ScanCancelled: self._scan_update(self._scan_cancelled, "more", "more-progress")
         except Exception as exc: self._scan_update(self._scan_failed, "more", "more-progress", f"Hata: {exc}")
 
     def _finish_more(self, kind: str, text: str) -> None:
+        self.scan_cancellations.pop("more", None)
         self.more_result = None; self.more_selected.clear(); self.query_one("#more-table", DataTable).clear(); self.query_one("#more-output", Static).update(text)
         self.query_one("#more-progress", ProgressBar).update(total=100, progress=100)
         self._set_state("more", f"{kind} hazır")
 
     def _finish_more_scan(self, kind: str, result: ScanResult) -> None:
-        self.more_result = result; self.more_selected = {i for i, item in enumerate(result.items) if item.risk is not RiskLevel.MANUAL_ONLY}; self.query_one("#more-output", Static).update(""); self._render_more_scan()
+        self.scan_cancellations.pop("more", None)
+        self.more_result = result; self.more_selected = ({i for i, item in enumerate(result.items) if item.risk is not RiskLevel.MANUAL_ONLY} if result.is_complete else set()); self.query_one("#more-output", Static).update(""); self._render_more_scan()
         self.query_one("#more-progress", ProgressBar).update(total=100, progress=100)
-        self._set_state("more", f"{kind} · {len(result.items)} öğe · {human_bytes(result.total_bytes)}")
+        if result.is_complete:
+            self._set_state("more", f"{kind} · {len(result.items)} öğe · {human_bytes(result.total_bytes)}")
+        else:
+            self._set_state("more", f"{kind} · kısmi sonuç · {len(result.issues)} erişim/ölçüm sorunu · işlem engellendi")
         if result.items: self.query_one("#more-table", DataTable).focus()
 
     def _render_more_scan(self, cursor: int | None = None) -> None:
@@ -1436,8 +1517,8 @@ class DeepCleanTUI(App[None]):
         self._confirm(cleanup_plan("Apply selected tool results", items), lambda: self._more_apply_worker(items), self._current_more_plan)
 
     def _current_more_plan(self) -> ReviewPlan:
-        if not self.more_result or not self.more_selected:
-            raise ValueError("tool selection changed")
+        if not self.more_result or not self.more_result.is_complete or not self.more_selected:
+            raise ValueError("tool selection changed or scan is incomplete")
         return cleanup_plan("Apply selected tool results", [self.more_result.items[i] for i in sorted(self.more_selected)])
 
     @work(thread=True, exclusive=True, group="more-apply")

@@ -49,6 +49,9 @@ Arbitrary Application Support, Preferences, Containers/Group Containers, credent
 - Backward-compatible item records distinguish scanned estimate, successfully processed estimate, conservative estimated reclaim and reclaim status. Aggregate `operation_summary` records also contain Trash-moved estimates, unknown manager effects and observed free-space deltas. Failed and skipped targets never contribute to processed/reclaim totals.
 - The compatibility `freed` field is an estimate, not guaranteed physical-disk reclamation. It excludes Trash moves and unknown manager-command effects. Filesystem-wide before/after observations are labeled separately and are not attributed solely to DeepClean because APFS clones, snapshots, sparse files and concurrent disk activity can affect them.
 - Scan/search/analyze work emits live activity/current-path feedback so long-running filesystem reads do not look frozen.
+- Read-only scans support cooperative cancellation. Filesystem loops stop at checkpoints, size measurement uses a bounded scheduler, and cancellation of a waiting subprocess terminates its owned process group.
+- Completed, partial, cancelled and failed states remain distinct. Permission/TCC limitations are surfaced with affected locations; incomplete bulk-scan results are not cleanup-authorized.
+- Scan cancellation never interrupts a cleanup mutation already in progress. Destructive operations continue through post-condition verification and audit.
 - `~/.config/deepclean/whitelist` can protect custom paths/globs. Missing, unreadable, malformed, non-UTF-8 or symlinked whitelist state blocks mutation rather than being treated as empty.
 - Audit and configuration state directories/files must be user-owned regular paths without symlink redirection before destructive execution starts.
 

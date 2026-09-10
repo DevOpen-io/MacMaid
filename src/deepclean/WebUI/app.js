@@ -333,6 +333,24 @@ function showOperationOutcome(type, message) {
   }, type === 'error' ? 7000 : 3500);
 }
 
+async function cancelActiveScan(event) {
+  const button = event?.currentTarget;
+  const service = button?.dataset.service || 'clean';
+  if (button) button.disabled = true;
+  try {
+    const response = await fetch('/api/scan/cancel', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ service })
+    });
+    const result = await readAPIResponse(response);
+    showToast(result.cancelled ? 'Tarama güvenli durma noktasında iptal ediliyor.' : 'Aktif tarama bulunamadı.', result.cancelled ? 'warning' : 'info');
+  } catch (error) {
+    showToast(`Tarama durdurulamadı: ${error.message}`, 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 async function pollLiveProgress() {
   try {
     const res = await fetch('/api/progress');
@@ -352,10 +370,18 @@ function renderInPageProgress(p) {
     const hudTitle = document.getElementById('global-operation-title');
     const hudDetail = document.getElementById('global-operation-detail');
     const hudPercent = document.getElementById('global-operation-percent');
+    const cancelButton = document.getElementById('global-scan-cancel');
+    const cancellable = service === 'cleaner' || service === 'analyzer';
+    cancelButton?.classList.toggle('hidden', !cancellable);
+    if (cancelButton && cancellable) {
+      cancelButton.dataset.service = service === 'analyzer' ? 'analyzer' : 'clean';
+      cancelButton.onclick = cancelActiveScan;
+    }
     if (hudTitle) hudTitle.textContent = p.action || 'İşlem sürüyor…';
     if (hudDetail) hudDetail.textContent = p.phase || p.path || 'Çalışıyor';
     if (hudPercent) hudPercent.textContent = p.percent >= 0 ? `${p.percent}%` : '…';
   } else if (state.isOperationRunning && state.operationObservedActive) {
+    document.getElementById('global-scan-cancel')?.classList.add('hidden');
     showOperationOutcome('success', p.phase || 'Tamamlandı');
   }
 
@@ -596,12 +622,16 @@ async function runSmartScan() {
 
     const data = await readAPIResponse(res);
     state.currentScan = data;
-    state.selectedCleanItems = new Set(data.items.filter(i => i.risk !== 'MANUAL').map(i => i.id));
+    state.selectedCleanItems = new Set(data.isComplete ? data.items.filter(i => i.risk !== 'MANUAL').map(i => i.id) : []);
 
     resultsBox.classList.remove('hidden');
     renderScanResults(data);
-    SoundEffects.playSuccess();
-    showToast(`Tarama tamamlandı: ${data.items.length} öğe bulundu (${data.humanTotal})`, 'success');
+    if (data.isComplete) {
+      SoundEffects.playSuccess();
+      showToast(`Tarama tamamlandı: ${data.items.length} öğe bulundu (${data.humanTotal})`, 'success');
+    } else {
+      showToast(`Tarama ${data.status}: sonuçlar eksik, temizlik engellendi. ${(data.notes || []).join(' ')}`, 'warning');
+    }
   } catch (err) {
     showToast(`Tarama hatası: ${err.message}`, 'error');
   } finally {
@@ -620,13 +650,14 @@ function renderScanResults(scanData) {
 
   const tbody = document.getElementById('tbody-clean-items');
   if (!scanData.items || scanData.items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Temizlenecek öğe bulunamadı. Sisteminiz tertemiz! ✨</td></tr>`;
+    const message = scanData.isComplete ? 'Temizlenecek öğe bulunamadı. Sisteminiz tertemiz! ✨' : `Tarama ${escapeHtml(scanData.status || 'eksik')} · sonuçlar temizleme için kullanılamaz.`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${message}</td></tr>`;
     return;
   }
 
   tbody.innerHTML = scanData.items.map(item => {
     const isChecked = state.selectedCleanItems.has(item.id) ? 'checked' : '';
-    const isDisabled = item.risk === 'MANUAL' ? 'disabled' : '';
+    const isDisabled = item.risk === 'MANUAL' || !scanData.isComplete ? 'disabled' : '';
     const riskBadgeClass = item.risk === 'SAFE' ? 'safe-dot' : (item.risk === 'MODERATE' ? 'deep-dot' : 'agg-dot');
     return `
       <tr data-item-id="${item.id}">
@@ -664,6 +695,10 @@ function updateSelectedCleanStats() {
 }
 
 async function executeClean() {
+  if (state.currentScan && !state.currentScan.isComplete) {
+    showToast('Kısmi veya iptal edilmiş tarama temizlenemez. Yeni ve tam bir tarama çalıştırın.', 'warning');
+    return;
+  }
   if (!state.currentScan || state.selectedCleanItems.size === 0) {
     showToast('Temizlemek için en az bir öğe seçin.', 'warning');
     return;

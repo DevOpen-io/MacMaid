@@ -13,6 +13,7 @@ from typing import Any, Callable, Iterable
 
 import psutil
 
+from .cancellation import CancellationToken
 from .cleaner import Cleaner
 from .config import Config
 from .models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
@@ -66,12 +67,14 @@ class ApplicationManager:
         parts = value.split(".")
         return len(parts) >= 2 and all(part and part[0].isalnum() and all(ch.isalnum() or ch in "-_" for ch in part) for part in parts)
 
-    def scan(self) -> list[InstalledApplication]:
+    def scan(self, cancellation: CancellationToken | None = None) -> list[InstalledApplication]:
+        token = cancellation or CancellationToken()
         apps: list[InstalledApplication] = []
         for root in (Path("/Applications"), Path.home() / "Applications"):
             if not root.exists():
                 continue
             for directory, names, _ in os.walk(root):
+                token.check()
                 base = Path(directory)
                 if base.suffix == ".app":
                     names[:] = []
@@ -90,8 +93,10 @@ class ApplicationManager:
                     version = info.get("CFBundleShortVersionString")
                     apps.append(InstalledApplication(display, path, bundle_id, str(version) if version else None))
                 names[:] = [name for name in names if name not in app_dirs]
-        measured = sizes_of(app.path for app in apps)
-        ownership = self._homebrew_ownership()
+        paths = (app.path for app in apps)
+        measured = sizes_of(paths, cancel=token.check) if cancellation is not None else sizes_of(paths)
+        token.check()
+        ownership = self._homebrew_ownership(token) if cancellation is not None else self._homebrew_ownership()
         for app in apps:
             app.bytes = measured.get(app.path, 0)
             if app.path.parent == Path("/Applications"):
@@ -99,11 +104,13 @@ class ApplicationManager:
         return sorted(apps, key=lambda app: (-app.bytes, app.name.lower()))
 
     @staticmethod
-    def _homebrew_ownership() -> dict[str, str | None]:
+    def _homebrew_ownership(cancellation: CancellationToken | None = None) -> dict[str, str | None]:
         brew = which("brew")
         if not brew:
             return {}
-        result = run_command(brew, ["info", "--json=v2", "--installed"], timeout=30)
+        if cancellation: cancellation.check()
+        result = run_command(brew, ["info", "--json=v2", "--installed"], timeout=30,
+                             on_wait=cancellation.check if cancellation else None)
         if not result.succeeded:
             raise PermissionError("Homebrew application ownership could not be determined")
         try:
@@ -127,7 +134,9 @@ class ApplicationManager:
             raise PermissionError("Ambiguous Homebrew application ownership")
         return {key: next(iter(tokens)) for key, tokens in candidates.items()}
 
-    def components(self, app: InstalledApplication) -> list[AppComponent]:
+    def components(self, app: InstalledApplication, cancellation: CancellationToken | None = None) -> list[AppComponent]:
+        token = cancellation or CancellationToken()
+        token.check()
         if not self.valid_bundle_id(app.bundle_id):
             return []
         result = [AppComponent("Application", app.path, app.bytes or size_of(app.path), "safe", True)]
@@ -139,7 +148,8 @@ class ApplicationManager:
         launch_agent = Path.home() / "Library/LaunchAgents" / f"{app.bundle_id}.plist"
         if launch_agent.exists():
             candidates.append(("Launch Agent", launch_agent, "safe", True))
-        measured = sizes_of(path for _, path, _, _ in candidates)
+        paths = (path for _, path, _, _ in candidates)
+        measured = sizes_of(paths, cancel=token.check) if cancellation is not None else sizes_of(paths)
         result.extend(AppComponent(label, path, measured.get(path, 0), risk, selected) for label, path, risk, selected in candidates)
         return result
 
@@ -291,13 +301,16 @@ class ProjectPurgeManager:
         names = ("Projects", "Project", "GitHub", "Developer", "dev", "src", "Work", "work", "Code", "code", "Repos", "repos", "Workspace", "workspace", "orchids-projects")
         return [Path.home() / name for name in names if (Path.home() / name).is_dir()]
 
-    def scan(self, roots: Iterable[Path] | None = None) -> list[ProjectArtifact]:
+    def scan(self, roots: Iterable[Path] | None = None,
+             cancellation: CancellationToken | None = None) -> list[ProjectArtifact]:
+        token = cancellation or CancellationToken()
         candidates: list[tuple[Path, Path, bool]] = []
         for root in roots or self.default_roots():
             root = Path(root).expanduser().absolute()
             if root.is_symlink() or not root.is_dir() or Path.home() not in root.parents:
                 continue
             for directory, names, files in os.walk(root, followlinks=False):
+                token.check()
                 here = Path(directory)
                 if ".git" in names: names.remove(".git")
                 for name in list(set(names).intersection(self.LOCAL | self.DEPENDENCIES)):
@@ -305,7 +318,8 @@ class ProjectPurgeManager:
                     if project and not artifact.is_symlink(): candidates.append((project, artifact, name in self.DEPENDENCIES))
                     names.remove(name)
                 names[:] = [name for name in names if not name.startswith(".") or name in {".build", ".next", ".nuxt", ".svelte-kit", ".turbo", ".parcel-cache", ".vite", ".venv"}]
-        measured = sizes_of(path for _, path, _ in candidates)
+        paths = (path for _, path, _ in candidates)
+        measured = sizes_of(paths, cancel=token.check) if cancellation is not None else sizes_of(paths)
         result = []
         now = time.time()
         for project, path, dependency in candidates:

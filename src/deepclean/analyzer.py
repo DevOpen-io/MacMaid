@@ -34,10 +34,12 @@ class AnalyzerJob:
     failed: int = 0
     current_scan_path: str | None = None
     largest_files: dict[str, dict[str, Any]] = field(default_factory=dict)
+    issues: list[str] = field(default_factory=list)
     futures: list[Future[Any]] = field(default_factory=list)
     cancelled: threading.Event = field(default_factory=threading.Event)
     next_index: int = 0
     paused: bool = False
+    was_cancelled: bool = False
 
     @property
     def is_complete(self) -> bool:
@@ -98,7 +100,7 @@ class IncrementalAnalyzer:
                 if previous is not None and not previous.is_complete:
                     self._pause_locked(previous)
             existing = self._jobs.get(path)
-            incompatible = existing is not None and (existing.top != top or existing.min_file_bytes != min_file_bytes)
+            incompatible = existing is not None and (existing.top != top or existing.min_file_bytes != min_file_bytes or (start and existing.was_cancelled))
             cached = existing is not None and not force and not incompatible
             if existing is None or force or incompatible:
                 if existing is not None:
@@ -186,11 +188,12 @@ class IncrementalAnalyzer:
         target = Path(entry["path"])
         try:
             size, largest = self._walk(target, job.min_file_bytes, job.top, cancelled)
-        except Exception:
+        except Exception as exc:
             with self._lock:
                 if self._jobs.get(job.path) is job and job.generation == generation and not cancelled.is_set():
                     entry["state"] = "failed"
                     job.failed += 1
+                    job.issues.append(f"{target}: {exc}")
                     if job.is_complete:
                         job.current_scan_path = None
                     else:
@@ -225,6 +228,7 @@ class IncrementalAnalyzer:
             raise
         total = 0
         largest: list[dict[str, Any]] = []
+        inaccessible = 0
         stack = [target]
         while stack and not cancelled.is_set():
             directory = stack.pop()
@@ -241,6 +245,7 @@ class IncrementalAnalyzer:
                                 continue
                             stat = child.stat(follow_symlinks=False)
                         except OSError:
+                            inaccessible += 1
                             continue
                         total += stat.st_size
                         if stat.st_size >= threshold:
@@ -249,7 +254,10 @@ class IncrementalAnalyzer:
                             if len(largest) > top * 3:
                                 largest = sorted(largest, key=lambda item: -item["bytes"])[:top]
             except OSError:
+                inaccessible += 1
                 continue
+        if inaccessible and not cancelled.is_set():
+            raise PermissionError(f"{inaccessible} analyzer entries were inaccessible; result is incomplete")
         return total, sorted(largest, key=lambda item: -item["bytes"])[:top]
 
     def _serialize(self, job: AnalyzerJob, *, cached: bool) -> dict[str, Any]:
@@ -273,9 +281,14 @@ class IncrementalAnalyzer:
             "completed": job.completed,
             "total": len(job.entries),
             "failed": job.failed,
+            "issues": list(job.issues),
+            "notes": (["macOS privacy/TCC may require Full Disk Access for the inaccessible locations."]
+                      if any("permitted" in issue.lower() or "denied" in issue.lower() or "inaccessible" in issue.lower() for issue in job.issues) else []),
             "currentScanPath": job.current_scan_path,
             "isComplete": job.is_complete,
             "isPaused": job.paused,
+            "isCancelled": job.was_cancelled,
+            "status": "cancelled" if job.was_cancelled else "partial" if job.failed else "complete" if job.is_complete else "scanning",
         }
 
     def progress(self) -> dict[str, Any]:
@@ -286,10 +299,10 @@ class IncrementalAnalyzer:
             done = job.completed + job.failed
             total = len(job.entries)
             return {
-                "active": not job.is_complete,
+                "active": not job.is_complete and not job.was_cancelled,
                 "service": "analyzer",
                 "action": "Dizin arka planda analiz ediliyor",
-                "phase": "TARANIYOR" if not job.is_complete else "TAMAMLANDI",
+                "phase": "İPTAL EDİLDİ" if job.was_cancelled else "TARANIYOR" if not job.is_complete else "KISMİ" if job.failed else "TAMAMLANDI",
                 "path": job.current_scan_path or str(job.path),
                 "completed": done,
                 "total": total,
@@ -297,6 +310,22 @@ class IncrementalAnalyzer:
                 "detail": str(job.path),
                 "logs": [f"{done}/{total} öğe ölçüldü", job.current_scan_path or str(job.path)],
             }
+
+    def cancel_active(self) -> bool:
+        with self._lock:
+            job = self._jobs.get(self._active_path) if self._active_path else None
+            if job is None or job.is_complete or job.was_cancelled:
+                return False
+            job.cancelled.set()
+            job.was_cancelled = True
+            job.paused = False
+            job.current_scan_path = None
+            for future in job.futures:
+                future.cancel()
+            for entry in job.entries:
+                if entry["state"] in {"pending", "scanning"}:
+                    entry["state"] = "cancelled"
+            return True
 
     def approved_paths(self, raw: str | Path) -> set[Path]:
         path = self.normalize(raw)

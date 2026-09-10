@@ -9,7 +9,7 @@ Amaç: macOS bakımını daha güvenilir, anlaşılır ve ölçülebilir yapmak;
 - Önceki doğrulamada macOS Apple Silicon üzerinde 45 test, Python derleme kontrolü ve paket oluşturma başarılıydı.
 - Bu sonuçlar Intel veya tüm macOS sürümlerinin doğrulandığı anlamına gelmez.
 
-**Durum:** 1., 2. ve 3. aşamalar tamamlandı. 4–6. aşamalar henüz uygulanmadı. Her aşama ayrı, incelenebilir değişikliklerle tamamlanır. Güvenlik açığı bulunursa sonraki özelliklerden önce giderilir.
+**Durum:** 1., 2., 3. ve 4. aşamalar tamamlandı. 5–6. aşamalar henüz uygulanmadı. Her aşama ayrı, incelenebilir değişikliklerle tamamlanır. Güvenlik açığı bulunursa sonraki özelliklerden önce giderilir.
 
 ## 1. Güvenlik testleri ve yürütme sınırları
 
@@ -139,6 +139,22 @@ Amaç: macOS bakımını daha güvenilir, anlaşılır ve ölçülebilir yapmak;
 
 **Öncelik:** Orta-yüksek · **Bağımlılık:** 1
 
+### Uygulanan
+
+- [x] Paylaşılan thread-safe `CancellationToken` ve `ScanCancelled` sinyali eklendi.
+- [x] Smart Clean, app/component, Project Purge, developer/cache, leftovers ve installer taramaları güvenli kontrol noktalarında işbirlikçi iptali destekliyor.
+- [x] Boyut ölçümü tüm işi baştan kuyruğa doldurmak yerine sınırlı sayıda future planlıyor; iptalden sonra yeni ölçüm planlanmıyor.
+- [x] `du` ve developer/package-manager envanter subprocess'leri bekleme sırasında iptali kontrol ediyor; iptalde yalnız sahip olunan process group sonlandırılıyor.
+- [x] Incremental Analyzer aktif işi gerçekten durduruyor, bekleyen future'ları iptal ediyor ve `cancelled` satır/durum bilgisini koruyor.
+- [x] TUI'ye `c` ile “taramayı durdur” eylemi eklendi; devam eden cleanup mutation bu eylemden özellikle ayrıldı ve zorla kesilmiyor.
+- [x] Web'e korumalı `POST /api/scan/cancel` endpoint'i ve yalnız aktif Smart Clean/Analyzer sırasında görünen durdurma kontrolü eklendi.
+- [x] CLI read-only taramaları `Ctrl+C` durumunda subprocess'i güvenle sonlandırıp “değişiklik yapılmadı” mesajıyla çıkıyor.
+- [x] `ScanResult` complete/partial/cancelled/failed durumlarını ve erişim/ölçüm sorunlarını yapılandırılmış olarak taşıyor.
+- [x] Permission/TCC sorunları “temiz” sonucu olarak gizlenmiyor; Full Disk Access açıklaması yalnız ilgili erişilemeyen konumlar için sunuluyor.
+- [x] Kısmi veya iptal edilmiş toplu tarama sonuçları TUI, CLI, Web UI ve API katmanlarında otomatik seçilemiyor veya temizlemeye gönderilemiyor.
+- [x] Eski worker callback/generation koruması muhafaza edildi; yeni tarama eski işi iptal ediyor ve stale sonuç aktif durumu değiştiremiyor.
+- [x] Doğrulama: toplam 186 test, JavaScript sözdizimi kontrolü, `compileall` ve `uv build` başarılı.
+
 ### Yapılacaklar
 
 - Tarama ve analizde mevcut iptal mekanizmalarını incele; yalnızca geç sonuçları gizlemekle kalmayıp mümkün olan işi de durdur.
@@ -150,11 +166,11 @@ Amaç: macOS bakımını daha güvenilir, anlaşılır ve ölçülebilir yapmak;
 
 ### Tamamlanma kriteri
 
-- İptal sonrası yeni tarama işi planlanmaz; çalışan işler güvenli kontrol noktalarında sonlanır.
-- İptal edilen veya eski nesle ait sonuçlar aktif ekranı değiştiremez.
-- İzin hatasıyla eksik kalan tarama, “her şey temiz” diye raporlanmaz.
-- Yavaş tarama, ardışık profil değişimi ve hata sırasında TUI duyarlı kalır.
-- Mutasyon iptali, tarama iptaliyle karıştırılmaz; süren dosya işlemi zorla yarıda kesilmez.
+- [x] İptal sonrası yeni tarama işi planlanmaz; çalışan işler güvenli kontrol noktalarında sonlanır.
+- [x] İptal edilen veya eski nesle ait sonuçlar aktif ekranı değiştiremez.
+- [x] İzin hatasıyla eksik kalan tarama, “her şey temiz” diye raporlanmaz.
+- [x] Yavaş tarama, ardışık profil değişimi ve hata sırasında TUI duyarlı kalır.
+- [x] Mutasyon iptali, tarama iptaliyle karıştırılmaz; süren dosya işlemi zorla yarıda kesilmez.
 
 ## 5. Somut göstergelere dayalı Mac sağlık ekranı
 

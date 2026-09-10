@@ -8,7 +8,7 @@ import stat
 import shutil
 import subprocess
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -89,23 +89,53 @@ def process_running(needle: str) -> bool:
     return result.status == 0
 
 
-def size_of(path: Path) -> int:
+def size_of(path: Path, *, cancel: Callable[[], None] | None = None,
+            on_error: Callable[[Path, str], None] | None = None) -> int:
+    if cancel:
+        cancel()
     if not path.exists() and not path.is_symlink():
         return 0
-    du = run_command("/usr/bin/du", ["-sk", str(path)], timeout=180)
+    du = run_command("/usr/bin/du", ["-sk", str(path)], timeout=180, on_wait=cancel)
     if not du.succeeded:
+        if on_error:
+            on_error(path, du.stderr or du.stdout or "disk usage measurement failed")
         return 0
     try:
         return int(du.stdout.split()[0]) * 1024
     except (IndexError, ValueError):
+        if on_error:
+            on_error(path, "invalid disk usage measurement")
         return 0
 
 
-def sizes_of(paths: Iterable[Path], max_workers: int = 4) -> dict[Path, int]:
-    unique = sorted(set(paths), key=str)
-    with ThreadPoolExecutor(max_workers=min(max(1, max_workers), 8)) as pool:
-        futures = {pool.submit(size_of, path): path for path in unique}
-        return {futures[future]: future.result() for future in as_completed(futures)}
+def sizes_of(paths: Iterable[Path], max_workers: int = 4,
+             cancel: Callable[[], None] | None = None,
+             on_error: Callable[[Path, str], None] | None = None) -> dict[Path, int]:
+    pending_paths = iter(sorted(set(paths), key=str))
+    worker_count = min(max(1, max_workers), 8)
+    results: dict[Path, int] = {}
+    with ThreadPoolExecutor(max_workers=worker_count) as pool:
+        futures = {}
+        for _ in range(worker_count):
+            path = next(pending_paths, None)
+            if path is None:
+                break
+            if cancel:
+                cancel()
+            futures[pool.submit(size_of, path, cancel=cancel, on_error=on_error)] = path
+        while futures:
+            if cancel:
+                cancel()
+            completed, _ = wait(futures, timeout=0.1, return_when=FIRST_COMPLETED)
+            for future in completed:
+                path = futures.pop(future)
+                results[path] = future.result()
+                next_path = next(pending_paths, None)
+                if next_path is not None:
+                    if cancel:
+                        cancel()
+                    futures[pool.submit(size_of, next_path, cancel=cancel, on_error=on_error)] = next_path
+    return results
 
 
 @contextmanager

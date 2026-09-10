@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable, Iterable
 
+from .cancellation import CancellationToken, ScanCancelled
 from .config import Config
 from .models import (
     ActionType, CleanupAction, CleanupCategory, CleanupItem, CleanupProfile, RiskLevel, ScanResult,
@@ -19,6 +20,8 @@ class Scanner:
     def __init__(self, config: Config | None = None) -> None:
         self.config = config or Config()
         self._progress: Progress | None = None
+        self._cancellation: CancellationToken | None = None
+        self._issues: list[str] = []
 
     def scan(
         self,
@@ -27,8 +30,11 @@ class Scanner:
         include_trash: bool = False,
         include_system_temp: bool = False,
         progress: Progress | None = None,
+        cancellation: CancellationToken | None = None,
     ) -> ScanResult:
         self._progress = progress
+        self._cancellation = cancellation or CancellationToken()
+        self._issues = []
         phases: list[tuple[str, Callable[[], list[CleanupItem]]]] = [
             ("User caches", lambda: self._user_caches(profile)),
             ("Browser caches", lambda: self._browser_caches(profile)),
@@ -39,7 +45,7 @@ class Scanner:
         if profile.includes_developer:
             phases.extend([
                 ("Developer tools", lambda: self._developer(profile)),
-                ("Package-manager caches", lambda: PackageManagerCacheScanner(self.config).scan().items),
+                ("Package-manager caches", lambda: PackageManagerCacheScanner(self.config).scan(self._cancellation).items),
             ])
         if profile in (CleanupProfile.DEEP, CleanupProfile.AGGRESSIVE):
             phases.append(("Saved application state", self._saved_state))
@@ -48,11 +54,16 @@ class Scanner:
         if include_trash:
             phases.append(("Trash", self._trash))
 
-        result = ScanResult()
-        for index, (name, operation) in enumerate(phases):
-            self._emit(index, len(phases), name, "")
-            result.items.extend(operation())
-            self._emit(index + 1, len(phases), name, "")
+        result = ScanResult(status="scanning")
+        try:
+            for index, (name, operation) in enumerate(phases):
+                self._check_cancelled()
+                self._emit(index, len(phases), name, "")
+                result.items.extend(operation())
+                self._check_cancelled()
+                self._emit(index + 1, len(phases), name, "")
+        except ScanCancelled:
+            result.status = "cancelled"
         seen: set[tuple[str, str, str]] = set()
         unique: list[CleanupItem] = []
         for item in result.items:
@@ -61,11 +72,32 @@ class Scanner:
                 seen.add(key)
                 unique.append(item)
         result.items = sorted(unique, key=lambda item: (item.category.value, -item.estimated_bytes))
-        if self._progress:
-            self._progress(100, "Complete", "")
+        result.issues = list(self._issues)
+        if result.status != "cancelled":
+            result.status = "partial" if result.issues else "complete"
+            if self._progress:
+                self._progress(100, "Partial" if result.issues else "Complete", "")
+        else:
+            result.notes.append("Scan cancelled; results are incomplete and cannot be cleaned without explicit partial-result authorization.")
+        if result.issues:
+            result.notes.append(f"Scan incomplete: {len(result.issues)} location(s) could not be read or measured.")
+            if any("Operation not permitted" in issue or "Permission denied" in issue for issue in result.issues):
+                result.notes.append("macOS privacy/TCC may have blocked access; grant Full Disk Access only if you choose to scan those locations.")
         return result
 
+    def _check_cancelled(self) -> None:
+        if self._cancellation:
+            self._cancellation.check()
+
+    def _issue(self, path: Path, exc: OSError) -> None:
+        if not isinstance(exc, FileNotFoundError):
+            self._issues.append(f"{path}: {exc}")
+
+    def _measurement_issue(self, path: Path, message: str) -> None:
+        self._issues.append(f"{path}: {message}")
+
     def _emit(self, current: int, total: int, phase: str, path: str | Path) -> None:
+        self._check_cancelled()
         if self._progress:
             self._progress(min(99, int(current / max(total, 1) * 100)), phase, str(path))
 
@@ -75,8 +107,12 @@ class Scanner:
         category: CleanupCategory,
         maximum: RiskLevel,
     ) -> list[CleanupItem]:
-        accepted = [spec for spec in specs if spec[2] <= maximum and spec[1].exists() and not self.config.is_whitelisted(spec[1])]
-        measured = sizes_of(spec[1] for spec in accepted)
+        accepted = []
+        for spec in specs:
+            self._check_cancelled()
+            if spec[2] <= maximum and spec[1].exists() and not self.config.is_whitelisted(spec[1]):
+                accepted.append(spec)
+        measured = sizes_of((spec[1] for spec in accepted), cancel=self._check_cancelled, on_error=self._measurement_issue)
         return [
             CleanupItem(category, label, path, measured.get(path, 0), risk, reason, CleanupAction(action), app)
             for label, path, risk, reason, action, app in accepted if measured.get(path, 0) > 0
@@ -89,9 +125,11 @@ class Scanner:
         specs = []
         try:
             children = list(root.iterdir())
-        except OSError:
+        except OSError as exc:
+            self._issue(root, exc)
             return []
         for child in children:
+            self._check_cancelled()
             if child.name in separate or child.name.startswith(protected):
                 continue
             risk = RiskLevel.MODERATE if child.name.startswith("com.apple.") else RiskLevel.SAFE
@@ -114,9 +152,11 @@ class Scanner:
             running = name if process_running(process) else None
             try:
                 profiles = [p for p in root.iterdir() if p.name in ("Default", "Guest Profile", "System Profile") or p.name.startswith("Profile ")]
-            except OSError:
+            except OSError as exc:
+                self._issue(root, exc)
                 continue
             for user_profile in profiles:
+                self._check_cancelled()
                 for leaf in leaves:
                     path = user_profile / leaf
                     specs.append((f"{name} · {user_profile.name} · {leaf}", path, RiskLevel.SAFE, "Browser cache only; history, cookies and site data are excluded.", ActionType.REMOVE_PATH, running))
@@ -125,8 +165,8 @@ class Scanner:
             try:
                 for path in firefox.iterdir():
                     specs.append(("Firefox profile cache", path, RiskLevel.SAFE, "Firefox cache domain, not profile data.", ActionType.REMOVE_PATH, "Firefox" if process_running("Firefox.app") else None))
-            except OSError:
-                pass
+            except OSError as exc:
+                self._issue(firefox, exc)
         specs.append(("Safari cache", home / "Library/Caches/com.apple.Safari", RiskLevel.MODERATE, "Safari cache only; website data is excluded.", ActionType.REMOVE_PATH, "Safari" if process_running("Safari.app") else None))
         return self._candidates(specs, CleanupCategory.BROWSER_CACHES, profile.maximum_risk)
 
@@ -140,6 +180,7 @@ class Scanner:
         leaves = ("Cache", "Caches", "Code Cache", "GPUCache", "DawnCache", "CachedData", "CachedExtensionVSIXs", "CachedProfilesData", "logs")
         specs = []
         for name, folder, process in apps:
+            self._check_cancelled()
             root = home / "Library/Application Support" / folder
             running = name if process_running(process) else None
             for leaf in leaves:
@@ -150,10 +191,12 @@ class Scanner:
         root = Path.home() / "Library/Containers"
         try:
             containers = list(root.iterdir())
-        except OSError:
+        except OSError as exc:
+            self._issue(root, exc)
             return []
         specs = []
         for container in containers:
+            self._check_cancelled()
             risk = RiskLevel.MODERATE if container.name.startswith("com.apple.") else RiskLevel.SAFE
             specs.append((f"Sandbox cache · {container.name}", container / "Data/Library/Caches", risk, "Only Data/Library/Caches contents are removed.", ActionType.REMOVE_CHILDREN, None))
         return self._candidates(specs, CleanupCategory.APP_CACHES, profile.maximum_risk)
@@ -162,15 +205,19 @@ class Scanner:
         cutoff = time.time() - (7 if profile is CleanupProfile.SAFE else 1) * 86400
         specs = []
         for root in (Path.home() / "Library/Logs", Path.home() / "Library/DiagnosticReports"):
+            self._check_cancelled()
             try:
                 children = list(root.iterdir())
-            except OSError:
+            except OSError as exc:
+                self._issue(root, exc)
                 continue
             for path in children:
+                self._check_cancelled()
                 try:
                     if path.stat().st_mtime > cutoff or path == self.config.log_dir:
                         continue
-                except OSError:
+                except OSError as exc:
+                    self._issue(path, exc)
                     continue
                 specs.append((path.name, path, RiskLevel.SAFE, "Old log or diagnostic data.", ActionType.REMOVE_PATH, None))
         return self._candidates(specs, CleanupCategory.LOGS, profile.maximum_risk)
@@ -179,7 +226,8 @@ class Scanner:
         root = Path.home() / "Library/Saved Application State"
         try:
             paths = list(root.iterdir())
-        except OSError:
+        except OSError as exc:
+            self._issue(root, exc)
             return []
         specs = [(f"Saved state · {p.name}", p, RiskLevel.MODERATE, "App window/session restoration state, not documents.", ActionType.REMOVE_PATH, None) for p in paths]
         return self._candidates(specs, CleanupCategory.APP_CACHES, RiskLevel.MODERATE)
@@ -204,14 +252,18 @@ class Scanner:
         cutoff = time.time() - (7 if profile is CleanupProfile.DEEP else 2) * 86400
         specs = []
         for root in (Path("/private/tmp"), Path("/private/var/tmp")):
+            self._check_cancelled()
             try:
                 children = list(root.iterdir())
-            except OSError:
+            except OSError as exc:
+                self._issue(root, exc)
                 continue
             for path in children:
+                self._check_cancelled()
                 try:
                     stat = path.lstat()
-                except OSError:
+                except OSError as exc:
+                    self._issue(path, exc)
                     continue
                 if stat.st_uid == os.getuid() and stat.st_mtime < cutoff:
                     specs.append((path.name, path, RiskLevel.MODERATE, "Aged temporary item owned by the current user.", ActionType.REMOVE_PATH, None))
@@ -219,7 +271,7 @@ class Scanner:
 
     def _trash(self) -> list[CleanupItem]:
         path = Path.home() / ".Trash"
-        size = size_of(path)
+        size = size_of(path, cancel=self._check_cancelled, on_error=self._measurement_issue)
         if not size or self.config.is_whitelisted(path):
             return []
         return [CleanupItem(CleanupCategory.TRASH, "User Trash", path, size, RiskLevel.MODERATE, "Deletes items already in Trash.", CleanupAction(ActionType.REMOVE_CHILDREN))]
@@ -229,55 +281,62 @@ class PackageManagerCacheScanner:
     def __init__(self, config: Config | None = None) -> None:
         self.config = config or Config()
 
-    def scan(self) -> ScanResult:
+    def scan(self, cancellation: CancellationToken | None = None) -> ScanResult:
         home = Path.home()
-        items: list[CleanupItem] = []; notes: list[str] = []
+        token = cancellation or CancellationToken()
+        items: list[CleanupItem] = []; notes: list[str] = []; issues: list[str] = []
+
+        def probe(executable: str, arguments: list[str], timeout: float = 10):
+            token.check()
+            return run_command(executable, arguments, timeout=timeout, on_wait=token.check)
 
         def native(label: str, manager: str, arguments: list[str], path: Path | None, risk: RiskLevel = RiskLevel.MODERATE, executable: str | None = None) -> None:
+            token.check()
             command = executable or which(manager)
             if not command or (path and self.config.is_whitelisted(path)): return
-            size = size_of(path) if path else 0
+            size = size_of(path, cancel=token.check, on_error=lambda target, message: issues.append(f"{target}: {message}")) if path else 0
             items.append(CleanupItem(CleanupCategory.PACKAGE_MANAGERS, label, path, size, risk, f"Uses {manager}'s supported cleanup operation; project data is outside this target.", CleanupAction(ActionType.COMMAND, command, arguments)))
 
         def manual(label: str, manager: str, path: Path) -> None:
+            token.check()
             if not path.exists() or self.config.is_whitelisted(path): return
-            size = size_of(path)
+            size = size_of(path, cancel=token.check, on_error=lambda target, message: issues.append(f"{target}: {message}"))
             if size: items.append(CleanupItem(CleanupCategory.PACKAGE_MANAGERS, label + " · manual fallback", path, size, RiskLevel.MANUAL_ONLY, "Default OFF; requires a second interactive confirmation and a strict cache-only allowlist.", CleanupAction(ActionType.MANUAL_CACHE_FALLBACK, fallback_manager=manager)))
 
         brew = which("brew")
         if brew:
-            raw = run_command(brew, ["--cache"], timeout=10).stdout
+            raw = probe(brew, ["--cache"]).stdout
             native("Homebrew cleanup", "brew", ["cleanup", "--prune=all"], Path(raw) if raw.startswith("/") else home / "Library/Caches/Homebrew", RiskLevel.SAFE, brew)
         pnpm = which("pnpm")
         if pnpm:
-            raw = run_command(pnpm, ["store", "path"], timeout=10).stdout
+            raw = probe(pnpm, ["store", "path"]).stdout
             native("pnpm store prune", "pnpm", ["store", "prune"], Path(raw) if raw.startswith("/") else home / "Library/pnpm/store", RiskLevel.SAFE, pnpm)
         uv = which("uv")
         if uv:
-            raw = run_command(uv, ["cache", "dir"], timeout=10).stdout
+            raw = probe(uv, ["cache", "dir"]).stdout
             native("uv cache prune", "uv", ["cache", "prune"], Path(raw) if raw.startswith("/") else None, RiskLevel.SAFE, uv)
         go = which("go")
         if go:
-            raw = run_command(go, ["env", "GOCACHE"], timeout=10).stdout
+            raw = probe(go, ["env", "GOCACHE"]).stdout
             native("Go build/test cache", "go", ["clean", "-cache", "-testcache"], Path(raw) if raw.startswith("/") else None, RiskLevel.SAFE, go)
         bun = which("bun")
         if bun:
-            raw = run_command(bun, ["pm", "cache"], timeout=10).stdout
+            raw = probe(bun, ["pm", "cache"]).stdout
             native("Bun package cache", "bun", ["pm", "cache", "rm"], Path(raw) if raw.startswith("/") else home / ".bun/install/cache", RiskLevel.MODERATE, bun)
         python = which("python3")
         if python:
-            raw = run_command(python, ["-m", "pip", "cache", "dir"], timeout=10).stdout
+            raw = probe(python, ["-m", "pip", "cache", "dir"]).stdout
             if raw.startswith("/"): native("Python pip cache", "pip", ["-m", "pip", "cache", "purge"], Path(raw), RiskLevel.MODERATE, python)
         yarn = which("yarn")
         if yarn:
-            version = run_command(yarn, ["--version"], timeout=10).stdout
+            version = probe(yarn, ["--version"]).stdout
             if version.startswith("1."):
-                raw = run_command(yarn, ["cache", "dir"], timeout=10).stdout
+                raw = probe(yarn, ["cache", "dir"]).stdout
                 native("Yarn Classic cache", "yarn", ["cache", "clean"], Path(raw) if raw.startswith("/") else None, RiskLevel.MODERATE, yarn)
             else: notes.append(f"Yarn {version} uses project-aware Berry cache semantics and is inventory-only.")
         composer = which("composer")
         if composer:
-            raw = run_command(composer, ["config", "cache-dir", "--global"], timeout=10).stdout
+            raw = probe(composer, ["config", "cache-dir", "--global"]).stdout
             native("Composer cache clear", "composer", ["clear-cache"], Path(raw) if raw.startswith("/") else None, RiskLevel.MODERATE, composer)
         dotnet = which("dotnet")
         if dotnet:
@@ -285,11 +344,12 @@ class PackageManagerCacheScanner:
                 native(f".NET / NuGet {location}", "dotnet", ["nuget", "locals", location, "--clear"], None, RiskLevel.MODERATE, dotnet)
         npm = which("npm")
         if npm:
-            raw = run_command(npm, ["config", "get", "cache"], timeout=10).stdout
+            raw = probe(npm, ["config", "get", "cache"]).stdout
             native("npm cache clean", "npm", ["cache", "clean", "--force"], Path(raw) if raw.startswith("/") else home / ".npm", RiskLevel.AGGRESSIVE, npm)
         conda = which("conda")
         if conda:
-            try: roots = [Path(p) for p in __import__("json").loads(run_command(conda, ["info", "--json"], timeout=20).stdout).get("pkgs_dirs", [])]
+            try: roots = [Path(p) for p in __import__("json").loads(probe(conda, ["info", "--json"], 20).stdout).get("pkgs_dirs", [])]
+            except ScanCancelled: raise
             except Exception: roots = []
             native("Conda package/index caches", "conda", ["clean", "--all", "-y"], roots[0] if roots else None, RiskLevel.MODERATE, conda)
         micromamba = which("micromamba")
@@ -297,8 +357,8 @@ class PackageManagerCacheScanner:
         pipx = which("pipx")
         if pipx:
             cache = home / ".cache/pipx"
-            probe = run_command(pipx, ["cache", "dir"], timeout=10)
-            if probe.succeeded: native("pipx run cache", "pipx", ["cache", "purge"], Path(probe.stdout), RiskLevel.SAFE, pipx)
+            pipx_probe = probe(pipx, ["cache", "dir"])
+            if pipx_probe.succeeded: native("pipx run cache", "pipx", ["cache", "purge"], Path(pipx_probe.stdout), RiskLevel.SAFE, pipx)
             else: manual("pipx run cache", "pipx", cache)
         pixi = which("pixi")
         if pixi:
@@ -309,39 +369,51 @@ class PackageManagerCacheScanner:
         manual("Cargo registry cache", "cargo-registry", home / ".cargo/registry/cache")
         manual("Cargo git dependency cache", "cargo-git", home / ".cargo/git/db")
         maven = home / ".m2/repository"
-        if maven.exists(): notes.append(f"Maven local repository ({size_of(maven)} bytes) is inventory-only because it may contain locally-installed artifacts.")
+        if maven.exists(): notes.append(f"Maven local repository ({size_of(maven, cancel=token.check, on_error=lambda target, message: issues.append(f'{target}: {message}'))} bytes) is inventory-only because it may contain locally-installed artifacts.")
         dart = which("dart"); pub = Path(os.environ.get("PUB_CACHE", home / ".pub-cache"))
         if dart and pub.exists(): native("Dart/Flutter pub cache", "dart", ["pub", "cache", "clean", "--force"], pub, RiskLevel.AGGRESSIVE, dart)
         notes.append("Docker/Podman images and volumes are intentionally never auto-pruned because they may contain irreplaceable local data.")
-        return ScanResult(sorted(items, key=lambda item: -item.estimated_bytes), notes)
+        token.check()
+        return ScanResult(sorted(items, key=lambda item: -item.estimated_bytes), notes,
+                          status="partial" if issues else "complete", issues=issues)
 
 
-def scan_installers(older_than_days: int = 30) -> ScanResult:
+def scan_installers(older_than_days: int = 30, cancellation: CancellationToken | None = None) -> ScanResult:
+    token = cancellation or CancellationToken()
     cutoff = time.time() - max(0, older_than_days) * 86400
     extensions = {".dmg", ".pkg", ".mpkg", ".xip", ".iso", ".ipsw"}
-    items = []
+    items = []; issues = []
     for root in (Path.home() / "Downloads", Path.home() / "Desktop"):
+        candidates = []
         try:
-            candidates = [path for path in root.rglob("*") if len(path.relative_to(root).parts) <= 3]
-        except OSError:
+            for path in root.rglob("*"):
+                token.check()
+                if len(path.relative_to(root).parts) <= 3:
+                    candidates.append(path)
+        except FileNotFoundError:
             continue
+        except OSError as exc:
+            issues.append(f"{root}: {exc}")
         for path in candidates:
+            token.check()
             try:
                 old = path.stat().st_mtime < cutoff
-            except OSError:
+            except OSError as exc:
+                issues.append(f"{path}: {exc}")
                 continue
             if old and path.is_file() and path.suffix.lower() in extensions:
-                items.append(CleanupItem(CleanupCategory.INSTALLERS, path.name, path, size_of(path), RiskLevel.SAFE, "Old installer image; moved to Trash.", CleanupAction(ActionType.MOVE_TO_TRASH)))
-    return ScanResult(sorted(items, key=lambda item: -item.estimated_bytes))
+                items.append(CleanupItem(CleanupCategory.INSTALLERS, path.name, path, size_of(path, cancel=token.check, on_error=lambda target, message: issues.append(f"{target}: {message}")), RiskLevel.SAFE, "Old installer image; moved to Trash.", CleanupAction(ActionType.MOVE_TO_TRASH)))
+    return ScanResult(sorted(items, key=lambda item: -item.estimated_bytes), status="partial" if issues else "complete", issues=issues)
 
 
-def scan_leftovers(config: Config | None = None, older_than_days: int = 30, include_data: bool = False) -> ScanResult:
-    config = config or Config()
+def scan_leftovers(config: Config | None = None, older_than_days: int = 30, include_data: bool = False,
+                   cancellation: CancellationToken | None = None) -> ScanResult:
+    config = config or Config(); token = cancellation or CancellationToken(); issues: list[str] = []
     installed_ids: set[str] = set()
     for root in (Path("/Applications"), Path.home() / "Applications"):
         try:
-            apps = root.rglob("*.app")
-            for app in apps:
+            for app in root.rglob("*.app"):
+                token.check()
                 try:
                     import plistlib
                     with (app / "Contents/Info.plist").open("rb") as handle:
@@ -349,9 +421,11 @@ def scan_leftovers(config: Config | None = None, older_than_days: int = 30, incl
                     if len(bundle_id.split(".")) >= 2:
                         installed_ids.add(bundle_id.lower())
                 except (OSError, plistlib.InvalidFileException):
-                    pass
-        except OSError:
-            pass
+                    continue
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            issues.append(f"{root}: {exc}")
     cutoff = time.time() - max(0, older_than_days) * 86400
     roots = [
         (Path.home() / "Library/Caches", RiskLevel.SAFE),
@@ -362,21 +436,27 @@ def scan_leftovers(config: Config | None = None, older_than_days: int = 30, incl
         roots.append((Path.home() / "Library/Application Support", RiskLevel.MANUAL_ONLY))
     items = []
     for root, risk in roots:
+        token.check()
         try:
             children = list(root.iterdir())
-        except OSError:
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            issues.append(f"{root}: {exc}")
             continue
         for path in children:
+            token.check()
             name = path.name.removesuffix(".savedState").lower()
             try:
                 if path.stat().st_mtime >= cutoff:
                     continue
-            except OSError:
+            except OSError as exc:
+                issues.append(f"{path}: {exc}")
                 continue
             if name in installed_ids or config.is_whitelisted(path):
                 continue
             if not (name.startswith(("com.", "org.", "io.", "net.")) or path.name.endswith(".savedState")):
                 continue
             action = ActionType.REMOVE_PATH if risk is not RiskLevel.MANUAL_ONLY else ActionType.MANUAL_CACHE_FALLBACK
-            items.append(CleanupItem(CleanupCategory.LEFTOVERS, path.name, path, size_of(path), risk, "No matching installed app was found; exact identifier-shaped leftover.", CleanupAction(action)))
-    return ScanResult(sorted(items, key=lambda item: -item.estimated_bytes))
+            items.append(CleanupItem(CleanupCategory.LEFTOVERS, path.name, path, size_of(path, cancel=token.check, on_error=lambda target, message: issues.append(f"{target}: {message}")), risk, "No matching installed app was found; exact identifier-shaped leftover.", CleanupAction(action)))
+    return ScanResult(sorted(items, key=lambda item: -item.estimated_bytes), status="partial" if issues else "complete", issues=issues)

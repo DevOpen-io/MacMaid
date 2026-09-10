@@ -15,6 +15,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from .analyzer import IncrementalAnalyzer
+from .cancellation import CancellationToken
 from .cleaner import Cleaner
 from .config import Config
 from .features import (
@@ -62,9 +63,9 @@ class ProgressState:
             if path and (not self.value["logs"] or path not in self.value["logs"][-1]):
                 self.value["logs"] = [*self.value["logs"][-59:], f"{phase}: {path}"]
 
-    def finish(self, message: str = "Tamamlandı") -> None:
+    def finish(self, message: str = "Tamamlandı", *, percent: int = 100) -> None:
         with self.lock:
-            self.value.update(active=False, phase=message, percent=100)
+            self.value.update(active=False, phase=message, percent=percent)
             self.value["logs"] = [*self.value["logs"][-59:], message]
 
     def snapshot(self) -> dict:
@@ -90,6 +91,7 @@ class WebState:
         self.developer_items: dict[str, list] = {}
         self.generations: dict[str, int] = {}
         self.review_tokens: dict[str, tuple[str, int, str]] = {}
+        self.scan_cancellations: dict[str, CancellationToken] = {}
         self.analyzer = IncrementalAnalyzer()
 
 
@@ -273,13 +275,33 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
             return {"metrics": raw, "uptime": max(0, __import__("time").time() - raw["bootTime"]), "loadAverage": list(os.getloadavg()), "thermal": raw["thermal"], "battery": raw["battery"] or {}, "processes": raw["processes"]}
         if path == "/api/scan":
             profile = CleanupProfile(query.get("profile", "safe"))
-            state.progress.start("cleaner", f"Akıllı Sistem Taraması ({profile.value})")
-            result = Scanner(state.config).scan(profile, include_trash=query.get("trash") == "true", include_system_temp=query.get("systemTemp") == "true", progress=state.progress.update)
+            token = CancellationToken()
             with state.lock:
-                state.scan = result
-                self._bump_generation("clean")
-            state.progress.finish(f"{len(result.items)} öğe bulundu")
-            return {"profile": profile.value, "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes), "items": [dict(item.web_dict(), estimatedBytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes), riskLevel=int(item.risk)) for item in result.items]}
+                previous = state.scan_cancellations.get("clean")
+                if previous: previous.cancel()
+                state.scan_cancellations["clean"] = token
+            state.progress.start("cleaner", f"Akıllı Sistem Taraması ({profile.value})")
+            result = Scanner(state.config).scan(
+                profile, include_trash=query.get("trash") == "true",
+                include_system_temp=query.get("systemTemp") == "true",
+                progress=state.progress.update, cancellation=token,
+            )
+            with state.lock:
+                authoritative = state.scan_cancellations.get("clean") is token
+                if authoritative:
+                    state.scan_cancellations.pop("clean", None)
+                    state.scan = result
+                    self._bump_generation("clean")
+            if not authoritative:
+                raise PermissionError("Stale scan result discarded")
+            message = ("Tarama iptal edildi" if result.status == "cancelled" else
+                       f"Kısmi tarama · {len(result.issues)} sorun" if result.is_partial else
+                       f"{len(result.items)} öğe bulundu")
+            state.progress.finish(message, percent=0 if result.status == "cancelled" else 100)
+            return {"profile": profile.value, "status": result.status, "isComplete": result.is_complete,
+                    "issues": result.issues, "notes": result.notes,
+                    "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes),
+                    "items": [dict(item.web_dict(), estimatedBytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes), riskLevel=int(item.risk)) for item in result.items]}
         if path == "/api/apps":
             state.progress.start("apps", "Yüklü Uygulamalar Taranıyor")
             apps = ApplicationManager(state.config).scan()[:120]
@@ -306,13 +328,15 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
             with state.lock:
                 state.installers = result
                 self._bump_generation("installers")
-            return {"installers": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
+            return {"status": result.status, "isComplete": result.is_complete, "issues": result.issues, "notes": result.notes,
+                    "installers": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
         if path == "/api/leftovers":
             result = scan_leftovers(state.config, int(query.get("olderThan", "30")), query.get("includeData") == "true")
             with state.lock:
                 state.leftovers = result
                 self._bump_generation("leftovers")
-            return {"leftovers": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
+            return {"status": result.status, "isComplete": result.is_complete, "issues": result.issues, "notes": result.notes,
+                    "leftovers": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
         if path == "/api/analyze":
             result = state.analyzer.snapshot(
                 query.get("path", "~"),
@@ -323,7 +347,8 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
                 focus_id=int(query["nav"]) if "nav" in query else None,
             )
             with state.lock:
-                state.analyzed_paths = {Path(entry["path"]) for entry in result["entries"]} | {Path(entry["path"]) for entry in result["largestFiles"]}
+                state.analyzed_paths = ({Path(entry["path"]) for entry in result["entries"] if entry.get("state") == "ready"}
+                                        | {Path(entry["path"]) for entry in result["largestFiles"]})
                 self._bump_generation("analyzer")
             return result
         if path == "/api/developer/caches":
@@ -331,7 +356,8 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
             with state.lock:
                 state.dev_caches = result
                 self._bump_generation("developer-caches")
-            return {"items": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
+            return {"status": result.status, "isComplete": result.is_complete, "issues": result.issues, "notes": result.notes,
+                    "items": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
         if path.startswith("/api/developer/"):
             kind = path.rsplit("/", 1)[-1]
             if kind not in {"runtimes", "environments", "tools", "sdks"}: raise FileNotFoundError(path)
@@ -374,6 +400,8 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
         raise FileNotFoundError(path)
 
     def _select_paths(self, scan: ScanResult | None, requested: list[str]):
+        if scan is not None and not scan.is_complete:
+            raise PermissionError("Incomplete scan results cannot be mutated")
         if scan is None or not requested: raise ValueError("No matching latest scan is available")
         wanted = {str(Path(path).expanduser().absolute()) for path in requested}
         chosen = [item for item in scan.items if item.path and str(item.path.absolute()) in wanted and item.risk is not RiskLevel.MANUAL_ONLY and item.action.kind is not ActionType.MANUAL_CACHE_FALLBACK]
@@ -382,6 +410,8 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
 
     @staticmethod
     def _select_ids(scan: ScanResult | None, requested: list[str]):
+        if scan is not None and not scan.is_complete:
+            raise PermissionError("Incomplete scan results cannot be mutated")
         if scan is None or not requested: raise ValueError("No matching latest scan is available")
         wanted = set(requested)
         chosen = [item for item in scan.items if item.id in wanted and item.risk is not RiskLevel.MANUAL_ONLY and item.action.kind is not ActionType.MANUAL_CACHE_FALLBACK]
@@ -390,6 +420,20 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
 
     def _route_post(self, path: str, body: dict) -> dict:
         state = self.server.state
+        if path == "/api/scan/cancel":
+            service = str(body.get("service", "clean"))
+            if service == "analyzer":
+                cancelled = state.analyzer.cancel_active()
+            elif service == "clean":
+                with state.lock:
+                    token = state.scan_cancellations.get("clean")
+                    cancelled = bool(token and not token.cancelled)
+                    if token: token.cancel()
+            else:
+                raise ValueError("Unknown scan service")
+            if cancelled:
+                state.progress.finish("Tarama iptal ediliyor", percent=0)
+            return {"success": True, "cancelled": cancelled, "service": service}
         if path == "/api/clean":
             if state.scan is None: raise ValueError("Run a scan first")
             items = self._select_ids(state.scan, body.get("itemIds", []))

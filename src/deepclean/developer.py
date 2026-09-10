@@ -4,10 +4,12 @@ import json
 import os
 import re
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
+from .cancellation import CancellationToken
 from .cleaner import Cleaner
 from .config import Config
 from .models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
@@ -16,8 +18,16 @@ from .safety import PathSafety
 from .system import run_command as _run_command, size_of, sizes_of, which
 
 
+_SCAN_CONTEXT = threading.local()
+
+
 def run_command(executable: str, arguments=(), **kwargs):
     """An unavailable inventory/protection query must not imply 'safe to remove'."""
+    token = getattr(_SCAN_CONTEXT, "cancellation", None)
+    if token is not None and "on_wait" not in kwargs:
+        kwargs["on_wait"] = token.check
+    if token is not None:
+        token.check()
     result = _run_command(executable, arguments, **kwargs)
     if not result.succeeded:
         raise RuntimeError(result.stderr or "Manager query failed; removal safety is unknown")
@@ -59,8 +69,10 @@ def _children(root: Path) -> list[Path]:
         return []
 
 
-def _finish_sizes(items: list[DeveloperItem]) -> list[DeveloperItem]:
-    measured = sizes_of([item.path for item in items if item.path.exists()])
+def _finish_sizes(items: list[DeveloperItem], cancellation: CancellationToken | None = None) -> list[DeveloperItem]:
+    token = cancellation or CancellationToken()
+    paths = [item.path for item in items if item.path.exists()]
+    measured = sizes_of(paths, cancel=token.check) if cancellation is not None else sizes_of(paths)
     for item in items:
         item.bytes = measured.get(item.path, 0)
     seen: set[str] = set()
@@ -98,14 +110,23 @@ def _managed_directories(
 class DeveloperInventory:
     def __init__(self, config: Config | None = None) -> None:
         self.config = config or Config()
+        self._scan_cancellation: CancellationToken | None = None
 
-    def scan(self, category: str) -> list[DeveloperItem]:
-        return {
-            "runtime": self.runtimes,
-            "environment": self.environments,
-            "tool": self.tools,
-            "sdk": self.sdks,
-        }[category]()
+    def scan(self, category: str, cancellation: CancellationToken | None = None) -> list[DeveloperItem]:
+        self._scan_cancellation = cancellation or CancellationToken()
+        self._scan_cancellation.check()
+        _SCAN_CONTEXT.cancellation = self._scan_cancellation
+        try:
+            result = {
+                "runtime": self.runtimes,
+                "environment": self.environments,
+                "tool": self.tools,
+                "sdk": self.sdks,
+            }[category]()
+            self._scan_cancellation.check()
+            return result
+        finally:
+            _SCAN_CONTEXT.cancellation = None
 
     def runtimes(self) -> list[DeveloperItem]:
         home = Path.home(); items: list[DeveloperItem] = []
@@ -168,7 +189,7 @@ class DeveloperInventory:
                 items.append(DeveloperItem(f"volta:{tool.name}:{path.name}", "runtime", tool.name, path.name, "Volta", path, protected_reason="Volta has no safe version-by-version image removal contract", note="Inventory only"))
 
         items += self._homebrew_runtimes()
-        return _finish_sizes(items)
+        return _finish_sizes(items, self._scan_cancellation)
 
     def _version_manager(self, manager: str, title: str, env_name: str, default_root: Path, list_args: list[str], active_args: list[str], removal: callable) -> list[DeveloperItem]:
         executable = which(manager)
@@ -225,7 +246,7 @@ class DeveloperInventory:
             for line in run_command(poetry, ["env", "list", "--full-path"]).stdout.splitlines():
                 raw = line.split(" (")[0].strip(); path = Path(raw)
                 if path.is_absolute(): items.append(DeveloperItem(f"poetry-env:{path}", "environment", path.name, "", "Poetry", path, protected_reason="Poetry environments are project-owned; remove from the owning project", note="Inventory only"))
-        return _finish_sizes(items)
+        return _finish_sizes(items, self._scan_cancellation)
 
     def tools(self) -> list[DeveloperItem]:
         items: list[DeveloperItem] = []
@@ -271,11 +292,11 @@ class DeveloperInventory:
             for line in run_command(cargo, ["install", "--list"]).stdout.splitlines():
                 match = re.match(r"^(\S+) v([^:]+):$", line)
                 if match: items.append(DeveloperItem(f"cargo:{match[1]}", "tool", match[1], match[2], "cargo", root / "bin" / match[1], executable=cargo, arguments=("uninstall", match[1]), note="cargo install package"))
-        return _finish_sizes(items)
+        return _finish_sizes(items, self._scan_cancellation)
 
     def sdks(self) -> list[DeveloperItem]:
         items = self._android_sdks() + self._android_avds() + self._xcode_simulators() + self._device_support()
-        return _finish_sizes(items)
+        return _finish_sizes(items, self._scan_cancellation)
 
     @staticmethod
     def _android_root() -> Path | None:

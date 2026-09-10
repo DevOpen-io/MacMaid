@@ -95,6 +95,16 @@ class CleanupItem:
 class ScanResult:
     items: list[CleanupItem] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    status: str = "complete"
+    issues: list[str] = field(default_factory=list)
+
+    @property
+    def is_complete(self) -> bool:
+        return self.status == "complete"
+
+    @property
+    def is_partial(self) -> bool:
+        return self.status in {"partial", "cancelled", "failed"}
 
     @property
     def total_bytes(self) -> int:

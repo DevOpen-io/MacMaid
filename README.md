@@ -60,13 +60,15 @@ deepclean ui
 
 The profiles are `safe`, `deep`, `developer` and `aggressive`. Before authorization the CLI prints the exact target/manager command, action type, risk, reason, app-close requirement and scan-size estimate. Destructive CLI operations require `--apply`; automation can additionally use `--yes`. Manual-only candidates are never selected by unattended execution.
 
+Cancelled, permission-limited and failed scans are not reported as “clean.” Their status and inaccessible locations are shown explicitly, and incomplete bulk-scan results cannot be sent to cleanup.
+
 Space reporting deliberately separates the reviewed scan estimate, the estimate for successfully processed targets, the conservative estimated reclaim, and the observed filesystem-wide free-space change. Trash moves are reported separately and are never counted as freed space. Manager effects remain unknown unless they can be measured safely. Observed changes are not attributed solely to DeepClean because APFS clones, snapshots, sparse files and concurrent disk activity can affect them.
 
 ## Terminal UI
 
 Running `deepclean` without arguments opens the Textual dashboard. It has persistent navigation, descriptive tool pages, live system metrics, background workers, review tables and a dedicated pre-operation review screen. Nothing starts until the exact displayed plan receives an explicit `y` response at its terminal-style `[y/N]` prompt; Enter, `n` and Esc safely cancel. User-data or MANUAL selections require a second explicit `y` confirmation. Use arrow keys or `j`/`k` to move, Enter to open, `h` or `Ctrl+N` to focus the sidebar, `l` to focus page content, `1`–`9` to jump directly, Space to toggle reviewed rows, `r` to refresh and `Esc` to return to the dashboard.
 
-The TUI exposes Smart Clean, application/component removal, incremental disk analysis, Project Purge, developer inventory/cache cleanup, optimization, live status, leftovers, installers, snapshots, doctor, history and whitelist information. Long-running scans execute outside the UI event loop, so navigation remains responsive.
+The TUI exposes Smart Clean, application/component removal, incremental disk analysis, Project Purge, developer inventory/cache cleanup, optimization, live status, leftovers, installers, snapshots, doctor, history and whitelist information. Long-running scans execute outside the UI event loop, so navigation remains responsive. Press `c` on a scan/result screen to request cooperative cancellation; active filesystem walks, bounded size workers and waiting subprocesses stop at safe checkpoints. Cleanup mutations are never force-cancelled.
 
 ## Web UI
 
@@ -78,7 +80,7 @@ deepclean ui
 
 The bundled dashboard listens only on `127.0.0.1:8123`. It exposes system status, Smart Clean, application inventory/removal, Project Purge, installer and leftover review, disk analysis, developer caches/inventory, snapshots, optimization, doctor, history and whitelist controls. Destructive requests use a two-step server-reviewed flow: the UI displays the server's exact plan, then submits a short-lived, single-use token bound to that selection and scan generation.
 
-Disk Analyzer lists a directory immediately and measures each visible child in a bounded background worker pool. Navigation never waits for the current directory to finish: moving elsewhere cancels its disk I/O while preserving completed measurements in the Web UI session cache. Returning shows that cache immediately and resumes only unfinished entries. The explicit Analyze/refresh action can force a fresh measurement.
+Disk Analyzer lists a directory immediately and measures each visible child in a bounded background worker pool. Navigation never waits for the current directory to finish: moving elsewhere cancels its disk I/O while preserving completed measurements in the Web UI session cache. Returning shows that cache immediately and resumes only unfinished entries. The explicit Analyze/refresh action can force a fresh measurement. The progress HUD can stop Smart Clean or analyzer work through the shared cancellation API.
 
 ## Development
 
