@@ -416,8 +416,8 @@ function renderInPageProgress(p) {
   let card = document.getElementById(`${service}-progress-card`);
   let activePrefix = service;
   if (!card && (service === 'developer' || serviceToTab[service] === 'developer')) {
-    const activeDevTab = document.querySelector('#pane-developer .subnav-pill.active')?.dataset.devtab || 'caches';
-    const devProgressPrefixes = { caches: 'devcaches', runtimes: 'runtimes', environments: 'environments', tools: 'devtools', sdks: 'sdks' };
+    const activeDevTab = document.querySelector('#pane-developer .subnav-pill.active')?.dataset.devtab || 'storage';
+    const devProgressPrefixes = { storage: 'devstorage', caches: 'devcaches', runtimes: 'runtimes', environments: 'environments', tools: 'devtools', sdks: 'sdks' };
     const mappedPrefix = devProgressPrefixes[activeDevTab] || 'devcaches';
     const subCard = document.getElementById(`${mappedPrefix}-progress-card`);
     if (subCard) {
@@ -1479,6 +1479,24 @@ async function executePurge() {
 }
 
 // =========================================================
+// Tab 8: Developer Storage Center
+// =========================================================
+
+async function scanDeveloperStorage() {
+  const tbody = document.getElementById('tbody-devstorage');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="4" class="empty-state">Developer storage taranıyor…</td></tr>`;
+  try {
+    const data = await readAPIResponse(await fetch('/api/developer/storage'));
+    tbody.innerHTML = (data.sections || []).map(section => {
+      const items = (section.items || []).slice(0, 8).map(item => `${escapeHtml(item.label)} (${escapeHtml(item.humanBytes || formatBytes(item.bytes || 0))})`).join('<br>');
+      return `<tr><td><strong>${escapeHtml(section.title)}</strong></td><td>${escapeHtml(section.humanBytes || formatBytes(section.bytes || 0))}</td><td>${items || '<span class="text-muted">Inventory only</span>'}</td><td>${escapeHtml(section.note || '')}</td></tr>`;
+    }).join('') || `<tr><td colspan="4" class="empty-state">Developer storage öğesi bulunamadı.</td></tr>`;
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-state">Storage scan başarısız: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
 // Tab 8: Developer Caches (developer-caches)
 // =========================================================
 
@@ -2049,6 +2067,99 @@ async function fetchDoctorReport() {
 }
 
 // =========================================================
+// Smart Downloads
+// =========================================================
+
+async function fetchSmartDownloads() {
+  const tbody = document.getElementById('tbody-smart-downloads');
+  if (!tbody) return;
+  const age = document.getElementById('smart-downloads-age-filter')?.value || '30';
+  tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Smart Downloads taranıyor…</td></tr>`;
+  try {
+    const data = await readAPIResponse(await fetch(`/api/smart-downloads?olderThanDays=${encodeURIComponent(age)}`));
+    tbody.innerHTML = (data.files || []).map(file => `<tr>
+      <td>${escapeHtml((file.categories || []).join(', '))}</td>
+      <td><strong>${escapeHtml(file.name || '')}</strong><br><span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(file.path)}</span></td>
+      <td>${Number(file.ageDays || 0)}d</td>
+      <td>${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
+      <td><button class="mini-btn smart-download-trash" data-path="${escapeHtml(file.path)}">Move to Trash</button></td>
+    </tr>`).join('') || `<tr><td colspan="5" class="empty-state">Smart Downloads adayı bulunamadı.</td></tr>`;
+    tbody.querySelectorAll('.smart-download-trash').forEach(button => button.addEventListener('click', () => trashSmartDownloadPath(button.dataset.path)));
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Smart Downloads scan başarısız: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function trashSmartDownloadPath(path) {
+  if (!path) return;
+  const payload = { paths: [path] };
+  try {
+    const reviewResponse = await requestOperationReview('/api/smart-downloads/trash', payload);
+    showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
+      { text: 'Vazgeç', class: 'btn-secondary', onClick: hideModal },
+      { text: 'Trash’e Taşı', class: 'btn-danger', onClick: async () => {
+        const authorized = reviewedPayload({ ...payload, extraOptIn: true }, reviewResponse);
+        if (!authorized) return;
+        hideModal();
+        const result = await readAPIResponse(await fetch('/api/smart-downloads/trash', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) }));
+        showToast(operationOutcomeText(result), 'success');
+        fetchSmartDownloads();
+      }}
+    ]);
+  } catch (err) {
+    showToast(`Smart Downloads cleanup failed: ${err.message}`, 'error');
+  }
+}
+
+// =========================================================
+// Large & Old Files
+// =========================================================
+
+async function fetchLargeFiles() {
+  const tbody = document.getElementById('tbody-large-files');
+  if (!tbody) return;
+  const size = document.getElementById('large-size-filter')?.value || '500MB';
+  const age = document.getElementById('large-age-filter')?.value || '';
+  tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Large/old files taranıyor…</td></tr>`;
+  try {
+    const params = new URLSearchParams({ minSize: size });
+    if (age) params.set('olderThanDays', age);
+    const data = await readAPIResponse(await fetch(`/api/large-files?${params}`));
+    tbody.innerHTML = (data.files || []).map(file => `<tr>
+      <td>${escapeHtml((file.categories || []).join(', '))}</td>
+      <td><strong>${escapeHtml(file.name || '')}</strong><br><span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(file.path)}</span></td>
+      <td>${Number(file.ageDays || 0)}d</td>
+      <td>${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
+      <td><button class="mini-btn large-file-trash" data-path="${escapeHtml(file.path)}">Move to Trash</button></td>
+    </tr>`).join('') || `<tr><td colspan="5" class="empty-state">Filtrelere uyan large/old file bulunamadı.</td></tr>`;
+    tbody.querySelectorAll('.large-file-trash').forEach(button => button.addEventListener('click', () => trashLargeFilePath(button.dataset.path)));
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Large/old scan başarısız: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function trashLargeFilePath(path) {
+  if (!path) return;
+  const payload = { paths: [path] };
+  try {
+    const reviewResponse = await requestOperationReview('/api/large-files/trash', payload);
+    showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
+      { text: 'Vazgeç', class: 'btn-secondary', onClick: hideModal },
+      { text: 'Trash’e Taşı', class: 'btn-danger', onClick: async () => {
+        const authorized = reviewedPayload({ ...payload, extraOptIn: true }, reviewResponse);
+        if (!authorized) return;
+        hideModal();
+        const result = await readAPIResponse(await fetch('/api/large-files/trash', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) }));
+        showToast(operationOutcomeText(result), 'success');
+        fetchLargeFiles();
+      }}
+    ]);
+  } catch (err) {
+    showToast(`Large/old cleanup failed: ${err.message}`, 'error');
+  }
+}
+
+// =========================================================
 // Duplicate Finder
 // =========================================================
 
@@ -2339,6 +2450,7 @@ document.addEventListener('DOMContentLoaded', () => {
       pill.classList.add('active');
       const targetSubPane = document.getElementById(`subpane-dev-${devtab}`);
       if (targetSubPane) targetSubPane.classList.add('active');
+      if (devtab === 'storage') scanDeveloperStorage();
     });
   });
 
@@ -2352,13 +2464,17 @@ document.addEventListener('DOMContentLoaded', () => {
       pill.classList.add('active');
       const targetSubPane = document.getElementById(`subpane-more-${moretab}`);
       if (targetSubPane) targetSubPane.classList.add('active');
+      if (moretab === 'smart-downloads') fetchSmartDownloads();
       if (moretab === 'duplicates') fetchDuplicates();
+      if (moretab === 'large-files') fetchLargeFiles();
       if (moretab === 'history' && (!state.history || state.history.length === 0)) fetchHistory();
       if (moretab === 'whitelist' && (!state.whitelist || state.whitelist.length === 0)) fetchWhitelist();
     });
   });
 
+  document.getElementById('btn-scan-smart-downloads')?.addEventListener('click', fetchSmartDownloads);
   document.getElementById('btn-scan-duplicates')?.addEventListener('click', fetchDuplicates);
+  document.getElementById('btn-scan-large-files')?.addEventListener('click', fetchLargeFiles);
 
   // Sound toggle button in header
   const soundBtn = document.getElementById('sound-toggle');
@@ -2518,6 +2634,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Developer tools events
+  document.getElementById('btn-scan-devstorage')?.addEventListener('click', scanDeveloperStorage);
   document.getElementById('btn-scan-devcaches')?.addEventListener('click', scanDeveloperCaches);
   document.getElementById('btn-execute-devcaches-clean')?.addEventListener('click', executeDeveloperCachesClean);
   document.getElementById('btn-devcaches-select-all')?.addEventListener('click', () => {

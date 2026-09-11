@@ -14,8 +14,11 @@ from .features import (
     developer_inventory, doctor, install_completion, list_snapshots, remove_completion_hooks,
     run_optimization, system_status, thin_snapshots,
 )
+from .developer import DeveloperStorageCenter
 from .duplicates import DuplicateFinder
+from .large_files import LargeOldFileScanner, SIZE_FILTERS
 from .models import CleanupProfile
+from .smart_downloads import SmartDownloadsScanner
 from .review import cleanup_plan, optimization_plan, purge_plan, snapshot_plan
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
 from .system import human_bytes, is_interactive
@@ -34,12 +37,14 @@ def _parser() -> argparse.ArgumentParser:
     installers = commands.add_parser("installers"); installers.add_argument("--older-than", type=int, default=30); installers.add_argument("--apply", action="store_true"); installers.add_argument("--yes", action="store_true")
     analyze = commands.add_parser("analyze"); analyze.add_argument("path", nargs="?", default="~"); analyze.add_argument("--top", type=int, default=30); analyze.add_argument("--min-size", default="1GB"); analyze.add_argument("--plain", action="store_true")
     duplicates = commands.add_parser("duplicates"); duplicates.add_argument("--path", action="append", default=[]); duplicates.add_argument("--min-size", default="1B")
+    large = commands.add_parser("large-files"); large.add_argument("--path", action="append", default=[]); large.add_argument("--min-size", choices=list(SIZE_FILTERS), default="500MB"); large.add_argument("--older-than-days", type=int, choices=(30, 90, 180, 365))
+    smart_downloads = commands.add_parser("smart-downloads"); smart_downloads.add_argument("--older-than-days", type=int, default=30)
     commands.add_parser("apps")
     purge = commands.add_parser("purge"); purge.add_argument("--path", action="append", default=[]); purge.add_argument("--apply", action="store_true"); purge.add_argument("--yes", action="store_true")
     commands.add_parser("status")
     completion = commands.add_parser("completion"); completion.add_argument("shell", choices=("zsh", "bash", "fish"), nargs="?", default="zsh"); completion.add_argument("--print", action="store_true", dest="print_only"); completion.add_argument("--install", action="store_true")
     caches = commands.add_parser("developer-caches"); caches.add_argument("--scan-only", action="store_true"); caches.add_argument("--apply", action="store_true"); caches.add_argument("--yes", action="store_true")
-    developer = commands.add_parser("developer"); developer.add_argument("kind", choices=("runtimes", "environments", "tools", "sdks"), default="runtimes", nargs="?")
+    developer = commands.add_parser("developer"); developer.add_argument("kind", choices=("storage", "runtimes", "environments", "tools", "sdks"), default="runtimes", nargs="?")
     optimize = commands.add_parser("optimize"); optimize.add_argument("--task"); optimize.add_argument("--all", action="store_true", dest="all_tasks"); optimize.add_argument("--apply", action="store_true"); optimize.add_argument("--yes", action="store_true")
     snapshots = commands.add_parser("snapshots"); snapshots.add_argument("--thin", type=int, metavar="GB"); snapshots.add_argument("--apply", action="store_true"); snapshots.add_argument("--yes", action="store_true")
     history_parser = commands.add_parser("history"); history_parser.add_argument("--limit", type=int, default=40)
@@ -213,6 +218,23 @@ def main(argv: list[str] | None = None) -> None:
             for duplicate in group.files:
                 print(f"  {duplicate.path}")
         print("\nNo files are selected automatically. Review duplicates before moving anything to Trash in the Web/TUI flows.")
+    elif command == "large-files":
+        roots = [Path(p) for p in args.path] or None
+        files = _run_interruptible_scan(lambda: LargeOldFileScanner(min_bytes=SIZE_FILTERS[args.min_size], older_than_days=args.older_than_days).scan(roots))
+        if files is None: return
+        if not files:
+            print("No large/old files found."); return
+        for item in files:
+            print(f"{human_bytes(item.bytes):>10}  {item.age_days:>4}d  {', '.join(item.categories)}\n     {item.path}")
+        print("\nUser files are never selected automatically. Review before moving anything to Trash in the Web/TUI flows.")
+    elif command == "smart-downloads":
+        files = _run_interruptible_scan(lambda: SmartDownloadsScanner(older_than_days=args.older_than_days).scan())
+        if files is None: return
+        if not files:
+            print("No Smart Downloads candidates found."); return
+        for item in files:
+            print(f"{human_bytes(item.bytes):>10}  {item.age_days:>4}d  {', '.join(item.categories)}\n     {item.path}")
+        print("\nNothing is selected automatically. Review before moving anything to Trash in the Web/TUI flows.")
     elif command == "apps":
         apps = _run_interruptible_scan(lambda: ApplicationManager(config).scan())
         if apps is None: return
@@ -230,6 +252,15 @@ def main(argv: list[str] | None = None) -> None:
             _print_mapping_space_result(manager.purge(selected))
         else: print("\nNo changes made. Use --apply after review.")
     elif command == "developer":
+        if args.kind == "storage":
+            sections = _run_interruptible_scan(lambda: DeveloperStorageCenter(config).scan())
+            if sections is None: return
+            for section in sections:
+                print(f"\n{section.title}: {human_bytes(section.bytes)}")
+                if section.note: print(f"  {section.note}")
+                for item in section.items:
+                    print(f"  {human_bytes(item['bytes']):>10}  {item['label']} · {item['path']} — {item['note']}")
+            return
         inventory = _run_interruptible_scan(lambda: developer_inventory(args.kind))
         if inventory is None: return
         for item in inventory: print(f"{item['name']:<16} {item['version']}\n{item['detail']}\n")

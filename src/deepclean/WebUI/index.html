@@ -41,7 +41,7 @@
             </div>
             <div class="brand-text-wrap">
               <span class="brand-name">DeepClean <span class="badge-pro">PRO</span></span>
-              <span class="version-tag">v0.9.18 Python</span>
+              <span class="version-tag">v0.9.20 Python</span>
             </div>
           </div>
         </div>
@@ -948,7 +948,11 @@
 
           <!-- Developer Tools Subnav Pills -->
           <div class="subnav-pill-group">
-            <button class="subnav-pill active" data-devtab="caches">
+            <button class="subnav-pill active" data-devtab="storage">
+              <span class="subnav-pill-symbol">▤</span>
+              <span>Storage Center</span>
+            </button>
+            <button class="subnav-pill" data-devtab="caches">
               <span class="subnav-pill-symbol">▦</span>
               <span>Package Caches</span>
             </button>
@@ -970,8 +974,27 @@
             </button>
           </div>
 
-          <!-- Sub-Pane 1: Package Caches -->
-          <div class="sub-pane active" id="subpane-dev-caches">
+          <!-- Sub-Pane 1: Developer Storage Center -->
+          <div class="sub-pane active" id="subpane-dev-storage">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Developer Storage Center</h3>
+                <p class="pane-subtitle">Xcode, Node.js, Python, Rust, Android ve Docker depolamasını read-only gösterir.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-scan-devstorage"><span>Storage Tara</span></button>
+            </div>
+            <div class="glass-card">
+              <div class="table-container">
+                <table class="data-table" id="table-devstorage">
+                  <thead><tr><th>Ekosistem</th><th>Boyut</th><th>Öğeler</th><th>Not</th></tr></thead>
+                  <tbody id="tbody-devstorage"><tr><td colspan="4" class="empty-state">Developer Storage Center için tara.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 2: Package Caches -->
+          <div class="sub-pane" id="subpane-dev-caches">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
                 <h3 style="font-size: 16px; font-weight: 600;">Paket Yöneticisi Önbellekleri</h3>
@@ -1323,9 +1346,17 @@
               <span class="subnav-pill-symbol">↓</span>
               <span>Installers</span>
             </button>
+            <button class="subnav-pill" data-moretab="smart-downloads">
+              <span class="subnav-pill-symbol">↓</span>
+              <span>Smart Downloads</span>
+            </button>
             <button class="subnav-pill" data-moretab="duplicates">
               <span class="subnav-pill-symbol">⧉</span>
               <span>Duplicates</span>
+            </button>
+            <button class="subnav-pill" data-moretab="large-files">
+              <span class="subnav-pill-symbol">◫</span>
+              <span>Large & Old</span>
             </button>
             <button class="subnav-pill" data-moretab="snapshots">
               <span class="subnav-pill-symbol">◷</span>
@@ -1533,7 +1564,30 @@
             </div>
           </div>
 
-          <!-- Sub-Pane 3: Duplicate Finder -->
+          <!-- Sub-Pane 3: Smart Downloads -->
+          <div class="sub-pane" id="subpane-more-smart-downloads">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Smart Downloads</h3>
+                <p class="pane-subtitle">Installers, Archives, Old Downloads, Incomplete Downloads ve Duplicates olarak sınıflandırır. Documents/photos/source code otomatik junk değildir.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-scan-smart-downloads"><span>↓ Smart Downloads Tara</span></button>
+            </div>
+            <div class="glass-card">
+              <div class="config-row" style="margin-bottom: 16px;">
+                <label class="control-label">Old Downloads:</label>
+                <select id="smart-downloads-age-filter"><option value="30">30 gün</option><option value="90">90 gün</option><option value="180">180 gün</option><option value="365">1 yıl</option></select>
+              </div>
+              <div class="table-container">
+                <table class="data-table" id="table-smart-downloads">
+                  <thead><tr><th>Kategori</th><th>Dosya</th><th>Yaş</th><th>Boyut</th><th>Aksiyon</th></tr></thead>
+                  <tbody id="tbody-smart-downloads"><tr><td colspan="5" class="empty-state">Smart Downloads taraması için yukarıdaki butona tıklayın.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 4: Duplicate Finder -->
           <div class="sub-pane" id="subpane-more-duplicates">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
@@ -1552,7 +1606,32 @@
             </div>
           </div>
 
-          <!-- Sub-Pane 4: Snapshots -->
+          <!-- Sub-Pane 4: Large & Old Files -->
+          <div class="sub-pane" id="subpane-more-large-files">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Large & Old Files</h3>
+                <p class="pane-subtitle">500 MB, 1 GB, 5 GB, 10 GB ve 30/90/180/365 gün filtreleri. User dosyaları otomatik seçilmez.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-scan-large-files"><span>◫ Large/Old Tara</span></button>
+            </div>
+            <div class="glass-card">
+              <div class="config-row" style="margin-bottom: 16px;">
+                <label class="control-label">Min boyut:</label>
+                <select id="large-size-filter"><option>500MB</option><option>1GB</option><option>5GB</option><option>10GB</option></select>
+                <label class="control-label">Yaş:</label>
+                <select id="large-age-filter"><option value="">Tümü</option><option value="30">30 gün</option><option value="90">90 gün</option><option value="180">180 gün</option><option value="365">1 yıl</option></select>
+              </div>
+              <div class="table-container">
+                <table class="data-table" id="table-large-files">
+                  <thead><tr><th>Kategori</th><th>Dosya</th><th>Yaş</th><th>Boyut</th><th>Aksiyon</th></tr></thead>
+                  <tbody id="tbody-large-files"><tr><td colspan="5" class="empty-state">Large/old file taraması için yukarıdaki butona tıklayın.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 5: Snapshots -->
           <div class="sub-pane" id="subpane-more-snapshots">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>

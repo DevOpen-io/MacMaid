@@ -22,8 +22,10 @@ from .features import (
     OPTIMIZATIONS, ApplicationManager, ProjectPurgeManager, RecoveryCenter,
     doctor, history, list_snapshots, run_optimization, system_status, thin_snapshots,
 )
-from .developer import DeveloperInventory
+from .developer import DeveloperInventory, DeveloperStorageCenter
 from .duplicates import DuplicateFinder
+from .large_files import LargeOldFileScanner, SIZE_FILTERS
+from .smart_downloads import SmartDownloadsScanner
 from .models import ActionType, CleanupProfile, RiskLevel, ScanResult
 from .reporting import FreeSpaceProbe
 from .review import (
@@ -87,6 +89,8 @@ class WebState:
         self.leftovers: ScanResult | None = None
         self.dev_caches: ScanResult | None = None
         self.duplicates: set[Path] = set()
+        self.large_files: set[Path] = set()
+        self.smart_downloads: set[Path] = set()
         self.apps = []
         self.projects = []
         self.analyzed_paths: set[Path] = set()
@@ -353,6 +357,25 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
                                         | {Path(entry["path"]) for entry in result["largestFiles"]})
                 self._bump_generation("analyzer")
             return result
+        if path == "/api/smart-downloads":
+            files = SmartDownloadsScanner(older_than_days=int(query.get("olderThanDays", "30"))).scan()
+            with state.lock:
+                state.smart_downloads = {item.path for item in files}
+                self._bump_generation("smart-downloads")
+            total = sum(item.bytes for item in files)
+            return {"files": [item.web_dict() for item in files], "totalBytes": total,
+                    "humanTotal": human_bytes(total), "selectedByDefault": []}
+        if path == "/api/large-files":
+            roots = [Path(query["path"]).expanduser().absolute()] if query.get("path") else None
+            min_bytes = SIZE_FILTERS.get(str(query.get("minSize", "500MB")), SIZE_FILTERS["500MB"])
+            older = int(query["olderThanDays"]) if query.get("olderThanDays") else None
+            files = LargeOldFileScanner(min_bytes=min_bytes, older_than_days=older).scan(roots)
+            with state.lock:
+                state.large_files = {item.path for item in files}
+                self._bump_generation("large-files")
+            total = sum(item.bytes for item in files)
+            return {"files": [item.web_dict() for item in files], "totalBytes": total,
+                    "humanTotal": human_bytes(total), "selectedByDefault": []}
         if path == "/api/duplicates":
             roots = [Path(item).expanduser().absolute() for item in query.get("path", [])] or None
             groups = DuplicateFinder(min_bytes=int(query.get("minBytes", "1"))).scan(roots)
@@ -362,6 +385,11 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
             total = sum(group.wasted_bytes for group in groups)
             return {"groups": [group.web_dict() for group in groups], "totalWastedBytes": total,
                     "humanTotalWasted": human_bytes(total), "selectedByDefault": []}
+        if path == "/api/developer/storage":
+            sections = DeveloperStorageCenter(state.config).scan()
+            total = sum(section.bytes for section in sections)
+            return {"sections": [section.web_dict() for section in sections], "totalBytes": total,
+                    "humanTotal": human_bytes(total)}
         if path == "/api/developer/caches":
             result = PackageManagerCacheScanner(state.config).scan()
             with state.lock:
@@ -482,6 +510,52 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
             plan = purge_plan(selected)
             if review := self._review_gate("purge", body, plan): return review
             return ProjectPurgeManager(state.config).purge(selected)
+        if path == "/api/smart-downloads/trash":
+            requested = [Path(item).expanduser().absolute() for item in body.get("paths", [])]
+            if not requested or not set(requested).issubset(state.smart_downloads):
+                raise PermissionError("Smart Downloads item was not present in latest scan")
+            plan = analyzer_trash_plan(requested)
+            if review := self._review_gate("smart-downloads", body, plan): return review
+            moved = []
+            estimates = {item: size_of(item) for item in requested}
+            free_space = FreeSpaceProbe.capture(requested)
+            for item in requested:
+                destination = Cleaner(state.config).move_analyzer_item_to_trash(item, estimates[item])
+                moved.append(str(destination))
+            with state.lock: state.smart_downloads.difference_update(requested)
+            observed, notes = free_space.finish()
+            processed = sum(estimates.values())
+            Cleaner(state.config).log_space_summary(
+                "smart_downloads_trash_summary", scanned=processed, processed=processed, reclaimed=0,
+                trash_moved=processed, observed=observed, unknown=0, notes=notes,
+            )
+            return {"success": True, "removed": len(moved), "moved": moved,
+                    "processedEstimatedBytes": processed, "estimatedReclaimedBytes": 0,
+                    "trashMovedEstimatedBytes": processed, "observedFreeBytesDelta": observed,
+                    "measurementNotes": notes}
+        if path == "/api/large-files/trash":
+            requested = [Path(item).expanduser().absolute() for item in body.get("paths", [])]
+            if not requested or not set(requested).issubset(state.large_files):
+                raise PermissionError("Large/old file was not present in latest scan")
+            plan = analyzer_trash_plan(requested)
+            if review := self._review_gate("large-files", body, plan): return review
+            moved = []
+            estimates = {item: size_of(item) for item in requested}
+            free_space = FreeSpaceProbe.capture(requested)
+            for item in requested:
+                destination = Cleaner(state.config).move_analyzer_item_to_trash(item, estimates[item])
+                moved.append(str(destination))
+            with state.lock: state.large_files.difference_update(requested)
+            observed, notes = free_space.finish()
+            processed = sum(estimates.values())
+            Cleaner(state.config).log_space_summary(
+                "large_files_trash_summary", scanned=processed, processed=processed, reclaimed=0,
+                trash_moved=processed, observed=observed, unknown=0, notes=notes,
+            )
+            return {"success": True, "removed": len(moved), "moved": moved,
+                    "processedEstimatedBytes": processed, "estimatedReclaimedBytes": 0,
+                    "trashMovedEstimatedBytes": processed, "observedFreeBytesDelta": observed,
+                    "measurementNotes": notes}
         if path == "/api/duplicates/trash":
             requested = [Path(item).expanduser().absolute() for item in body.get("paths", [])]
             if not requested or not set(requested).issubset(state.duplicates):

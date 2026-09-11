@@ -33,72 +33,59 @@ Her uzun tarama cancellable, non-blocking ve incremental olmalı; recursive syml
 
 ### 0.9.19 — Large & Old Files
 
-- [ ] `>500 MB`, `>1 GB`, `>5 GB`, `>10 GB` boyut filtreleri ekle.
-- [ ] `30/90/180 gün` ve `1 yıl` yaş filtreleri ekle.
-- [ ] Large files, Old files, Archives, Videos, Disk images ve Downloads kategorilerini göster.
-- [ ] User dosyalarını otomatik seçme.
+- [x] `>500 MB`, `>1 GB`, `>5 GB`, `>10 GB` boyut filtreleri ekle.
+- [x] `30/90/180 gün` ve `1 yıl` yaş filtreleri ekle.
+- [x] Large files, Old files, Archives, Videos, Disk images ve Downloads kategorilerini göster.
+- [x] User dosyalarını otomatik seçme.
 
 ### 0.9.19 — Smart Downloads
 
-- [ ] Downloads içinde `.dmg`, `.pkg`, `.xip`, `.iso`, `.ipsw`, `.zip`, `.rar`, `.7z`, `.crdownload`, `.download`, `.part` tara.
-- [ ] Installers, Archives, Old Downloads, Incomplete Downloads ve Duplicates olarak sınıflandır.
-- [ ] Documents, photos ve source code'u otomatik junk sayma.
+- [x] Downloads içinde `.dmg`, `.pkg`, `.xip`, `.iso`, `.ipsw`, `.zip`, `.rar`, `.7z`, `.crdownload`, `.download`, `.part` tara.
+- [x] Installers, Archives, Old Downloads, Incomplete Downloads ve Duplicates olarak sınıflandır.
+- [x] Documents, photos ve source code'u otomatik junk sayma.
 
-### 0.9.20 — Storage Timeline
+### 0.9.20 — Developer Storage Center
 
-- [ ] Disk kullanım değişimini Projects, Downloads, Developer gibi kategorilerde kaydet.
-- [ ] `What Grew?` ekranında büyüyen exact yolları ve boyut farklarını göster.
-- [ ] Analyzer sonuçlarını lightweight snapshot olarak sakla.
+- [x] Xcode: DerivedData, ModuleCache, DeviceSupport, Simulators, Archives.
+- [x] Node.js: npm cache, pnpm store, yarn cache, node_modules, old runtimes.
+- [x] Python: uv cache, pip cache, pipx, Poetry, Conda, virtualenvs.
+- [x] Rust: Cargo cache, target directories, toolchains.
+- [x] Android storage görünümü ekle.
+- [x] Docker: Images, Containers, Volumes, Build Cache göster; volumes otomatik silinmesin.
 
-### 0.9.21 — Startup & Background Items
-
-- [ ] Login Items, LaunchAgents, Background Tasks ve Orphaned LaunchAgents göster.
-- [ ] M1 tamamen read-only olsun.
-- [ ] Özellikle `~/Library/LaunchAgents` içindeki orphaned item'ları tespit et.
-- [ ] System-level servisleri otomatik değiştirme.
-
-### 0.9.22 — Developer Storage Center
-
-- [ ] Xcode: DerivedData, ModuleCache, DeviceSupport, Simulators, Archives.
-- [ ] Node.js: npm cache, pnpm store, yarn cache, node_modules, old runtimes.
-- [ ] Python: uv cache, pip cache, pipx, Poetry, Conda, virtualenvs.
-- [ ] Rust: Cargo cache, target directories, toolchains.
-- [ ] Android storage görünümü ekle.
-- [ ] Docker: Images, Containers, Volumes, Build Cache göster; volumes otomatik silinmesin.
-
-### 0.9.23 — Browser Storage Inspector
+### 0.9.21 — Browser Storage Inspector
 
 - [ ] Safari, Chrome, Chromium, Brave, Edge, Firefox ve Arc destekle.
 - [ ] Cache, Code Cache, GPU Cache, Service Workers, IndexedDB, Local Storage, Cookies ve Sessions alanlarını ayrı göster.
 - [ ] Smart Clean yalnız güvenli cache alanlarını temizlesin.
 - [ ] Cookies, sessions ve diğer user data otomatik seçilmesin.
 
-### 0.9.24 — Scheduled Scans
+### 0.9.22 — Scheduled Scans
 
 - [ ] `launchd` ile Weekly Scan ekle: Cache, Large files, Developer storage, Leftovers.
 - [ ] Scheduled scan yalnız analiz yapsın; `Automatic deletion = OFF` olsun.
 - [ ] Tarama sonunda macOS notification göster.
 
-### 0.9.25 — Storage Treemap
+### 0.9.23 — Storage Treemap
 
 - [ ] Existing Disk Analyzer backend'ini kullanan interactive Web UI treemap ekle.
 - [ ] Folder size, percentage ve file count göster.
 - [ ] Drill-down, back navigation, Open in Finder ve cleanup candidate review ekle.
 
-### 0.9.26 — Custom Cleanup Rules
+### 0.9.24 — Custom Cleanup Rules
 
 - [ ] TOML tabanlı `name`, `path`, `older_than_days`, `action` kuralları ekle.
 - [ ] Yalnız `ANALYZE_ONLY`, `MOVE_TO_TRASH`, `REMOVE_CHILDREN` internal action'larını destekle.
 - [ ] Shell command veya `exec` desteği ekleme.
 - [ ] Her rule yürütme anında `PathSafety` kontrolünden geçsin.
 
-### 0.9.27 — Application Update Audit
+### 0.9.25 — Application Update Audit
 
 - [ ] Installed ve latest sürümleri karşılaştırarak update availability göster.
 - [ ] Homebrew uygulamalarında `brew outdated` ve `brew outdated --cask` kullan.
 - [ ] M1 yalnız update availability göstersin; update işlemi yapmasın.
 
-### 0.9.28 — Diagnostic Reports
+### 0.9.26 — Diagnostic Reports
 
 - [ ] Storage Report, Cleanup Report, System Health, Developer Storage ve Applications export'u ekle.
 - [ ] Markdown ve JSON formatlarını destekle.
@@ -143,15 +130,13 @@ LOW · MEDIUM · HIGH · BLOCKED
 2. Duplicate Finder
 3. Large & Old Files
 4. Smart Downloads
-5. Storage Timeline
-6. Startup & Background Items
-7. Developer Storage Center
-8. Browser Storage Inspector
-9. Scheduled Scan
-10. Storage Treemap
-11. Custom Cleanup Rules
-12. Application Update Audit
-13. Diagnostic Reports
-14. Security Audit
-15. v1.0 Release
+5. Developer Storage Center
+6. Browser Storage Inspector
+7. Scheduled Scan
+8. Storage Treemap
+9. Custom Cleanup Rules
+10. Application Update Audit
+11. Diagnostic Reports
+12. Security Audit
+13. v1.0 Release
 ```

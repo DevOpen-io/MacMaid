@@ -19,8 +19,10 @@ from .analyzer import IncrementalAnalyzer
 from .cancellation import CancellationToken, ScanCancelled
 from .cleaner import Cleaner
 from .config import Config
-from .developer import DeveloperInventory, DeveloperItem
+from .developer import DeveloperInventory, DeveloperItem, DeveloperStorageCenter, DeveloperStorageSection
 from .duplicates import DuplicateFinder
+from .large_files import LargeOldFileScanner
+from .smart_downloads import SmartDownloadsScanner
 from .features import (
     OPTIMIZATIONS, AppComponent, ApplicationManager, InstalledApplication,
     ProjectArtifact, ProjectPurgeManager, RecoveryCenter, doctor, history, list_snapshots,
@@ -163,7 +165,7 @@ class DeepCleanTUI(App[None]):
         self.app_components: list[AppComponent] = []; self.component_selected: set[int] = set()
         self.artifacts: list[ProjectArtifact] = []; self.purge_selected: set[int] = set()
         self.developer_kind = "runtime"
-        self.developer_items: list[DeveloperItem] = []; self.dev_cache_result: ScanResult | None = None; self.dev_selected: set[int] = set()
+        self.developer_items: list[DeveloperItem] = []; self.developer_storage: list[DeveloperStorageSection] = []; self.dev_cache_result: ScanResult | None = None; self.dev_selected: set[int] = set()
         self.more_kind: str | None = None
         self.more_result: ScanResult | None = None; self.more_selected: set[int] = set()
         self.optimize_selected = {i for i, task in enumerate(OPTIMIZATIONS) if task["recommended"]}
@@ -301,6 +303,7 @@ class DeepCleanTUI(App[None]):
 
     def _developer_page(self) -> Vertical:
         return self._page("developer", "Developer Tools", "Developer storage with manager-aware removal and cache cleanup", self._action_menu("developer-actions", [
+            ("developer-kind-storage", "▤  Storage Center", "Grouped Xcode, Node, Python, Rust, Android and Docker storage overview"),
             ("developer-kind-runtime", "{}  Runtimes & Languages", "Find managed Python, Ruby, Rust, Node, Go, Java and other versions"),
             ("developer-kind-environment", "◌  Environments", "Find Conda/Micromamba environments and virtualenv storage"),
             ("developer-kind-tool", "⌁  Global CLI tools", "Find Homebrew leaves, pipx, uv, npm, pnpm, Cargo and related installs"),
@@ -332,7 +335,13 @@ class DeepCleanTUI(App[None]):
         return self._page("more", "More tools", "Extra maintenance and inspection commands", self._action_menu("more-actions", [
             ("more-leftovers", "◇  Leftovers", "Find safe remnants from removed applications"),
             ("more-installers", "↓  Installers", "Find old DMG, PKG, XIP, ISO and IPSW files"),
+            ("more-smart-downloads", "↓  Smart Downloads", "Classify installers, archives, incomplete downloads and duplicates"),
             ("more-duplicates", "⧉  Duplicate Files", "Find byte-for-byte matches; nothing is selected automatically"),
+            ("more-large-files-500mb", "◫  Large & Old >500 MB", "Scan HOME except Library; no automatic selection"),
+            ("more-large-files-1gb", "◫  Large & Old >1 GB", "Scan HOME except Library; no automatic selection"),
+            ("more-large-files-5gb", "◫  Large & Old >5 GB", "Scan HOME except Library; no automatic selection"),
+            ("more-large-files-10gb", "◫  Large & Old >10 GB", "Scan HOME except Library; no automatic selection"),
+            ("more-large-files-500mb-90d", "◫  Old Large >500 MB / 90d", "Apply both size and age filters"),
             ("more-snapshots", "◷  Snapshots", "List local Time Machine snapshots"),
             ("more-doctor", "+  Doctor", "Check DeepClean and macOS capabilities"),
             ("more-history", "≡  History", "Show recent activity in a readable timeline"),
@@ -916,6 +925,11 @@ class DeepCleanTUI(App[None]):
         elif table_id == "developer-table":
             if self.dev_cache_result and 0 <= row < len(self.dev_cache_result.items):
                 item = self.dev_cache_result.items[row]; text = f"{item.reason}\n{item.path or item.action.kind.value}"
+            elif self.developer_storage and 0 <= row < len(self.developer_storage):
+                section = self.developer_storage[row]
+                lines = [f"{section.title} · {human_bytes(section.bytes)}", section.note]
+                lines.extend(f"{human_bytes(item['bytes'])} · {item['label']} · {item['path']} — {item['note']}" for item in section.items[:20])
+                text = "\n".join(line for line in lines if line)
             elif 0 <= row < len(self.developer_items):
                 item = self.developer_items[row]; text = f"{item.protected_reason or item.note or 'Owning manager üzerinden kaldırılır.'}\n{item.path}"
         elif table_id == "optimize-table" and 0 <= row < len(OPTIMIZATIONS):
@@ -1273,15 +1287,23 @@ class DeepCleanTUI(App[None]):
     def _developer_worker(self, kind: str, token: CancellationToken) -> None:
         try:
             if kind == "cache": self._scan_update(self._finish_dev_cache, PackageManagerCacheScanner(self.config).scan(token))
+            elif kind == "storage": self._scan_update(self._finish_developer_storage, DeveloperStorageCenter(self.config).scan(token))
             else: self._scan_update(self._finish_developer, DeveloperInventory(self.config).scan(kind, token))
         except ScanCancelled: self._scan_update(self._scan_cancelled, "developer", "developer-progress")
         except Exception as exc: self._scan_update(self._scan_failed, "developer", "developer-progress", f"Envanter hatası: {exc}")
     def _finish_developer(self, items: list[DeveloperItem]) -> None:
         self.scan_cancellations.pop("developer", None)
-        self.dev_cache_result = None; self.developer_items = items; self.dev_selected.clear(); self._render_developer()
+        self.dev_cache_result = None; self.developer_storage = []; self.developer_items = items; self.dev_selected.clear(); self._render_developer()
         self.query_one("#developer-progress", ProgressBar).update(total=100, progress=100)
         self._set_state("developer", f"{len(items)} öğe · {sum(x.removable and not x.is_active for x in items)} kaldırılabilir")
         if items: self.query_one("#developer-table", DataTable).focus()
+    def _finish_developer_storage(self, sections: list[DeveloperStorageSection]) -> None:
+        self.scan_cancellations.pop("developer", None)
+        self.dev_cache_result = None; self.developer_items = []; self.developer_storage = sections; self.dev_selected.clear(); self._render_developer()
+        self.query_one("#developer-progress", ProgressBar).update(total=100, progress=100)
+        self._set_state("developer", f"Storage Center · {len(sections)} bölüm · {human_bytes(sum(x.bytes for x in sections))}")
+        if sections: self.query_one("#developer-table", DataTable).focus()
+
     def _finish_dev_cache(self, result: ScanResult) -> None:
         self.scan_cancellations.pop("developer", None)
         self.developer_items = []; self.dev_cache_result = result
@@ -1298,6 +1320,10 @@ class DeepCleanTUI(App[None]):
         table = self.query_one("#developer-table", DataTable); table.clear()
         if self.dev_cache_result:
             for i, x in enumerate(self.dev_cache_result.items): table.add_row(self._selection_cell(i in self.dev_selected), human_bytes(x.estimated_bytes), self._risk_cell(x.risk), "cache", x.label, str(x.path or x.action.kind.value))
+        elif self.developer_storage:
+            for section in self.developer_storage:
+                detail = f"{len(section.items)} item" + (f" · {section.note}" if section.note else "")
+                table.add_row("—", human_bytes(section.bytes), Text("VIEW", style="bold #5ee7e7"), "storage", section.title, detail)
         else:
             for x in self.developer_items:
                 state = Text("● ACTIVE", style="bold #d9bd72") if x.is_active else Text("✓ REMOVABLE", style="bold #8fcf8b") if x.removable else Text("◆ PROTECTED", style="bold #e27d82")
@@ -1312,6 +1338,10 @@ class DeepCleanTUI(App[None]):
             plan = cleanup_plan("Clean developer caches", items)
             self._confirm(plan, lambda: self._dev_cache_worker(items, manual), self._current_dev_cache_plan); return
         table = self.query_one("#developer-table", DataTable)
+        if self.developer_storage:
+            self._update_row_detail("developer-table", table.cursor_row)
+            self._warn("Storage Center salt-okunur envanterdir; kaldırma için cache/runtime/tool/SDK sekmelerini kullan")
+            return
         if not self.developer_items or not table.row_count: self._warn("Önce envanter tara"); return
         item = self.developer_items[table.cursor_row]
         if not item.removable or item.is_active: self._warn(item.protected_reason or "Bu öğe korumalı"); return
@@ -1495,8 +1525,17 @@ class DeepCleanTUI(App[None]):
                 result = scan_leftovers(self.config, cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "installers":
                 result = scan_installers(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
+            elif kind == "smart-downloads":
+                result = SmartDownloadsScanner().scan_result(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "duplicates":
                 result = DuplicateFinder().scan_result(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
+            elif kind.startswith("large-files"):
+                size_map = {"500mb": 500 * 1000**2, "1gb": 1000**3, "5gb": 5 * 1000**3, "10gb": 10 * 1000**3}
+                parts = kind.split("-")
+                size_key = next((part for part in parts if part in size_map), "500mb")
+                age = next((int(part[:-1]) for part in parts if part.endswith("d") and part[:-1].isdigit()), None)
+                result = LargeOldFileScanner(min_bytes=size_map[size_key], older_than_days=age).scan_result(cancellation=token)
+                self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "snapshots": text = "\n".join(list_snapshots()) or "Local snapshot bulunamadı."
             elif kind == "doctor": text = "\n".join(f"{x['name']:<30} {x['value']}" for x in doctor())
             elif kind == "history": text = self._history_text(RecoveryCenter(self.config).entries(100))
@@ -1514,7 +1553,13 @@ class DeepCleanTUI(App[None]):
 
     def _finish_more_scan(self, kind: str, result: ScanResult) -> None:
         self.scan_cancellations.pop("more", None)
-        self.more_result = result; self.more_selected = (set() if kind == "duplicates" else {i for i, item in enumerate(result.items) if item.risk is not RiskLevel.MANUAL_ONLY}) if result.is_complete else set(); self.query_one("#more-output", Static).update(""); self._render_more_scan()
+        manual_review_only = kind in {"duplicates", "smart-downloads"} or kind.startswith("large-files")
+        self.more_result = result; self.more_selected = (set() if manual_review_only else {i for i, item in enumerate(result.items) if item.risk is not RiskLevel.MANUAL_ONLY}) if result.is_complete else set()
+        if manual_review_only and not result.items:
+            self.query_one("#more-output", Static).update("Filtreye uyan dosya bulunamadı. Large & Old varsayılan olarak HOME altında tarar, ~/Library ve symlinkleri atlar; farklı eşik için More menüsünden başka Large & Old filtresi seç.")
+        else:
+            self.query_one("#more-output", Static).update("")
+        self._render_more_scan()
         self.query_one("#more-progress", ProgressBar).update(total=100, progress=100)
         if result.is_complete:
             self._set_state("more", f"{kind} · {len(result.items)} öğe · {human_bytes(result.total_bytes)}")

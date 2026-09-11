@@ -57,8 +57,11 @@ deepclean scan --profile safe --apply
 deepclean apps
 deepclean analyze ~/Projects
 deepclean duplicates --path ~/Downloads --min-size 10MB
+deepclean large-files --path ~/Downloads --min-size 1GB --older-than-days 90
+deepclean smart-downloads --older-than-days 30
 deepclean purge --path ~/Projects
 deepclean developer-caches --scan-only
+deepclean developer storage
 deepclean developer runtimes
 deepclean optimize
 deepclean snapshots
@@ -75,6 +78,12 @@ Cancelled, permission-limited and failed scans are not reported as “clean.” 
 Space reporting deliberately separates the reviewed scan estimate, the estimate for successfully processed targets, the conservative estimated reclaim, and the observed filesystem-wide free-space change. Trash moves are reported separately and are never counted as freed space. Manager effects remain unknown unless they can be measured safely. Observed changes are not attributed solely to DeepClean because APFS clones, snapshots, sparse files and concurrent disk activity can affect them.
 
 Duplicate File Finder is read-only during scanning and verifies candidates in the order `size → partial hash → full hash`; hardlinks/same-inode paths are not counted as duplicates. No duplicate is selected automatically, and moving a reviewed duplicate to Trash goes through the same preview, confirmation, PathSafety and history pipeline as analyzer Trash actions.
+
+Large & Old Files is also read-only during scanning. It supports 500 MB, 1 GB, 5 GB and 10 GB size filters plus 30/90/180/365-day age filters, and labels Large files, Old files, Archives, Videos, Disk images and Downloads. These are user files, so nothing is selected automatically.
+
+Smart Downloads scans `~/Downloads` for installers (`.dmg`, `.pkg`, `.xip`, `.iso`, `.ipsw`), archives (`.zip`, `.rar`, `.7z`), incomplete downloads (`.crdownload`, `.download`, `.part`), old matching downloads and byte-for-byte duplicates. Documents, photos and source code are not automatically classified as junk.
+
+Developer Storage Center groups Xcode, Node.js, Python, Rust, Android and Docker storage in the Developer Tools area. It is read-only inventory: Docker volumes are never auto-deleted, project `node_modules`/`target` directories are shown for review, and manager-owned runtimes/caches continue to use their manager-specific cleanup/removal flows.
 
 Recovery history records each item with `operation_id`, original path, Trash path, timestamp, size and whether it is restorable. Restorable Trash entries can be restored from the Web UI or with `deepclean restore`; use `--copy` to avoid moving the Trash item back. If the original path already exists, normal restore fails closed and Restore as copy chooses a collision-free sibling. Package-manager cleanup commands are shown as Not Restorable because their managers perform the mutation.
 

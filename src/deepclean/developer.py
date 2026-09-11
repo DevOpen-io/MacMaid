@@ -15,7 +15,7 @@ from .config import Config
 from .models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
 from .reporting import FreeSpaceProbe
 from .safety import PathSafety
-from .system import run_command as _run_command, size_of, sizes_of, which
+from .system import human_bytes, run_command as _run_command, size_of, sizes_of, which
 
 
 _SCAN_CONTEXT = threading.local()
@@ -105,6 +105,116 @@ def _managed_directories(
                 executable=executable, arguments=tuple(args), note=f"Managed by {manager}",
             ))
     return items
+
+
+@dataclass(frozen=True, slots=True)
+class DeveloperStorageSection:
+    id: str
+    title: str
+    bytes: int
+    items: tuple[dict[str, Any], ...]
+    note: str = ""
+
+    def web_dict(self) -> dict[str, Any]:
+        return {"id": self.id, "title": self.title, "bytes": self.bytes,
+                "humanBytes": human_bytes(self.bytes),
+                "items": list(self.items), "note": self.note}
+
+
+class DeveloperStorageCenter:
+    """Read-only developer storage overview grouped by ecosystem."""
+
+    def __init__(self, config: Config | None = None) -> None:
+        self.config = config or Config()
+
+    def scan(self, cancellation: CancellationToken | None = None) -> list[DeveloperStorageSection]:
+        token = cancellation or CancellationToken()
+        sections = [
+            self._known_paths("xcode", "Xcode", self._xcode_paths(), token),
+            self._known_paths("node", "Node.js", self._node_paths(), token),
+            self._known_paths("python", "Python", self._python_paths(), token),
+            self._known_paths("rust", "Rust", self._rust_paths(), token),
+            self._android_section(token),
+            self._docker_section(token),
+        ]
+        return [section for section in sections if section.items or section.bytes or section.note]
+
+    def _known_paths(self, id: str, title: str, paths: list[tuple[str, Path, str]], token: CancellationToken) -> DeveloperStorageSection:
+        existing = [(label, path, note) for label, path, note in paths if path.exists()]
+        measured = sizes_of([path for _label, path, _note in existing], cancel=token.check) if existing else {}
+        items = tuple({"label": label, "path": str(path), "bytes": measured.get(path, 0),
+                       "humanBytes": human_bytes(measured.get(path, 0)),
+                       "note": note, "removable": False} for label, path, note in existing)
+        return DeveloperStorageSection(id, title, sum(item["bytes"] for item in items), items)
+
+    def _xcode_paths(self) -> list[tuple[str, Path, str]]:
+        home = Path.home(); root = home / "Library/Developer/Xcode"
+        return [("DerivedData", root / "DerivedData", "Recreatable build/index data"),
+                ("ModuleCache", root / "ModuleCache.noindex", "Recreatable compiler module cache"),
+                ("DeviceSupport", root / "iOS DeviceSupport", "Physical-device debug symbols; inventory only"),
+                ("Archives", root / "Archives", "App archives may be user-important; inventory only"),
+                ("Simulators", home / "Library/Developer/CoreSimulator/Devices", "Simulator devices may contain app data; inventory only")]
+
+    def _node_paths(self) -> list[tuple[str, Path, str]]:
+        home = Path.home()
+        paths = [("npm cache", home / ".npm", "Prefer npm cache clean"),
+                 ("pnpm store", home / "Library/pnpm/store", "Prefer pnpm store prune"),
+                 ("yarn cache", home / "Library/Caches/Yarn", "Prefer yarn cache clean"),
+                 ("nvm runtimes", home / ".nvm/versions/node", "Shell-managed; inventory only"),
+                 ("fnm runtimes", home / "Library/Application Support/fnm/node-versions", "Manager-owned runtimes")]
+        paths.extend(("node_modules", path, "Project dependency directory; review with Project Purge") for path in self._find_named_project_dirs("node_modules"))
+        return paths
+
+    def _python_paths(self) -> list[tuple[str, Path, str]]:
+        home = Path.home()
+        return [("uv cache", home / "Library/Caches/uv", "Prefer uv cache prune"),
+                ("pip cache", home / "Library/Caches/pip", "Prefer pip cache purge"),
+                ("pipx", home / ".local/share/pipx", "Isolated apps; use pipx uninstall"),
+                ("Poetry", home / "Library/Caches/pypoetry", "Poetry cache/inventory"),
+                ("Conda", home / "miniconda3", "Managed environments; base protected"),
+                ("virtualenvs", home / ".virtualenvs", "Project/user environments; inventory only")]
+
+    def _rust_paths(self) -> list[tuple[str, Path, str]]:
+        home = Path.home(); cargo = Path(os.environ.get("CARGO_HOME", home / ".cargo")); rustup = Path(os.environ.get("RUSTUP_HOME", home / ".rustup"))
+        paths = [("Cargo registry", cargo / "registry", "Crates cache/source"),
+                 ("Cargo git", cargo / "git", "Git dependency cache"),
+                 ("Rust toolchains", rustup / "toolchains", "Use rustup toolchain uninstall")]
+        paths.extend(("target directory", path, "Rust build output; review with Project Purge") for path in self._find_named_project_dirs("target"))
+        return paths
+
+    def _find_named_project_dirs(self, name: str) -> list[Path]:
+        roots = [Path.home() / item for item in ("Developer", "Projects", "Code", "src")]
+        found: list[Path] = []
+        for root in roots:
+            if not root.is_dir() or root.is_symlink():
+                continue
+            try:
+                for child in root.iterdir():
+                    candidate = child / name
+                    if child.is_dir() and not child.is_symlink() and candidate.is_dir() and not candidate.is_symlink():
+                        found.append(candidate)
+            except OSError:
+                continue
+        return found[:200]
+
+    def _android_section(self, token: CancellationToken) -> DeveloperStorageSection:
+        sdk = DeveloperInventory._android_root()
+        paths = [] if sdk is None else [("SDK root", sdk, "SDK/NDK/platforms/system images; use Android Studio/sdkmanager")]
+        return self._known_paths("android", "Android", paths, token)
+
+    def _docker_section(self, token: CancellationToken) -> DeveloperStorageSection:
+        docker = which("docker")
+        note = "Docker images, containers, volumes and build cache are shown only; volumes are never auto-deleted."
+        if not docker:
+            return DeveloperStorageSection("docker", "Docker", 0, (), "Docker executable not found")
+        try:
+            output = run_command(docker, ["system", "df", "--format", "json"], timeout=20).stdout
+        except Exception as exc:
+            return DeveloperStorageSection("docker", "Docker", 0, (), f"Docker inventory unavailable: {exc}")
+        items = tuple({"label": "Docker system df", "path": "docker://system", "bytes": 0,
+                       "humanBytes": "unknown", "note": line[:500], "removable": False}
+                      for line in output.splitlines() if line.strip())
+        return DeveloperStorageSection("docker", "Docker", 0, items, note)
 
 
 class DeveloperInventory:
