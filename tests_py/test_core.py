@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from deepclean.cleaner import Cleaner
 from deepclean.config import Config
-from deepclean.features import ApplicationManager, ProjectArtifact, ProjectPurgeManager, completion_script, system_status
+from deepclean.features import ApplicationManager, ProjectArtifact, ProjectPurgeManager, completion_activation_hint, completion_script, install_completion, system_status
 from deepclean.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, CleanupProfile, RiskLevel
 from deepclean.safety import PathSafety, PathSafetyError, manual_cache_allowed
 from deepclean.system import human_bytes, run_command, sizes_of
@@ -172,8 +173,75 @@ def test_bounded_parallel_sizes(tmp_path: Path) -> None:
 
 def test_completion_contains_all_primary_commands() -> None:
     script = completion_script("zsh")
-    for command in ("scan", "apps", "analyze", "purge", "status", "ui"):
-        assert command in script
+    for command in ("scan", "apps", "analyze", "purge", "status", "developer", "ui"):
+        assert f"'{command}:" in script
+    for option in ("--profile", "--scan-only", "--apply", "--path", "--task", "--port"):
+        assert option in script
+    assert "'help:" not in script and "'version:" not in script
+
+
+def test_zsh_completion_script_has_valid_syntax() -> None:
+    checked = subprocess.run(
+        ["/bin/zsh", "-n"], input=completion_script("zsh"), text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+    )
+    assert checked.returncode == 0, checked.stderr
+
+
+def test_installed_zsh_completion_is_registered(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(os, "getuid", lambda: tmp_path.lstat().st_uid)
+    destination = install_completion("zsh", Config(home=tmp_path))
+    assert destination == tmp_path / ".config/deepclean/completions/zsh/_deepclean"
+    assert "DeepClean completion" in (tmp_path / ".zshrc").read_text()
+    checked = subprocess.run(
+        ["/bin/zsh", "-fc", 'fpath=("$HOME/.config/deepclean/completions/zsh" $fpath); autoload -Uz compinit; compinit -D; print -r -- ${_comps[deepclean]-missing}'],
+        text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        env=dict(os.environ, HOME=str(tmp_path)),
+    )
+    assert checked.returncode == 0, checked.stderr
+    assert checked.stdout.strip() == "_deepclean"
+
+
+def test_completion_activation_hint_initializes_current_zsh() -> None:
+    hint = completion_activation_hint("zsh")
+    assert 'fpath=("$HOME/.config/deepclean/completions/zsh" $fpath)' in hint
+    assert "autoload -Uz compinit" in hint
+
+
+def test_installer_configures_completion_for_active_shell(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    fake_bin = tmp_path / "bin"
+    tool_bin = tmp_path / "tool-bin"
+    fake_home = tmp_path / "home"
+    log = tmp_path / "deepclean-arguments"
+    for directory in (fake_bin, tool_bin, fake_home):
+        directory.mkdir()
+
+    scripts = {
+        fake_bin / "uname": "#!/bin/sh\nprintf '%s\\n' Darwin\n",
+        fake_bin / "id": "#!/bin/sh\nprintf '%s\\n' 501\n",
+        fake_bin / "uv": "#!/bin/sh\nif [ \"$*\" = \"tool dir --bin\" ]; then printf '%s\\n' \"$FAKE_TOOL_BIN\"; fi\n",
+        tool_bin / "deepclean": "#!/bin/sh\nprintf '%s\\n' \"$*\" > \"$FAKE_LOG\"\n",
+    }
+    for path, content in scripts.items():
+        path.write_text(content)
+        path.chmod(0o700)
+
+    environment = dict(
+        os.environ,
+        PATH=f"{fake_bin}:/usr/bin:/bin",
+        HOME=str(fake_home),
+        SHELL="/bin/zsh",
+        FAKE_TOOL_BIN=str(tool_bin),
+        FAKE_LOG=str(log),
+    )
+    installed = subprocess.run(
+        ["/bin/sh", str(root / "install.sh")], cwd=root, env=environment,
+        text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+    )
+    assert installed.returncode == 0, installed.stderr
+    assert log.read_text().strip() == "completion zsh --install"
+    assert "Shell completion installed automatically for zsh" in installed.stdout
 
 
 def test_human_bytes() -> None:

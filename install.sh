@@ -15,6 +15,19 @@ ROOT=$(CDPATH= cd "$SCRIPT_DIR" 2>/dev/null && pwd -P) || fail "Could not resolv
 printf '%s\n' "Installing DeepClean into your user-owned uv tool directory..."
 "$UV" tool install --force "$ROOT"
 
+ACTIVE_SHELL=${SHELL##*/}
+case "$ACTIVE_SHELL" in
+  zsh|bash|fish)
+    TOOL_BIN=$("$UV" tool dir --bin)
+    if "$TOOL_BIN/deepclean" completion "$ACTIVE_SHELL" --install; then
+      printf '%s\n' "Shell completion installed automatically for $ACTIVE_SHELL."
+    else
+      printf '%s\n' "DeepClean was installed, but $ACTIVE_SHELL completion could not be configured." >&2
+    fi
+    ;;
+  *) printf '%s\n' "Shell completion was not changed for unsupported shell: ${ACTIVE_SHELL:-unknown}" ;;
+esac
+
 USER_BIN=$HOME/.local/bin
 case ":${PATH:-}:" in
   *":$USER_BIN:"*) : ;;

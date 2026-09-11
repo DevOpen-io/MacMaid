@@ -748,20 +748,118 @@ def developer_inventory(kind: str) -> list[dict[str, Any]]:
 
 
 def completion_script(shell: str) -> str:
-    commands = "help version doctor scan clean leftovers installers analyze apps purge status completion developer-caches optimize snapshots history whitelist uninstall ui"
+    commands = "doctor scan clean leftovers installers analyze apps purge status completion developer-caches developer optimize snapshots history whitelist uninstall ui web gui dashboard"
     if shell == "fish":
         return f"complete -c deepclean -f -a '{commands}'"
     if shell == "bash":
         return f"_deepclean() {{ COMPREPLY=( $(compgen -W \"{commands}\" -- \"${{COMP_WORDS[1]}}\") ); }}\ncomplete -F _deepclean deepclean"
-    return f"#compdef deepclean\n_arguments '1:command:({commands})' '*::arg:->args'"
+    optimization_ids = " ".join(task["id"] for task in OPTIMIZATIONS)
+    return f'''#compdef deepclean
+
+_deepclean() {{
+  local context state state_descr line
+  typeset -A opt_args
+  local -a commands
+  commands=(
+    'doctor:Check macOS and DeepClean capabilities'
+    'scan:Scan cleanup candidates safely'
+    'clean:Alias for scan'
+    'leftovers:Find application leftovers'
+    'installers:Find old installer files'
+    'analyze:Analyze disk usage'
+    'apps:List installed applications'
+    'purge:Find generated project artifacts'
+    'status:Show evidence-based Mac health'
+    'completion:Print or install shell completion'
+    'developer-caches:Scan package-manager caches'
+    'developer:List managed runtimes environments tools or SDKs'
+    'optimize:Review macOS maintenance tasks'
+    'snapshots:List or thin local snapshots'
+    'history:Show operation history'
+    'whitelist:Print the whitelist path'
+    'uninstall:Uninstall DeepClean'
+    'ui:Open the local Web UI'
+    'web:Alias for ui'
+    'gui:Alias for ui'
+    'dashboard:Alias for ui'
+  )
+
+  _arguments -C \\
+    '(-h --help)'{{-h,--help}}'[show help]' \\
+    '(- 1 *)--version[show version]' \\
+    '1:command:->command' \\
+    '*::argument:->arguments'
+
+  case $state in
+    command)
+      _describe -t commands 'DeepClean command' commands
+      ;;
+    arguments)
+      case $words[2] in
+        scan|clean)
+          _arguments \\
+            '--profile[select scan profile]:profile:(safe deep developer aggressive)' \\
+            '--trash[include Trash in the scan]' \\
+            '--system-temp[include eligible system temporary files]' \\
+            '--scan-only[scan without prompting for cleanup]' \\
+            '--no-prompt[alias for --scan-only]' \\
+            '--apply[request cleanup after review]' \\
+            '--yes[acknowledge a reviewed non-interactive operation]'
+          ;;
+        leftovers)
+          _arguments '--older-than[minimum age in days]:days:' '--include-data[include separately classified application data]' '--apply[request cleanup after review]' '--yes[acknowledge a reviewed non-interactive operation]'
+          ;;
+        installers)
+          _arguments '--older-than[minimum age in days]:days:' '--apply[request cleanup after review]' '--yes[acknowledge a reviewed non-interactive operation]'
+          ;;
+        analyze)
+          _arguments '1:path:_files' '--top[number of largest files]:count:' '--min-size[minimum file size]:size:' '--plain[use plain output]'
+          ;;
+        purge)
+          _arguments '*--path[project root]:project root:_directories' '--apply[request Trash moves after review]' '--yes[acknowledge a reviewed non-interactive operation]'
+          ;;
+        completion)
+          _arguments '1:shell:(zsh bash fish)' '--print[print completion script]' '--install[install completion for the selected shell]'
+          ;;
+        developer-caches)
+          _arguments '--scan-only[scan without prompting for cleanup]' '--apply[request cleanup after review]' '--yes[acknowledge a reviewed non-interactive operation]'
+          ;;
+        developer)
+          _arguments '1:inventory kind:(runtimes environments tools sdks)'
+          ;;
+        optimize)
+          _arguments '--task[select one maintenance task]:task:({optimization_ids})' '--all[select every task including advanced tasks]' '--apply[request execution after review]' '--yes[acknowledge a reviewed non-interactive operation]'
+          ;;
+        snapshots)
+          _arguments '--thin[request reclaim target]:gigabytes:' '--apply[request execution after review]' '--yes[acknowledge a reviewed non-interactive operation]'
+          ;;
+        history)
+          _arguments '--limit[maximum history records]:count:'
+          ;;
+        ui|web|gui|dashboard)
+          _arguments '--port[localhost port]:port:' '--no-open[do not open the browser]'
+          ;;
+        uninstall)
+          _arguments '--purge-data[also remove DeepClean configuration and logs]'
+          ;;
+        *)
+          _arguments '(-h --help)'{{-h,--help}}'[show help]'
+          ;;
+      esac
+      ;;
+  esac
+}}
+
+_deepclean "$@"'''
 
 
 def install_completion(shell: str, config: Config | None = None) -> Path:
     config = config or Config(); config.ensure_files()
+    home = config.home
     marker = "# >>> DeepClean completion >>>"
     end = "# <<< DeepClean completion <<<"
     if shell == "fish":
-        destination = Path.home() / ".config/fish/completions/deepclean.fish"
+        destination = home / ".config/fish/completions/deepclean.fish"
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(completion_script("fish") + "\n", encoding="utf-8")
         return destination
@@ -769,15 +867,23 @@ def install_completion(shell: str, config: Config | None = None) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(completion_script(shell) + "\n", encoding="utf-8")
     if shell == "zsh":
-        rc = Path.home() / ".zshrc"
+        rc = home / ".zshrc"
         block = f'\n{marker}\nfpath=("$HOME/.config/deepclean/completions/zsh" $fpath)\nautoload -Uz compinit\ncompinit\n{end}\n'
     else:
-        rc = Path.home() / (".bash_profile" if (Path.home() / ".bash_profile").exists() else ".bashrc")
+        rc = home / (".bash_profile" if (home / ".bash_profile").exists() else ".bashrc")
         block = f'\n{marker}\n[ -f "$HOME/.config/deepclean/completions/deepclean.bash" ] && source "$HOME/.config/deepclean/completions/deepclean.bash"\n{end}\n'
     current = rc.read_text(encoding="utf-8") if rc.exists() else ""
     if marker not in current:
         rc.write_text(current + block, encoding="utf-8")
     return destination
+
+
+def completion_activation_hint(shell: str) -> str:
+    if shell == "zsh":
+        return 'fpath=("$HOME/.config/deepclean/completions/zsh" $fpath); autoload -Uz compinit; compinit'
+    if shell == "bash":
+        return 'source "$HOME/.config/deepclean/completions/deepclean.bash"'
+    return 'source "$HOME/.config/fish/completions/deepclean.fish"'
 
 
 def remove_completion_hooks() -> None:

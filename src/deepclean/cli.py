@@ -10,7 +10,7 @@ from . import __version__
 from .cleaner import Cleaner
 from .config import Config
 from .features import (
-    OPTIMIZATIONS, ApplicationManager, ProjectPurgeManager, analyze_directory, completion_script,
+    OPTIMIZATIONS, ApplicationManager, ProjectPurgeManager, analyze_directory, completion_activation_hint, completion_script,
     developer_inventory, doctor, history, install_completion, list_snapshots, remove_completion_hooks,
     run_optimization, system_status, thin_snapshots,
 )
@@ -230,8 +230,9 @@ def main(argv: list[str] | None = None) -> None:
         for record in history(args.limit): _print_history_record(record)
     elif command == "completion":
         if args.install:
-            if _confirm(f"Install {args.shell} completion?", False): print(f"Installed: {install_completion(args.shell, config)}")
-            else: print("Cancelled.")
+            print(f"Installed: {install_completion(args.shell, config)}")
+            print(f"New {args.shell} sessions will load completion automatically.")
+            print(f"Current session only: {completion_activation_hint(args.shell)}")
         else: print(completion_script(args.shell))
     elif command == "whitelist":
         print(config.whitelist_file)

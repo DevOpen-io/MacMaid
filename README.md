@@ -37,6 +37,14 @@ uv tool install --force .
 
 If `~/.local/bin` is not on `PATH`, run `uv tool update-shell` once.
 
+`./install.sh` detects zsh, bash or fish and installs command/argument completion automatically. New terminal sessions load it without another setup step. For an existing installation, run:
+
+```sh
+deepclean completion zsh --install
+```
+
+The command prints the exact one-line activation command for the current terminal. A child installer cannot modify the already-running parent shell; this limitation applies to all shell-completion installers.
+
 ## Main commands
 
 ```sh
