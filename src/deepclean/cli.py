@@ -174,7 +174,12 @@ def main(argv: list[str] | None = None) -> None:
     elif command == "doctor":
         for check in doctor(): print(f"{check['name']:<28} {check['value']}")
     elif command == "status":
-        status = system_status(); print(f"CPU {status['cpuPercent']:.0f}% · RAM {human_bytes(status['memoryUsed'])}/{human_bytes(status['memoryTotal'])} · Disk {human_bytes(status['diskUsed'])}/{human_bytes(status['diskTotal'])}")
+        status = system_status()
+        for item in status["healthIndicators"]:
+            print(f"{item['label']:<18} {item['state'].upper():<14} {item['value']}")
+            print(f"  {item['detail']}")
+            if item.get("recommendation"): print(f"  Suggestion: {item['recommendation']}")
+        print(f"Measured {status['healthMeasuredAt']} · read-only snapshot; no health score")
     elif command == "analyze":
         units = {"KB": 1000, "MB": 1000**2, "GB": 1000**3, "TB": 1000**4}
         raw = args.min_size.upper().strip(); suffix = next((u for u in units if raw.endswith(u)), None)

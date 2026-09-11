@@ -272,7 +272,7 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
             return analyzer if analyzer.get("active") and not regular.get("active") else regular
         if path == "/api/status":
             raw = system_status()
-            return {"metrics": raw, "uptime": max(0, __import__("time").time() - raw["bootTime"]), "loadAverage": list(os.getloadavg()), "thermal": raw["thermal"], "battery": raw["battery"] or {}, "processes": raw["processes"]}
+            return {"metrics": raw, "health": raw["healthIndicators"], "uptime": max(0, __import__("time").time() - raw["bootTime"]), "loadAverage": list(os.getloadavg()), "thermal": raw["thermal"], "battery": raw["battery"] or {}, "processes": raw["processes"]}
         if path == "/api/scan":
             profile = CleanupProfile(query.get("profile", "safe"))
             token = CancellationToken()
@@ -373,7 +373,7 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
             return {"tasks": [dict(item, subtitle="", requiresSudo=False) for item in OPTIMIZATIONS]}
         if path == "/api/doctor":
             checks = doctor(); by_name = {c["name"]: c["value"] for c in checks}
-            return {"macosVersion": by_name.get("macOS", ""), "buildVersion": "", "architecture": by_name.get("Architecture", ""), "sipStatus": by_name.get("System Integrity Protection", ""), "diskRoot": "/", "snapshots": "", "probes": [{"path": c["name"], "ok": "NO" not in c["value"]} for c in checks]}
+            return {"macosVersion": by_name.get("macOS", ""), "buildVersion": "", "architecture": by_name.get("Architecture", ""), "sipStatus": by_name.get("System Integrity Protection", ""), "diskRoot": "/", "snapshots": "", "probes": [{"path": c["name"], "ok": c.get("ok") is True} for c in checks]}
         if path == "/api/history":
             entries = history(80)
             summaries = [item for item in entries if item.get("recordType") == "operation_summary"]

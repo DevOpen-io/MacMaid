@@ -6,8 +6,11 @@ import platform
 import plistlib
 import re
 import socket
+import sys
+import threading
 import time
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
@@ -45,6 +48,24 @@ class AppComponent:
 
     def web_dict(self) -> dict[str, Any]:
         return {"label": self.label, "path": str(self.path), "bytes": self.bytes, "risk": self.risk, "selected": self.selected}
+
+
+@dataclass(frozen=True, slots=True)
+class HealthIndicator:
+    id: str
+    label: str
+    state: str
+    value: str
+    detail: str
+    recommendation: str | None
+    measured_at: str
+
+    def web_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id, "label": self.label, "state": self.state,
+            "value": self.value, "detail": self.detail,
+            "recommendation": self.recommendation, "measuredAt": self.measured_at,
+        }
 
 
 class ApplicationManager:
@@ -413,52 +434,198 @@ def analyze_directory(path: Path, top: int = 30, min_file_bytes: int = 100_000_0
     return {"path": str(path), "parent": str(path.parent), "entries": entries, "largestFiles": largest[:max(1, top)]}
 
 
-def system_status() -> dict[str, Any]:
+_HEALTH_PROBE_TTL_SECONDS = 30.0
+_health_probe_lock = threading.Lock()
+_health_probe_cache: tuple[float, dict[str, Any]] | None = None
+
+
+def _measured_now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _expensive_health_probes(*, force: bool = False) -> dict[str, Any]:
+    """Read bounded macOS health probes, caching them to avoid polling commands every UI tick."""
+    global _health_probe_cache
+    now = time.monotonic()
+    with _health_probe_lock:
+        if not force and _health_probe_cache and now - _health_probe_cache[0] < _HEALTH_PROBE_TTL_SECONDS:
+            return _health_probe_cache[1]
+
+        measured_at = _measured_now()
+        pressure_result = run_command("/usr/bin/memory_pressure", ["-Q"], timeout=5)
+        pressure_match = re.search(r"System-wide memory free percentage:\s*(\d+(?:\.\d+)?)%", pressure_result.stdout)
+        memory_free_percent = (min(100.0, max(0.0, float(pressure_match.group(1))))
+                               if pressure_result.succeeded and pressure_match else None)
+
+        thermal_result = run_command("/usr/bin/pmset", ["-g", "therm"], timeout=5)
+        thermal_text = (thermal_result.stdout or thermal_result.stderr).lower()
+        thermal = "Unknown"
+        if thermal_result.succeeded and "error:" not in thermal_text:
+            levels = [int(value) for value in re.findall(r"(?:thermal|performance)[_ ](?:warning[_ ]?)?level\s*=\s*(\d+)", thermal_text)]
+            if levels:
+                thermal = "Critical" if max(levels) >= 2 else "Elevated" if max(levels) == 1 else "Normal"
+
+        try:
+            battery = psutil.sensors_battery()
+        except (OSError, psutil.Error):
+            battery = None
+        battery_details: dict[str, Any] | None = None
+        battery_probe = run_command("/usr/sbin/ioreg", ["-rc", "AppleSmartBattery", "-a"], timeout=5)
+        battery_record: dict[str, Any] | None = None
+        battery_probe_readable = False
+        if battery_probe.succeeded:
+            try:
+                records = plistlib.loads(battery_probe.stdout.encode()) if battery_probe.stdout else []
+                if isinstance(records, list) and (not records or isinstance(records[0], dict)):
+                    battery_record = records[0] if records else None
+                    battery_probe_readable = True
+            except (ValueError, plistlib.InvalidFileException):
+                battery_record = None
+        if battery is not None or battery_record is not None:
+            current_capacity = battery_record.get("CurrentCapacity") if battery_record else None
+            max_capacity = battery_record.get("MaxCapacity") if battery_record else None
+            record_percent = None
+            if isinstance(current_capacity, (int, float)) and isinstance(max_capacity, (int, float)) and max_capacity > 0:
+                record_percent = min(100.0, max(0.0, current_capacity / max_capacity * 100))
+            battery_details = {
+                "percent": battery.percent if battery is not None else record_percent,
+                "charging": battery.power_plugged if battery is not None else bool(
+                    battery_record.get("IsCharging") or battery_record.get("ExternalConnected")
+                ),
+                "cycleCount": battery_record.get("CycleCount") if battery_record else None,
+                "condition": ((battery_record.get("BatteryHealth") or battery_record.get("Condition"))
+                              if battery_record else "Unknown"),
+            }
+
+        probes = {
+            "measuredAt": measured_at,
+            "memoryFreePercent": memory_free_percent,
+            "thermal": thermal,
+            "battery": battery_details,
+            "batteryProbeSucceeded": battery_probe.succeeded and battery_probe_readable,
+            "batteryPresent": battery is not None or battery_record is not None,
+        }
+        _health_probe_cache = (now, probes)
+        return probes
+
+
+def health_indicators(status: dict[str, Any]) -> list[HealthIndicator]:
+    measured_at = str(status["healthMeasuredAt"])
+    total = int(status["diskTotal"])
+    free = int(status["diskFree"])
+    free_percent = (free / total * 100) if total > 0 else 0.0
+    if total <= 0:
+        disk_state, disk_recommendation = "unknown", None
+    elif free_percent < 5 or free < 5 * 1024**3:
+        disk_state, disk_recommendation = "critical", "Free disk space soon; macOS and apps need working space."
+    elif free_percent < 10 or free < 20 * 1024**3:
+        disk_state, disk_recommendation = "warning", "Review large or safely cleanable items before space becomes critical."
+    else:
+        disk_state, disk_recommendation = "normal", None
+    indicators = [HealthIndicator(
+        "disk", "Disk space", disk_state,
+        "Unknown" if total <= 0 else f"{human_bytes(free)} available ({free_percent:.0f}%)",
+        f"Measured on {status.get('diskUsageBasis', 'the active data volume')}; warning below 10% or 20 GB, critical below 5% or 5 GB.",
+        disk_recommendation, measured_at,
+    )]
+
+    memory_free = status.get("memoryPressureFreePercent")
+    if memory_free is None:
+        memory_state, memory_value, memory_recommendation = "unknown", "Unknown", None
+        memory_detail = "The macOS memory-pressure probe was unavailable or unreadable; RAM fullness is not used as a substitute."
+    else:
+        memory_free = float(memory_free)
+        memory_state = "critical" if memory_free < 5 else "warning" if memory_free < 15 else "normal"
+        memory_value = f"{memory_free:.0f}% pressure headroom"
+        memory_detail = "Based on macOS memory_pressure headroom, not the percentage of RAM currently occupied."
+        memory_recommendation = ("Close or restart memory-heavy apps if the system is unresponsive."
+                                 if memory_state in {"warning", "critical"} else None)
+    indicators.append(HealthIndicator(
+        "memory", "Memory pressure", memory_state, memory_value, memory_detail,
+        memory_recommendation, measured_at,
+    ))
+
+    thermal = str(status.get("thermal", "Unknown"))
+    thermal_state = {"Normal": "normal", "Elevated": "warning", "Critical": "critical"}.get(thermal, "unknown")
+    indicators.append(HealthIndicator(
+        "thermal", "Thermal state", thermal_state, thermal,
+        "Reported by macOS power-management thermal warning levels; unavailable sensors remain unknown.",
+        "Reduce sustained workload and ensure ventilation." if thermal_state in {"warning", "critical"} else None,
+        measured_at,
+    ))
+
+    battery = status.get("battery")
+    if not status.get("batteryPresent") and status.get("batteryProbeSucceeded"):
+        battery_state, battery_value = "not_applicable", "No battery detected"
+        battery_detail, battery_recommendation = "This Mac reports no internal smart battery.", None
+    elif not battery:
+        battery_state, battery_value = "unknown", "Unknown"
+        battery_detail, battery_recommendation = "Battery presence or health could not be read.", None
+    else:
+        condition = str(battery.get("condition") or "Unknown")
+        normalized = condition.casefold()
+        if normalized in {"normal", "good"}:
+            battery_state, battery_recommendation = "normal", None
+        elif normalized in {"service battery", "replace now", "service recommended"}:
+            battery_state, battery_recommendation = "critical", "Review Battery settings and arrange service if macOS recommends it."
+        elif normalized == "unknown":
+            battery_state, battery_recommendation = "unknown", None
+        else:
+            battery_state, battery_recommendation = "warning", "Review the battery-health recommendation in macOS Settings."
+        battery_value = f"{condition} · {battery.get('percent', '—')}%"
+        cycles = battery.get("cycleCount")
+        battery_detail = f"Smart-battery condition reported by macOS{f'; {cycles} cycles' if cycles is not None else ''}."
+    indicators.append(HealthIndicator(
+        "battery", "Battery health", battery_state, battery_value, battery_detail,
+        battery_recommendation, measured_at,
+    ))
+    return indicators
+
+
+def system_status(*, force_health_refresh: bool = False) -> dict[str, Any]:
     # On modern macOS `/` is the small read-only System volume. User files live on the paired Data volume.
     data_volume = Path("/System/Volumes/Data")
     disk_mount = data_volume if data_volume.is_dir() else Path("/")
     disk = psutil.disk_usage(str(disk_mount))
     memory = psutil.virtual_memory()
-    battery = psutil.sensors_battery()
     network_before = psutil.net_io_counters()
     disk_before = psutil.disk_io_counters()
     time.sleep(0.1)
     network_after = psutil.net_io_counters()
     disk_after = psutil.disk_io_counters()
     processes = []
-    for proc in sorted(psutil.process_iter(["pid", "name", "cpu_percent", "memory_percent"]), key=lambda p: p.info.get("cpu_percent") or 0, reverse=True)[:6]:
-        processes.append({"pid": proc.info["pid"], "cpu": proc.info.get("cpu_percent") or 0, "memory": proc.info.get("memory_percent") or 0, "command": proc.info.get("name") or ""})
+    try:
+        visible_processes = sorted(
+            psutil.process_iter(["pid", "name", "cpu_percent", "memory_percent"]),
+            key=lambda p: p.info.get("cpu_percent") or 0, reverse=True,
+        )[:6]
+        for proc in visible_processes:
+            processes.append({"pid": proc.info["pid"], "cpu": proc.info.get("cpu_percent") or 0, "memory": proc.info.get("memory_percent") or 0, "command": proc.info.get("name") or ""})
+    except (OSError, psutil.Error):
+        # Process visibility can be restricted independently of the health probes.
+        processes = []
     cpu = psutil.cpu_percent(interval=0.1)
-    battery_details: dict[str, Any] | None = None
-    if battery is not None:
-        battery_details = {"percent": battery.percent, "charging": battery.power_plugged, "cycleCount": None, "condition": "Unknown"}
-        raw_battery = run_command("/usr/sbin/ioreg", ["-rc", "AppleSmartBattery", "-a"], timeout=5)
-        if raw_battery.succeeded:
-            try:
-                records = plistlib.loads(raw_battery.stdout.encode())
-                record = records[0] if records else {}
-                battery_details["cycleCount"] = record.get("CycleCount")
-                battery_details["condition"] = record.get("BatteryHealth") or record.get("Condition") or "Unknown"
-            except (ValueError, plistlib.InvalidFileException):
-                pass
-    thermal_result = run_command("/usr/bin/pmset", ["-g", "therm"], timeout=5)
-    thermal_text = (thermal_result.stdout or thermal_result.stderr).lower()
-    thermal = "Unknown"
-    if thermal_result.succeeded and "error:" not in thermal_text:
-        levels = [int(value) for value in re.findall(r"(?:thermal|performance)[_ ](?:warning[_ ]?)?level\s*=\s*(\d+)", thermal_text)]
-        if levels:
-            thermal = "Critical" if max(levels) >= 2 else "Elevated" if max(levels) == 1 else "Normal"
-    return {
+    probes = _expensive_health_probes(force=force_health_refresh)
+    try:
+        boot_time = psutil.boot_time()
+    except (OSError, psutil.Error):
+        boot_time = time.time()
+    status = {
         "cpu": cpu, "cpuPercent": cpu,
         "memoryUsed": memory.used, "memoryTotal": memory.total, "memoryPercent": memory.percent,
         "diskUsed": disk.used, "diskTotal": disk.total, "diskFree": disk.free, "diskPercent": disk.percent,
         "diskMount": str(disk_mount), "diskUsageBasis": "macOS Data volume" if disk_mount == data_volume else "root volume",
-        "network": network_after._asdict(), "bootTime": psutil.boot_time(),
+        "network": network_after._asdict(), "bootTime": boot_time,
         "networkDownPerSecond": max(0, (network_after.bytes_recv - network_before.bytes_recv) * 10),
         "networkUpPerSecond": max(0, (network_after.bytes_sent - network_before.bytes_sent) * 10),
         "diskIOPerSecond": 0 if not disk_before or not disk_after else max(0, ((disk_after.read_bytes + disk_after.write_bytes) - (disk_before.read_bytes + disk_before.write_bytes)) * 10),
-        "battery": battery_details, "thermal": thermal, "processes": processes,
+        "battery": probes["battery"], "thermal": probes["thermal"], "processes": processes,
+        "memoryPressureFreePercent": probes["memoryFreePercent"],
+        "batteryProbeSucceeded": probes["batteryProbeSucceeded"],
+        "batteryPresent": probes["batteryPresent"], "healthMeasuredAt": probes["measuredAt"],
     }
+    status["healthIndicators"] = [item.web_dict() for item in health_indicators(status)]
+    return status
 
 
 OPTIMIZATIONS = [
@@ -500,17 +667,38 @@ def run_optimization(task_id: str) -> dict[str, Any]:
     return {"success": False, "error": (last.stderr or last.stdout) if last else "unavailable"}
 
 
-def doctor() -> list[dict[str, str]]:
-    checks = [
-        ("macOS", platform.mac_ver()[0] or platform.system()),
-        ("Architecture", platform.machine()),
-        ("Running as root", "NO (safe)" if os.geteuid() != 0 else "YES — restart without sudo"),
-        ("Home", str(Path.home())),
-        ("Config writable", "YES" if os.access(Config().config_dir.parent, os.W_OK) else "NO"),
-        ("System Integrity Protection", run_command("/usr/bin/csrutil", ["status"], timeout=5).stdout or "Unknown"),
-        ("Time Machine", "Available" if which("tmutil") else "Unavailable"),
+def compatibility_checks() -> list[dict[str, Any]]:
+    system_name = platform.system()
+    macos_version = platform.mac_ver()[0]
+    architecture = platform.machine()
+    try:
+        macos_major = int(macos_version.split(".", 1)[0])
+    except (ValueError, IndexError):
+        macos_major = 0
+
+    macos_ok = system_name == "Darwin" and macos_major >= 13
+    architecture_name = {"arm64": "Apple Silicon", "x86_64": "Intel"}.get(architecture)
+    architecture_ok = architecture_name is not None
+    python_ok = sys.version_info >= (3, 11)
+    return [
+        {"name": "macOS", "value": macos_version or f"Unavailable ({system_name})", "ok": macos_ok},
+        {"name": "Architecture", "value": f"{architecture} ({architecture_name})" if architecture_name else architecture or "Unknown", "ok": architecture_ok},
+        {"name": "Python", "value": platform.python_version(), "ok": python_ok},
     ]
-    return [{"name": name, "value": value} for name, value in checks]
+
+
+def doctor() -> list[dict[str, Any]]:
+    config_writable = os.access(Config().config_dir.parent, os.W_OK)
+    tmutil = which("tmutil")
+    checks = compatibility_checks()
+    checks.extend([
+        {"name": "Running as root", "value": "NO (safe)" if os.geteuid() != 0 else "YES — restart without sudo", "ok": os.geteuid() != 0},
+        {"name": "Home", "value": str(Path.home()), "ok": True},
+        {"name": "Config writable", "value": "YES" if config_writable else "NO", "ok": config_writable},
+        {"name": "System Integrity Protection", "value": run_command("/usr/bin/csrutil", ["status"], timeout=5).stdout or "Unknown", "ok": None},
+        {"name": "Time Machine", "value": "Available" if tmutil else "Unavailable", "ok": tmutil is not None},
+    ])
+    return checks
 
 
 def list_snapshots() -> list[str]:

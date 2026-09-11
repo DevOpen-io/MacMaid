@@ -6,10 +6,10 @@ Amaç: macOS bakımını daha güvenilir, anlaşılır ve ölçülebilir yapmak;
 
 - TUI araç geçişlerinde eski tarama sonuçları ve seçimler sıfırlanıyor.
 - Terk edilen taramaların geç gelen sonuçları ekranı güncellemiyor.
-- Önceki doğrulamada macOS Apple Silicon üzerinde 45 test, Python derleme kontrolü ve paket oluşturma başarılıydı.
-- Bu sonuçlar Intel veya tüm macOS sürümlerinin doğrulandığı anlamına gelmez.
+- Son doğrulamada macOS 26.2 Apple Silicon üzerinde 201 test, Python/JavaScript sözdizimi kontrolleri ve paket oluşturma başarılıydı.
+- Intel ve eski desteklenen macOS sürümleri otomatik uyumluluk testlerinde kapsanıyor; mevcut doğrulama ortamında fiziksel olarak çalıştırılmadıkları ayrıca kayıtlıdır.
 
-**Durum:** 1., 2., 3. ve 4. aşamalar tamamlandı. 5–6. aşamalar henüz uygulanmadı. Her aşama ayrı, incelenebilir değişikliklerle tamamlanır. Güvenlik açığı bulunursa sonraki özelliklerden önce giderilir.
+**Durum:** 1., 2., 3., 4., 5. ve 6. aşamalar tamamlandı. Her aşama ayrı, incelenebilir değişikliklerle tamamlanır. Güvenlik açığı bulunursa sonraki özelliklerden önce giderilir.
 
 ## 1. Güvenlik testleri ve yürütme sınırları
 
@@ -176,6 +176,19 @@ Amaç: macOS bakımını daha güvenilir, anlaşılır ve ölçülebilir yapmak;
 
 **Öncelik:** Orta · **Bağımlılık:** 1, 3–4
 
+### Uygulanan
+
+- [x] Ortak `HealthIndicator` modeli disk alanı, macOS bellek baskısı, termal durum ve pil sağlığını durum/değer/gerekçe/öneri/ölçüm zamanı alanlarıyla taşıyor.
+- [x] Bellek uyarısı ham RAM doluluk oranından değil, macOS `memory_pressure -Q` çıktısındaki kullanılabilir baskı payından üretiliyor; okuma başarısızsa değer “bilinmiyor” kalıyor.
+- [x] Disk uyarı eşikleri hem yüzdeyi hem kullanılabilir baytı açıkça kullanıyor ve Data volume ölçüm temelini belirtiyor.
+- [x] Termal durum `pmset` uyarı seviyelerinden, pil sağlığı `ioreg` smart-battery koşulundan okunuyor; komut/sensör hataları normal sayılmıyor.
+- [x] Pili olmayan Mac “uygulanamaz”, varlığı veya sağlık durumu kanıtlanamayan pil “bilinmiyor” olarak ayrılıyor.
+- [x] Pahalı native ölçümler thread-safe olarak 30 saniye cache'leniyor; TUI bunları arka plan worker'ında çalıştırıyor.
+- [x] TUI, CLI ve Web aynı ortak sağlık özetini gösteriyor; keyfî sağlık puanı, performans vaadi, otomatik temizlik veya sistem mutasyonu eklenmedi.
+- [x] Kısıtlı süreç/boot görünürlüğü bütün durum ekranını çökertmiyor; ilgili ikincil veri güvenle boş bırakılıyor.
+- [x] Eksik pil, okunamayan sensör/komut, eşik uyarıları, yalnız ioreg üzerinden okunan pil ve probe rate-limit senaryoları izole testlerle doğrulandı.
+- [x] Doğrulama: toplam 194 test, JavaScript sözdizimi kontrolü, Python `compileall` ve `uv build` başarılı.
+
 ### Yapılacaklar
 
 - Mevcut sistem durumu ve doctor yeteneklerini tekrar kullan; iş mantığını TUI'ye taşıma.
@@ -189,14 +202,25 @@ Amaç: macOS bakımını daha güvenilir, anlaşılır ve ölçülebilir yapmak;
 
 ### Tamamlanma kriteri
 
-- Keyfî sağlık puanı veya garanti edilen performans artışı iddiası bulunmaz.
-- Uyarılar somut ölçüme ve belgelenmiş gerekçeye dayanır.
-- Sağlık ekranı otomatik temizlik, process öldürme veya sistem ayarı değişikliği yapmaz.
-- Eksik pil, desteklenmeyen sensör ve komut hatası senaryoları test edilir.
+- [x] Keyfî sağlık puanı veya garanti edilen performans artışı iddiası bulunmaz.
+- [x] Uyarılar somut ölçüme ve belgelenmiş gerekçeye dayanır.
+- [x] Sağlık ekranı otomatik temizlik, process öldürme veya sistem ayarı değişikliği yapmaz.
+- [x] Eksik pil, desteklenmeyen sensör ve komut hatası senaryoları test edilir.
 
 ## 6. macOS uyumluluğu ve sürüm hazırlığı
 
 **Öncelik:** Yayın kapısı · **Bağımlılık:** Önceki aşamalar
+
+### Uygulanan
+
+- [x] Destek sözleşmesi macOS 13+, Python 3.11+, Apple Silicon ve Intel hedefleri olarak README ve paket sınıflandırıcılarında açıklandı.
+- [x] Ortak Doctor çıktısı macOS, Python ve mimari desteğini yapılandırılmış `ok` durumu ile raporluyor; Web UI bilinmeyen/başarısız kontrolleri başarılı göstermiyor.
+- [x] `arm64` ve `x86_64` tanıma yolları, desteklenmeyen macOS/Python/mimari, eksik PATH ve manager, boş envanter, izin reddi ve Unicode/boşluk içeren subprocess argümanları izole testlerle kapsandı.
+- [x] Paket, Python modülü ve Web UI sürüm bilgilerinin aynı kalmasını sağlayan regresyon testi eklendi.
+- [x] TUI bütün araçlarda 80×24 ve 120×40 klavye akışlarıyla; yeniden taramada eski durum temizliği ve işlem sonrası güvenli dönüşle doğrulandı.
+- [x] CLI dry-run/açık onay ile Web Host/Origin/session/mutation kilidi regresyonları tam paket içinde geçti.
+- [x] 2026-09-11 yerel doğrulaması macOS 26.2 (25C56), Apple Silicon ve Python 3.11.15 üzerinde yapıldı; fiziksel Intel ve macOS 13–15 doğrulaması bulunmadığı README'de açıkça belirtildi.
+- [x] Doğrulama: toplam 201 test, JavaScript sözdizimi kontrolü, Python `compileall` ve `uv build` başarılı.
 
 ### Yapılacaklar
 
@@ -209,9 +233,9 @@ Amaç: macOS bakımını daha güvenilir, anlaşılır ve ölçülebilir yapmak;
 
 ### Tamamlanma kriteri
 
-- Tam test paketi, `uv run python -m compileall -q src/deepclean` ve `uv build` başarılıdır.
-- Gerçek sistemdeki kontroller salt okunurdur; mutasyon testleri izole ortamdadır.
-- Doğrulanan mimariler/sürümler ve kalan kısıtlar kayıtlıdır.
+- [x] Tam test paketi, `uv run python -m compileall -q src/deepclean` ve `uv build` başarılıdır.
+- [x] Gerçek sistemdeki kontroller salt okunurdur; mutasyon testleri izole ortamdadır.
+- [x] Doğrulanan mimariler/sürümler ve kalan kısıtlar kayıtlıdır.
 
 ## Uygulama sırası ve çalışma kuralı
 

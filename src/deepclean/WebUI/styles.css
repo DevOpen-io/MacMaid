@@ -714,6 +714,24 @@ body {
   flex-direction: column;
   gap: 20px;
 }
+
+.health-indicators-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+  margin: 16px 0;
+}
+
+.health-indicator { padding: 16px; border-left: 3px solid var(--border-color); }
+.health-indicator-head { display: flex; justify-content: space-between; gap: 12px; }
+.health-state { font-size: 11px; letter-spacing: .06em; color: var(--text-muted); }
+.health-value { margin: 12px 0 8px; font-size: 18px; font-weight: 700; }
+.health-indicator p { margin: 6px 0; color: var(--text-muted); line-height: 1.4; }
+.health-indicator small { color: var(--text-muted); }
+.health-normal { border-left-color: #57c76b; }
+.health-warning { border-left-color: #d9bd45; }
+.health-critical { border-left-color: #e06450; }
+.health-recommendation { color: #d9bd45 !important; }
 .net-meter {
   display: grid;
   grid-template-columns: 1fr 1fr;

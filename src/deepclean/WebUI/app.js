@@ -527,7 +527,23 @@ async function fetchStatus() {
 }
 
 function renderStatus(data) {
-  const { metrics, uptime, loadAverage, thermal, battery, processes } = data;
+  const { metrics, health, uptime, loadAverage, thermal, battery, processes } = data;
+
+  const healthGrid = document.getElementById('health-indicators');
+  if (healthGrid && Array.isArray(health)) {
+    const stateLabels = { normal: 'NORMAL', warning: 'UYARI', critical: 'KRİTİK', unknown: 'BİLİNMİYOR', not_applicable: 'UYGULANAMAZ' };
+    healthGrid.innerHTML = health.map(item => `
+      <article class="health-indicator health-${escapeHtml(item.state)}">
+        <div class="health-indicator-head">
+          <strong>${escapeHtml(item.label)}</strong>
+          <span class="health-state">${escapeHtml(stateLabels[item.state] || 'BİLİNMİYOR')}</span>
+        </div>
+        <div class="health-value">${escapeHtml(item.value)}</div>
+        <p>${escapeHtml(item.detail)}</p>
+        ${item.recommendation ? `<p class="health-recommendation">Öneri: ${escapeHtml(item.recommendation)}</p>` : ''}
+        <small>Ölçüm: ${escapeHtml(item.measuredAt)}</small>
+      </article>`).join('');
+  }
 
   if (metrics) {
     const cpuPct = metrics.cpuPercent.toFixed(1);
@@ -577,10 +593,12 @@ function renderStatus(data) {
     document.getElementById('dash-batt-state').textContent = battery.charging ? 'Şarj Ediliyor ⚡' : 'Pilde Çalışıyor';
     document.getElementById('dash-batt-cycles').textContent = battery.cycleCount ? `${battery.cycleCount} Döngü` : 'Normal';
   } else {
-    document.getElementById('dash-batt-pct').textContent = 'Masaüstü / AC';
-    document.getElementById('dash-batt-bar').style.width = '100%';
-    document.getElementById('dash-batt-state').textContent = 'Sürekli Güç Kaynağı';
-    document.getElementById('dash-batt-cycles').textContent = 'Pil Yok';
+    const batteryHealth = Array.isArray(health) ? health.find(item => item.id === 'battery') : null;
+    const absent = batteryHealth?.state === 'not_applicable';
+    document.getElementById('dash-batt-pct').textContent = absent ? 'Pil Yok' : 'Bilinmiyor';
+    document.getElementById('dash-batt-bar').style.width = '0%';
+    document.getElementById('dash-batt-state').textContent = absent ? 'Masaüstü / AC' : 'Pil verisi okunamadı';
+    document.getElementById('dash-batt-cycles').textContent = absent ? 'Uygulanamaz' : 'Bilinmiyor';
   }
 
   if (processes && processes.length) {

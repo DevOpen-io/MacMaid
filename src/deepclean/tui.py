@@ -41,7 +41,7 @@ NAVIGATION = [
     ("analyzer", "◫", "Analyze", "Browse disk usage, search, multi-select and move items to Trash"),
     ("purge", "⌁", "Project Purge", "Find old rebuildable project artifacts and dependency folders"),
     ("developer", "⌘", "Developer Tools", "Inspect runtimes, SDKs, global tools and package caches"),
-    ("status", "●", "Status", "Live CPU, RAM, disk, network, battery, thermal and processes"),
+    ("status", "●", "Mac Health", "Evidence-based disk, memory-pressure, thermal and battery status"),
     ("more", "⋯", "More", "Leftovers, installers, snapshots, history and inspection tools"),
 ]
 
@@ -320,12 +320,12 @@ class DeepCleanTUI(App[None]):
         return self._page("optimize-results", "Optimize", "Refresh bounded macOS caches/services without deleting documents or resetting preferences.", ProgressBar(total=100, show_eta=False, id="optimize-progress"), Static("Recommended tasks are preselected.", id="optimize-state", classes="state warning"), DataTable(id="optimize-table", zebra_stripes=True), Static("The selected task's effect and possible interruption appear here.", id="optimize-detail", classes="detail", markup=False), Static("↑↓  Navigate     Space  Include/exclude     Enter  Run     Esc  Back", classes="hint"))
 
     def _status_page(self) -> Vertical:
-        return self._page("status", "Canlı Sistem Durumu", "Salt-okunur sistem ölçümlerini ayrı canlı görünümde aç.", self._action_menu("status-actions", [
-            ("status-open", "Canlı durumu aç", "CPU, RAM, disk, ağ, pil ve termal ölçümleri göster"),
+        return self._page("status", "Mac Sağlığı", "Somut, salt-okunur macOS ölçümlerini ayrı görünümde aç.", self._action_menu("status-actions", [
+            ("status-open", "Mac sağlık ekranını aç", "Disk, bellek baskısı, pil ve termal durumunu gerekçeleriyle göster"),
         ]), Static("Enter ile canlı görünümü aç · Esc ile ana menü", classes="hint"))
 
     def _status_results_page(self) -> Vertical:
-        return self._page("status-results", "Live Status", "Read-only CPU, RAM, disk, network, battery, thermal and process metrics.", Static("Loading metrics…", id="status-state", classes="state busy"), Static("Loading metrics…", id="status-output", markup=False), Static("Q / Esc  Back", classes="hint"))
+        return self._page("status-results", "Mac Health", "Read-only indicators with evidence, freshness and safe recommendations; no health score or automatic action.", Static("Loading metrics…", id="status-state", classes="state busy"), Static("Loading metrics…", id="status-output", markup=False), Static("R Refresh · Q / Esc Back", classes="hint"))
 
     def _more_page(self) -> Vertical:
         return self._page("more", "More tools", "Extra maintenance and inspection commands", self._action_menu("more-actions", [
@@ -1428,6 +1428,17 @@ class DeepCleanTUI(App[None]):
         self.query_one("#system-strip", Static).update(preview)
         battery = m.get("battery") or {}
         output = Text()
+        health = m.get("healthIndicators") or []
+        if health:
+            state_icons = {"normal": "✓", "warning": "!", "critical": "✕", "unknown": "?", "not_applicable": "—"}
+            output.append("Mac health indicators\n", style="bold")
+            for item in health:
+                icon = state_icons.get(item.get("state"), "?")
+                output.append(f"{icon} {item.get('label', 'Indicator')}: {item.get('value', 'Unknown')} [{item.get('state', 'unknown')}]\n")
+                output.append(f"  {item.get('detail', '')}\n", style="#969aa2")
+                if item.get("recommendation"):
+                    output.append(f"  Suggestion: {item['recommendation']}\n", style="#d9bd45")
+            output.append(f"Measured {health[0].get('measuredAt', 'unknown')} · read-only snapshot\n\n", style="#777b83")
         output.append("CPU   ").append(self._compact_bar(m["cpuPercent"] / 100, 20), style=cpu_color).append(f"  {m['cpuPercent']:5.1f}%\n")
         output.append("RAM   ").append(self._compact_bar(m["memoryPercent"] / 100, 20), style=ram_color).append(f"  {human_bytes(m['memoryUsed'])} / {human_bytes(m['memoryTotal'])}\n")
         output.append("Disk  ").append(self._compact_bar(disk_ratio, 20), style=disk_color).append(
@@ -1444,7 +1455,7 @@ class DeepCleanTUI(App[None]):
         else:
             output.append("  Process data unavailable.", style="#777b83")
         self.query_one("#status-output", Static).update(output)
-        if self.current_page == "status-results": self._set_state("status", "Metrics updated · refreshes every two seconds")
+        if self.current_page == "status-results": self._set_state("status", "Live metrics updated · health probes refresh at most every 30 seconds")
 
     @staticmethod
     def _history_text(records: list[dict[str, Any]]) -> str:

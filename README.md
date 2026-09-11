@@ -68,7 +68,7 @@ Space reporting deliberately separates the reviewed scan estimate, the estimate 
 
 Running `deepclean` without arguments opens the Textual dashboard. It has persistent navigation, descriptive tool pages, live system metrics, background workers, review tables and a dedicated pre-operation review screen. Nothing starts until the exact displayed plan receives an explicit `y` response at its terminal-style `[y/N]` prompt; Enter, `n` and Esc safely cancel. User-data or MANUAL selections require a second explicit `y` confirmation. Use arrow keys or `j`/`k` to move, Enter to open, `h` or `Ctrl+N` to focus the sidebar, `l` to focus page content, `1`–`9` to jump directly, Space to toggle reviewed rows, `r` to refresh and `Esc` to return to the dashboard.
 
-The TUI exposes Smart Clean, application/component removal, incremental disk analysis, Project Purge, developer inventory/cache cleanup, optimization, live status, leftovers, installers, snapshots, doctor, history and whitelist information. Long-running scans execute outside the UI event loop, so navigation remains responsive. Press `c` on a scan/result screen to request cooperative cancellation; active filesystem walks, bounded size workers and waiting subprocesses stop at safe checkpoints. Cleanup mutations are never force-cancelled.
+The TUI exposes Smart Clean, application/component removal, incremental disk analysis, Project Purge, developer inventory/cache cleanup, optimization, evidence-based Mac health, leftovers, installers, snapshots, doctor, history and whitelist information. Mac health reports disk headroom, macOS memory-pressure headroom, thermal state and battery condition with measurement time and safe guidance; it does not invent a health score or act automatically. Expensive native probes are rate-limited and unavailable readings remain unknown. Long-running scans execute outside the UI event loop, so navigation remains responsive. Press `c` on a scan/result screen to request cooperative cancellation; active filesystem walks, bounded size workers and waiting subprocesses stop at safe checkpoints. Cleanup mutations are never force-cancelled.
 
 ## Web UI
 
@@ -78,7 +78,7 @@ deepclean ui
 ./start-web.sh
 ```
 
-The bundled dashboard listens only on `127.0.0.1:8123`. It exposes system status, Smart Clean, application inventory/removal, Project Purge, installer and leftover review, disk analysis, developer caches/inventory, snapshots, optimization, doctor, history and whitelist controls. Destructive requests use a two-step server-reviewed flow: the UI displays the server's exact plan, then submits a short-lived, single-use token bound to that selection and scan generation.
+The bundled dashboard listens only on `127.0.0.1:8123`. It exposes the same read-only Mac health indicators, Smart Clean, application inventory/removal, Project Purge, installer and leftover review, disk analysis, developer caches/inventory, snapshots, optimization, doctor, history and whitelist controls. Destructive requests use a two-step server-reviewed flow: the UI displays the server's exact plan, then submits a short-lived, single-use token bound to that selection and scan generation.
 
 Disk Analyzer lists a directory immediately and measures each visible child in a bounded background worker pool. Navigation never waits for the current directory to finish: moving elsewhere cancels its disk I/O while preserving completed measurements in the Web UI session cache. Returning shows that cache immediately and resumes only unfinished entries. The explicit Analyze/refresh action can force a fresh measurement. The progress HUD can stop Smart Clean or analyzer work through the shared cancellation API.
 
@@ -100,6 +100,14 @@ uv build
 
 The wheel contains the Web UI assets, so an installed `uv tool` does not depend on the source checkout.
 
+## Compatibility and release validation
+
+DeepClean targets macOS 13 and newer on both Apple Silicon (`arm64`) and Intel (`x86_64`), with Python 3.11 or newer. Platform-specific features are capability-detected: a missing package manager or native command produces an empty/limited result instead of enabling a filesystem fallback. Finder-launched applications may have a shorter `PATH`; install managers normally and treat Doctor's unavailable result as authoritative for that session.
+
+The 2026-09-11 release check was run on macOS 26.2 (build 25C56), Apple Silicon, with Python 3.11.15. The 201-test automated suite covers both architecture identifiers, missing `PATH`/manager commands, empty inventories, permission-denied directories, Unicode and space-containing paths, 80×24 and 120×40 TUI navigation, CLI dry-run/confirmation, and Web Host/Origin/session gates. No physical Intel runner was available for this check, so Intel remains a target supported by architecture-neutral code and automated regression tests, not a claim of same-day hardware validation. macOS 13–15 likewise remain supported targets but were not physically exercised in this local run.
+
+APFS allocation, snapshots and concurrent disk activity can make observed free-space changes differ from scan estimates. TCC can hide otherwise valid locations; DeepClean reports those scans as incomplete and never bypasses macOS security controls. Battery and thermal sensors may be absent, and those health values remain unknown rather than being presented as normal.
+
 ## Uninstall
 
 ```sh
@@ -110,4 +118,4 @@ The wheel contains the Web UI assets, so an installed `uv tool` does not depend 
 # asks before deleting DeepClean-owned user data
 ```
 
-DeepClean supports macOS 13+ on Apple Silicon and Intel. `uv` installs and manages the required Python 3.11+ runtime and dependencies in the user's own environment.
+`uv` installs and manages the required Python runtime and dependencies in the user's own environment.

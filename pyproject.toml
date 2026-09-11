@@ -6,6 +6,13 @@ authors = [
     { name = "TalhaAgteks", email = "talha.aksoy@agteks.com" }
 ]
 requires-python = ">=3.11"
+classifiers = [
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
 dependencies = [
     "psutil>=7.0.0",
     "textual>=6.0,<8.0",
