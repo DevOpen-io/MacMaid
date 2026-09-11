@@ -858,7 +858,7 @@ def developer_inventory(kind: str) -> list[dict[str, Any]]:
 
 
 def completion_script(shell: str) -> str:
-    commands = "doctor scan clean leftovers installers smart-downloads analyze duplicates large-files apps purge status completion developer-caches developer optimize snapshots history restore whitelist uninstall ui web gui dashboard"
+    commands = "doctor scan clean leftovers installers smart-downloads browser-storage analyze duplicates large-files apps purge status completion developer-caches developer optimize snapshots history restore whitelist uninstall ui web gui dashboard"
     if shell == "fish":
         return f"complete -c deepclean -f -a '{commands}'"
     if shell == "bash":
@@ -877,6 +877,7 @@ _deepclean() {{
     'leftovers:Find application leftovers'
     'installers:Find old installer files'
     'smart-downloads:Classify Downloads installers archives incomplete files and duplicates'
+    'browser-storage:Inspect browser cache and site data boundaries'
     'analyze:Analyze disk usage'
     'duplicates:Find byte-for-byte duplicate files'
     'large-files:Find large and old user files'

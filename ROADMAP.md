@@ -55,37 +55,18 @@ Her uzun tarama cancellable, non-blocking ve incremental olmalı; recursive syml
 
 ### 0.9.21 — Browser Storage Inspector
 
-- [ ] Safari, Chrome, Chromium, Brave, Edge, Firefox ve Arc destekle.
-- [ ] Cache, Code Cache, GPU Cache, Service Workers, IndexedDB, Local Storage, Cookies ve Sessions alanlarını ayrı göster.
-- [ ] Smart Clean yalnız güvenli cache alanlarını temizlesin.
-- [ ] Cookies, sessions ve diğer user data otomatik seçilmesin.
+- [x] Safari, Chrome, Chromium, Brave, Edge, Firefox ve Arc destekle.
+- [x] Cache, Code Cache, GPU Cache, Service Workers, IndexedDB, Local Storage, Cookies ve Sessions alanlarını ayrı göster.
+- [x] Smart Clean yalnız güvenli cache alanlarını temizlesin.
+- [x] Cookies, sessions ve diğer user data otomatik seçilmesin.
 
-### 0.9.22 — Scheduled Scans
-
-- [ ] `launchd` ile Weekly Scan ekle: Cache, Large files, Developer storage, Leftovers.
-- [ ] Scheduled scan yalnız analiz yapsın; `Automatic deletion = OFF` olsun.
-- [ ] Tarama sonunda macOS notification göster.
-
-### 0.9.23 — Storage Treemap
+### 0.9.22 — Storage Treemap
 
 - [ ] Existing Disk Analyzer backend'ini kullanan interactive Web UI treemap ekle.
 - [ ] Folder size, percentage ve file count göster.
 - [ ] Drill-down, back navigation, Open in Finder ve cleanup candidate review ekle.
 
-### 0.9.24 — Custom Cleanup Rules
-
-- [ ] TOML tabanlı `name`, `path`, `older_than_days`, `action` kuralları ekle.
-- [ ] Yalnız `ANALYZE_ONLY`, `MOVE_TO_TRASH`, `REMOVE_CHILDREN` internal action'larını destekle.
-- [ ] Shell command veya `exec` desteği ekleme.
-- [ ] Her rule yürütme anında `PathSafety` kontrolünden geçsin.
-
-### 0.9.25 — Application Update Audit
-
-- [ ] Installed ve latest sürümleri karşılaştırarak update availability göster.
-- [ ] Homebrew uygulamalarında `brew outdated` ve `brew outdated --cask` kullan.
-- [ ] M1 yalnız update availability göstersin; update işlemi yapmasın.
-
-### 0.9.26 — Diagnostic Reports
+### 0.9.23 — Diagnostic Reports
 
 - [ ] Storage Report, Cleanup Report, System Health, Developer Storage ve Applications export'u ekle.
 - [ ] Markdown ve JSON formatlarını destekle.
@@ -132,11 +113,8 @@ LOW · MEDIUM · HIGH · BLOCKED
 4. Smart Downloads
 5. Developer Storage Center
 6. Browser Storage Inspector
-7. Scheduled Scan
-8. Storage Treemap
-9. Custom Cleanup Rules
-10. Application Update Audit
-11. Diagnostic Reports
-12. Security Audit
-13. v1.0 Release
+7. Storage Treemap
+8. Diagnostic Reports
+9. Security Audit
+10. v1.0 Release
 ```

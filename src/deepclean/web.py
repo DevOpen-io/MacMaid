@@ -15,6 +15,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from .analyzer import IncrementalAnalyzer
+from .browser_storage import BrowserStorageInspector
 from .cancellation import CancellationToken
 from .cleaner import Cleaner
 from .config import Config
@@ -88,6 +89,7 @@ class WebState:
         self.installers: ScanResult | None = None
         self.leftovers: ScanResult | None = None
         self.dev_caches: ScanResult | None = None
+        self.browser_storage: ScanResult | None = None
         self.duplicates: set[Path] = set()
         self.large_files: set[Path] = set()
         self.smart_downloads: set[Path] = set()
@@ -357,6 +359,18 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
                                         | {Path(entry["path"]) for entry in result["largestFiles"]})
                 self._bump_generation("analyzer")
             return result
+        if path == "/api/browser-storage":
+            inspector = BrowserStorageInspector()
+            areas = inspector.scan()
+            result = inspector.scan_result()
+            clean_ids = {str(item.path): item.id for item in result.items}
+            with state.lock:
+                state.browser_storage = result
+                self._bump_generation("browser-storage")
+            total = sum(area.bytes for area in areas)
+            safe = sum(area.bytes for area in areas if area.cleanable)
+            return {"areas": [dict(area.web_dict(), itemId=clean_ids.get(str(area.path), "")) for area in areas], "items": [dict(item.web_dict(), humanBytes=human_bytes(item.estimated_bytes)) for item in result.items],
+                    "totalBytes": total, "humanTotal": human_bytes(total), "safeCacheBytes": safe, "humanSafeCache": human_bytes(safe)}
         if path == "/api/smart-downloads":
             files = SmartDownloadsScanner(older_than_days=int(query.get("olderThanDays", "30"))).scan()
             with state.lock:
@@ -510,6 +524,15 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
             plan = purge_plan(selected)
             if review := self._review_gate("purge", body, plan): return review
             return ProjectPurgeManager(state.config).purge(selected)
+        if path == "/api/browser-storage/clean":
+            if state.browser_storage is None: raise ValueError("Run browser storage scan first")
+            items = self._select_ids(state.browser_storage, body.get("itemIds", []))
+            if any(item.risk not in (RiskLevel.SAFE, RiskLevel.MODERATE) for item in items):
+                raise PermissionError("Browser Smart Clean only accepts cache areas")
+            plan = cleanup_plan("Clean browser safe cache areas", items)
+            if review := self._review_gate("browser-storage", body, plan): return review
+            result = Cleaner(state.config).execute(items, apply=True, assume_yes=True)
+            return _operation_payload(result)
         if path == "/api/smart-downloads/trash":
             requested = [Path(item).expanduser().absolute() for item in body.get("paths", [])]
             if not requested or not set(requested).issubset(state.smart_downloads):

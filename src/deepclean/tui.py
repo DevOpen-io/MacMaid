@@ -15,6 +15,7 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import ContentSwitcher, DataTable, Input, Label, ListItem, ListView, ProgressBar, Static
 
 from . import __version__
+from .browser_storage import BrowserStorageInspector
 from .analyzer import IncrementalAnalyzer
 from .cancellation import CancellationToken, ScanCancelled
 from .cleaner import Cleaner
@@ -335,6 +336,7 @@ class DeepCleanTUI(App[None]):
         return self._page("more", "More tools", "Extra maintenance and inspection commands", self._action_menu("more-actions", [
             ("more-leftovers", "◇  Leftovers", "Find safe remnants from removed applications"),
             ("more-installers", "↓  Installers", "Find old DMG, PKG, XIP, ISO and IPSW files"),
+            ("more-browser-storage", "◉  Browser Storage", "Inspect Safari, Chrome, Brave, Edge, Firefox, Arc cache and site data boundaries"),
             ("more-smart-downloads", "↓  Smart Downloads", "Classify installers, archives, incomplete downloads and duplicates"),
             ("more-duplicates", "⧉  Duplicate Files", "Find byte-for-byte matches; nothing is selected automatically"),
             ("more-large-files-500mb", "◫  Large & Old >500 MB", "Scan HOME except Library; no automatic selection"),
@@ -1525,6 +1527,8 @@ class DeepCleanTUI(App[None]):
                 result = scan_leftovers(self.config, cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "installers":
                 result = scan_installers(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
+            elif kind == "browser-storage":
+                result = BrowserStorageInspector().scan_result(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "smart-downloads":
                 result = SmartDownloadsScanner().scan_result(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "duplicates":

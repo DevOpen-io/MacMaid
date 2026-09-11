@@ -2067,6 +2067,56 @@ async function fetchDoctorReport() {
 }
 
 // =========================================================
+// Browser Storage Inspector
+// =========================================================
+
+async function fetchBrowserStorage() {
+  const tbody = document.getElementById('tbody-browser-storage');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Browser storage taranıyor…</td></tr>`;
+  try {
+    const data = await readAPIResponse(await fetch('/api/browser-storage'));
+    state.browserStorage = data;
+    document.getElementById('browser-safe-cache').textContent = data.humanSafeCache || '0 B';
+    tbody.innerHTML = (data.areas || []).map(area => {
+      const checked = area.cleanable ? 'checked' : '';
+      const disabled = area.cleanable ? '' : 'disabled';
+      const riskClass = area.cleanable ? 'highlight-green' : 'text-muted';
+      return `<tr>
+        <td><input type="checkbox" class="browser-storage-chk" data-id="${escapeHtml(area.itemId || '')}" ${checked} ${disabled}></td>
+        <td>${escapeHtml(area.browser || '')}</td><td>${escapeHtml(area.profile || '')}</td><td>${escapeHtml(area.kind || '')}<br><small>${escapeHtml(area.reason || '')}</small></td>
+        <td><span class="${riskClass}">${escapeHtml(area.risk || '')}${area.cleanable ? ' · Smart Clean' : ' · Not auto-selected'}</span></td>
+        <td>${escapeHtml(area.humanBytes || formatBytes(area.bytes || 0))}</td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="6" class="empty-state">Browser storage bulunamadı.</td></tr>`;
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Browser storage scan başarısız: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function cleanBrowserCache() {
+  const ids = Array.from(document.querySelectorAll('.browser-storage-chk:checked')).map(chk => chk.dataset.id).filter(Boolean);
+  if (ids.length === 0) return showToast('Smart Clean için güvenli cache alanı seçilmedi.', 'warning');
+  const payload = { itemIds: ids };
+  try {
+    const reviewResponse = await requestOperationReview('/api/browser-storage/clean', payload);
+    showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
+      { text: 'Vazgeç', class: 'btn-secondary', onClick: hideModal },
+      { text: 'Cache Temizle', class: 'btn-danger', onClick: async () => {
+        const authorized = reviewedPayload(payload, reviewResponse);
+        if (!authorized) return;
+        hideModal();
+        const result = await readAPIResponse(await fetch('/api/browser-storage/clean', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) }));
+        showToast(operationOutcomeText(result), 'success');
+        fetchBrowserStorage();
+      }}
+    ]);
+  } catch (err) {
+    showToast(`Browser Smart Clean failed: ${err.message}`, 'error');
+  }
+}
+
+// =========================================================
 // Smart Downloads
 // =========================================================
 
@@ -2464,6 +2514,7 @@ document.addEventListener('DOMContentLoaded', () => {
       pill.classList.add('active');
       const targetSubPane = document.getElementById(`subpane-more-${moretab}`);
       if (targetSubPane) targetSubPane.classList.add('active');
+      if (moretab === 'browser-storage') fetchBrowserStorage();
       if (moretab === 'smart-downloads') fetchSmartDownloads();
       if (moretab === 'duplicates') fetchDuplicates();
       if (moretab === 'large-files') fetchLargeFiles();
@@ -2472,6 +2523,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  document.getElementById('btn-scan-browser-storage')?.addEventListener('click', fetchBrowserStorage);
+  document.getElementById('btn-clean-browser-cache')?.addEventListener('click', cleanBrowserCache);
   document.getElementById('btn-scan-smart-downloads')?.addEventListener('click', fetchSmartDownloads);
   document.getElementById('btn-scan-duplicates')?.addEventListener('click', fetchDuplicates);
   document.getElementById('btn-scan-large-files')?.addEventListener('click', fetchLargeFiles);

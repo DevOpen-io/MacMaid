@@ -41,7 +41,7 @@
             </div>
             <div class="brand-text-wrap">
               <span class="brand-name">DeepClean <span class="badge-pro">PRO</span></span>
-              <span class="version-tag">v0.9.20 Python</span>
+              <span class="version-tag">v0.9.21 Python</span>
             </div>
           </div>
         </div>
@@ -1346,6 +1346,10 @@
               <span class="subnav-pill-symbol">↓</span>
               <span>Installers</span>
             </button>
+            <button class="subnav-pill" data-moretab="browser-storage">
+              <span class="subnav-pill-symbol">◉</span>
+              <span>Browsers</span>
+            </button>
             <button class="subnav-pill" data-moretab="smart-downloads">
               <span class="subnav-pill-symbol">↓</span>
               <span>Smart Downloads</span>
@@ -1564,7 +1568,27 @@
             </div>
           </div>
 
-          <!-- Sub-Pane 3: Smart Downloads -->
+          <!-- Sub-Pane 3: Browser Storage Inspector -->
+          <div class="sub-pane" id="subpane-more-browser-storage">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Browser Storage Inspector</h3>
+                <p class="pane-subtitle">Safari, Chrome, Chromium, Brave, Edge, Firefox ve Arc alanlarını ayrı gösterir. Smart Clean yalnız güvenli cache alanlarını seçer.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-scan-browser-storage"><span>Browser Storage Tara</span></button>
+            </div>
+            <div class="glass-card">
+              <div class="table-toolbar"><div class="purge-summary"><span>Safe cache: </span><strong id="browser-safe-cache" class="highlight-cyan">0 B</strong></div><button class="btn btn-danger btn-sm" id="btn-clean-browser-cache">Smart Clean Cache</button></div>
+              <div class="table-container">
+                <table class="data-table" id="table-browser-storage">
+                  <thead><tr><th width="40"><input type="checkbox" id="master-browser-storage-chk" checked></th><th>Browser</th><th>Profile</th><th>Area</th><th>Risk</th><th>Boyut</th></tr></thead>
+                  <tbody id="tbody-browser-storage"><tr><td colspan="6" class="empty-state">Browser storage için tara.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 4: Smart Downloads -->
           <div class="sub-pane" id="subpane-more-smart-downloads">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>

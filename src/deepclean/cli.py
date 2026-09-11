@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
+from .browser_storage import BrowserStorageInspector
 from .cleaner import Cleaner
 from .config import Config
 from .features import (
@@ -39,6 +40,7 @@ def _parser() -> argparse.ArgumentParser:
     duplicates = commands.add_parser("duplicates"); duplicates.add_argument("--path", action="append", default=[]); duplicates.add_argument("--min-size", default="1B")
     large = commands.add_parser("large-files"); large.add_argument("--path", action="append", default=[]); large.add_argument("--min-size", choices=list(SIZE_FILTERS), default="500MB"); large.add_argument("--older-than-days", type=int, choices=(30, 90, 180, 365))
     smart_downloads = commands.add_parser("smart-downloads"); smart_downloads.add_argument("--older-than-days", type=int, default=30)
+    commands.add_parser("browser-storage")
     commands.add_parser("apps")
     purge = commands.add_parser("purge"); purge.add_argument("--path", action="append", default=[]); purge.add_argument("--apply", action="store_true"); purge.add_argument("--yes", action="store_true")
     commands.add_parser("status")
@@ -227,6 +229,14 @@ def main(argv: list[str] | None = None) -> None:
         for item in files:
             print(f"{human_bytes(item.bytes):>10}  {item.age_days:>4}d  {', '.join(item.categories)}\n     {item.path}")
         print("\nUser files are never selected automatically. Review before moving anything to Trash in the Web/TUI flows.")
+    elif command == "browser-storage":
+        areas = _run_interruptible_scan(lambda: BrowserStorageInspector().scan())
+        if areas is None: return
+        if not areas:
+            print("No browser storage found."); return
+        for area in areas:
+            status = "SMART CLEAN" if area.cleanable else "USER DATA"
+            print(f"{human_bytes(area.bytes):>10}  {status:<11}  {area.browser} · {area.profile} · {area.kind}\n     {area.path}\n     {area.reason}")
     elif command == "smart-downloads":
         files = _run_interruptible_scan(lambda: SmartDownloadsScanner(older_than_days=args.older_than_days).scan())
         if files is None: return
