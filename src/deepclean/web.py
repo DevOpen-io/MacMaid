@@ -19,10 +19,11 @@ from .cancellation import CancellationToken
 from .cleaner import Cleaner
 from .config import Config
 from .features import (
-    OPTIMIZATIONS, ApplicationManager, ProjectPurgeManager,
+    OPTIMIZATIONS, ApplicationManager, ProjectPurgeManager, RecoveryCenter,
     doctor, history, list_snapshots, run_optimization, system_status, thin_snapshots,
 )
 from .developer import DeveloperInventory
+from .duplicates import DuplicateFinder
 from .models import ActionType, CleanupProfile, RiskLevel, ScanResult
 from .reporting import FreeSpaceProbe
 from .review import (
@@ -85,6 +86,7 @@ class WebState:
         self.installers: ScanResult | None = None
         self.leftovers: ScanResult | None = None
         self.dev_caches: ScanResult | None = None
+        self.duplicates: set[Path] = set()
         self.apps = []
         self.projects = []
         self.analyzed_paths: set[Path] = set()
@@ -351,6 +353,15 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
                                         | {Path(entry["path"]) for entry in result["largestFiles"]})
                 self._bump_generation("analyzer")
             return result
+        if path == "/api/duplicates":
+            roots = [Path(item).expanduser().absolute() for item in query.get("path", [])] or None
+            groups = DuplicateFinder(min_bytes=int(query.get("minBytes", "1"))).scan(roots)
+            with state.lock:
+                state.duplicates = {file.path for group in groups for file in group.files}
+                self._bump_generation("duplicates")
+            total = sum(group.wasted_bytes for group in groups)
+            return {"groups": [group.web_dict() for group in groups], "totalWastedBytes": total,
+                    "humanTotalWasted": human_bytes(total), "selectedByDefault": []}
         if path == "/api/developer/caches":
             result = PackageManagerCacheScanner(state.config).scan()
             with state.lock:
@@ -375,7 +386,7 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
             checks = doctor(); by_name = {c["name"]: c["value"] for c in checks}
             return {"macosVersion": by_name.get("macOS", ""), "buildVersion": "", "architecture": by_name.get("Architecture", ""), "sipStatus": by_name.get("System Integrity Protection", ""), "diskRoot": "/", "snapshots": "", "probes": [{"path": c["name"], "ok": c.get("ok") is True} for c in checks]}
         if path == "/api/history":
-            entries = history(80)
+            entries = RecoveryCenter(state.config).entries(80) if hasattr(state, "config") else history(80)
             summaries = [item for item in entries if item.get("recordType") == "operation_summary"]
             if summaries:
                 total = sum(max(0, int(item.get("estimatedReclaimedBytes", 0))) for item in summaries)
@@ -393,6 +404,8 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
                     "lastOperationDate": entries[0].get("timestamp") if entries else None,
                     "measurementCaveat": "Historical values are estimates; Trash moves and unknown manager effects are excluded.",
                     "entries": [dict(e, date=e.get("timestamp")) for e in displayed]}
+        if path == "/api/recovery/conflict":
+            return RecoveryCenter(state.config).conflict(str(query.get("operationId", [""])[0]), str(query.get("trashPath", [""])[0]))
         if path == "/api/whitelist":
             try: lines = state.config.whitelist_file.read_text().splitlines()
             except OSError: lines = []
@@ -469,6 +482,29 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
             plan = purge_plan(selected)
             if review := self._review_gate("purge", body, plan): return review
             return ProjectPurgeManager(state.config).purge(selected)
+        if path == "/api/duplicates/trash":
+            requested = [Path(item).expanduser().absolute() for item in body.get("paths", [])]
+            if not requested or not set(requested).issubset(state.duplicates):
+                raise PermissionError("Duplicate path was not present in latest duplicate scan")
+            plan = analyzer_trash_plan(requested)
+            if review := self._review_gate("duplicates", body, plan): return review
+            moved = []
+            estimates = {item: size_of(item) for item in requested}
+            free_space = FreeSpaceProbe.capture(requested)
+            for item in requested:
+                destination = Cleaner(state.config).move_analyzer_item_to_trash(item, estimates[item])
+                moved.append(str(destination))
+            with state.lock: state.duplicates.difference_update(requested)
+            observed, notes = free_space.finish()
+            processed = sum(estimates.values())
+            Cleaner(state.config).log_space_summary(
+                "duplicate_trash_summary", scanned=processed, processed=processed, reclaimed=0,
+                trash_moved=processed, observed=observed, unknown=0, notes=notes,
+            )
+            return {"success": True, "removed": len(moved), "moved": moved,
+                    "processedEstimatedBytes": processed, "estimatedReclaimedBytes": 0,
+                    "trashMovedEstimatedBytes": processed, "observedFreeBytesDelta": observed,
+                    "measurementNotes": notes}
         if path == "/api/analyze/trash":
             raw = body.get("paths", [])
             if "path" in body: raw = [body["path"]]
@@ -494,6 +530,8 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
                     "processedEstimatedBytes": processed, "estimatedReclaimedBytes": 0,
                     "trashMovedEstimatedBytes": processed, "observedFreeBytesDelta": observed,
                     "measurementNotes": notes}
+        if path == "/api/recovery/restore":
+            return RecoveryCenter(state.config).restore(str(body.get("operationId", "")), str(body.get("trashPath", "")), copy=bool(body.get("copy", False)))
         if path == "/api/snapshots/thin":
             target = int(body.get("targetGB", 0))
             if target <= 0: raise ValueError("A positive snapshot target is required")

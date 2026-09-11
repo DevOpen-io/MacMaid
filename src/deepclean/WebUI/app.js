@@ -2049,6 +2049,59 @@ async function fetchDoctorReport() {
 }
 
 // =========================================================
+// Duplicate Finder
+// =========================================================
+
+async function fetchDuplicates() {
+  const tbody = document.getElementById('tbody-duplicates');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="4" class="empty-state">Duplicate taranıyor…</td></tr>`;
+  try {
+    const res = await fetch('/api/duplicates');
+    const data = await readAPIResponse(res);
+    const rows = [];
+    (data.groups || []).forEach((group, groupIndex) => {
+      (group.files || []).forEach(file => {
+        rows.push(`<tr>
+          <td>Group ${groupIndex + 1}<br><small>${escapeHtml(group.humanWasted || '')} review</small></td>
+          <td><span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(file.path)}</span></td>
+          <td>${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
+          <td><button class="mini-btn duplicate-trash" data-path="${escapeHtml(file.path)}">Move to Trash</button></td>
+        </tr>`);
+      });
+    });
+    tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="empty-state">Byte-for-byte duplicate bulunamadı.</td></tr>`;
+    tbody.querySelectorAll('.duplicate-trash').forEach(button => {
+      button.addEventListener('click', () => trashDuplicatePath(button.dataset.path));
+    });
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-state">Duplicate taraması başarısız: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function trashDuplicatePath(path) {
+  if (!path) return;
+  const payload = { paths: [path] };
+  try {
+    const reviewResponse = await requestOperationReview('/api/duplicates/trash', payload);
+    showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
+      { text: 'Vazgeç', class: 'btn-secondary', onClick: hideModal },
+      { text: 'Trash’e Taşı', class: 'btn-danger', onClick: async () => {
+        const authorized = reviewedPayload({ ...payload, extraOptIn: true }, reviewResponse);
+        if (!authorized) return;
+        hideModal();
+        const res = await fetch('/api/duplicates/trash', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) });
+        const result = await readAPIResponse(res);
+        showToast(operationOutcomeText(result), 'success');
+        fetchDuplicates();
+      }}
+    ]);
+  } catch (err) {
+    showToast(`Duplicate cleanup failed: ${err.message}`, 'error');
+  }
+}
+
+// =========================================================
 // Tab 12: History (history)
 // =========================================================
 
@@ -2068,16 +2121,43 @@ async function fetchHistory() {
       return;
     }
 
-    tbody.innerHTML = data.entries.slice(0, 60).map(e => `
+    tbody.innerHTML = data.entries.slice(0, 60).map((e, index) => {
+      const restorable = Boolean(e.restorable && e.trash_path && e.operation_id);
+      const restoreStatus = e.restoreStatus || (restorable ? 'Restorable' : 'Not Restorable');
+      const actions = restorable
+        ? `<div class="row-actions"><button class="mini-btn recovery-restore" data-index="${index}" data-copy="false">Restore</button><button class="mini-btn recovery-restore" data-index="${index}" data-copy="true">Restore as copy</button></div>`
+        : `<span class="text-muted">${escapeHtml(restoreStatus)}</span>`;
+      return `
       <tr>
         <td>${escapeHtml(e.date || '')}</td>
         <td><span class="badge-status">${escapeHtml(e.action || 'clean')}</span></td>
-        <td><strong>${escapeHtml(e.label || e.category || 'İşlem özeti')}</strong></td>
+        <td><strong>${escapeHtml(e.label || e.category || 'İşlem özeti')}</strong><br><small>${escapeHtml(restoreStatus)}</small></td>
         <td style="font-family: var(--font-mono);">${formatBytes(e.estimatedReclaimedBytes || 0)}</td>
-        <td><span class="highlight-green">${escapeHtml(e.result || 'success')}</span></td>
-      </tr>
-    `).join('');
-  } catch (e) {}
+        <td><span class="highlight-green">${escapeHtml(e.result || 'success')}</span>${actions}</td>
+      </tr>`;
+    }).join('');
+    tbody.querySelectorAll('.recovery-restore').forEach(button => {
+      button.addEventListener('click', () => restoreHistoryEntry(data.entries[Number(button.dataset.index)], button.dataset.copy === 'true'));
+    });
+   } catch (e) {}
+}
+
+async function restoreHistoryEntry(entry, copy) {
+  if (!entry || !entry.operation_id || !entry.trash_path) return;
+  const action = copy ? 'Restore as copy' : 'Restore';
+  if (!confirm(`${action} this item?\n\n${entry.original_path || ''}`)) return;
+  try {
+    const res = await fetch('/api/recovery/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operationId: entry.operation_id, trashPath: entry.trash_path, copy })
+    });
+    const result = await readAPIResponse(res);
+    showToast(`Restored: ${result.restored_path}`, 'success');
+    fetchHistory();
+  } catch (err) {
+    showToast(`Restore failed: ${err.message}`, 'error');
+  }
 }
 
 // =========================================================
@@ -2272,10 +2352,13 @@ document.addEventListener('DOMContentLoaded', () => {
       pill.classList.add('active');
       const targetSubPane = document.getElementById(`subpane-more-${moretab}`);
       if (targetSubPane) targetSubPane.classList.add('active');
+      if (moretab === 'duplicates') fetchDuplicates();
       if (moretab === 'history' && (!state.history || state.history.length === 0)) fetchHistory();
       if (moretab === 'whitelist' && (!state.whitelist || state.whitelist.length === 0)) fetchWhitelist();
     });
   });
+
+  document.getElementById('btn-scan-duplicates')?.addEventListener('click', fetchDuplicates);
 
   // Sound toggle button in header
   const soundBtn = document.getElementById('sound-toggle');

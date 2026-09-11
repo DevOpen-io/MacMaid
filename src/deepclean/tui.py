@@ -20,9 +20,10 @@ from .cancellation import CancellationToken, ScanCancelled
 from .cleaner import Cleaner
 from .config import Config
 from .developer import DeveloperInventory, DeveloperItem
+from .duplicates import DuplicateFinder
 from .features import (
     OPTIMIZATIONS, AppComponent, ApplicationManager, InstalledApplication,
-    ProjectArtifact, ProjectPurgeManager, doctor, history, list_snapshots,
+    ProjectArtifact, ProjectPurgeManager, RecoveryCenter, doctor, history, list_snapshots,
     run_optimization, system_status,
 )
 from .models import CleanupItem, CleanupProfile, RiskLevel, ScanResult
@@ -331,6 +332,7 @@ class DeepCleanTUI(App[None]):
         return self._page("more", "More tools", "Extra maintenance and inspection commands", self._action_menu("more-actions", [
             ("more-leftovers", "◇  Leftovers", "Find safe remnants from removed applications"),
             ("more-installers", "↓  Installers", "Find old DMG, PKG, XIP, ISO and IPSW files"),
+            ("more-duplicates", "⧉  Duplicate Files", "Find byte-for-byte matches; nothing is selected automatically"),
             ("more-snapshots", "◷  Snapshots", "List local Time Machine snapshots"),
             ("more-doctor", "+  Doctor", "Check DeepClean and macOS capabilities"),
             ("more-history", "≡  History", "Show recent activity in a readable timeline"),
@@ -1471,7 +1473,11 @@ class DeepCleanTUI(App[None]):
                     f"gözlenen fark {observed_text} (kesin atfedilemez)"
                 )
             else:
-                lines.append(f"{record.get('timestamp','')} {record.get('result',''):<9} {record.get('label', record.get('path',''))}")
+                restore = record.get("restoreStatus", "Restorable" if record.get("restorable") else "Not Restorable")
+                suffix = f" · {restore}"
+                if record.get("restorable") and record.get("operation_id") and record.get("trash_path"):
+                    suffix += f" · CLI: deepclean restore --operation-id {record.get('operation_id')} --trash-path {record.get('trash_path')!r}"
+                lines.append(f"{record.get('timestamp','')} {record.get('result',''):<9} {record.get('label', record.get('path',''))}{suffix}")
         return "\n".join(lines) or "Geçmiş boş."
 
     def _load_more(self, kind: str) -> None:
@@ -1489,9 +1495,11 @@ class DeepCleanTUI(App[None]):
                 result = scan_leftovers(self.config, cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "installers":
                 result = scan_installers(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
+            elif kind == "duplicates":
+                result = DuplicateFinder().scan_result(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "snapshots": text = "\n".join(list_snapshots()) or "Local snapshot bulunamadı."
             elif kind == "doctor": text = "\n".join(f"{x['name']:<30} {x['value']}" for x in doctor())
-            elif kind == "history": text = self._history_text(history(100))
+            elif kind == "history": text = self._history_text(RecoveryCenter(self.config).entries(100))
             else: text = f"Whitelist dosyası:\n{self.config.whitelist_file}\n\nHer satıra korunacak tam yol veya glob eklenebilir."
             token.check()
             self._scan_update(self._finish_more, kind, text)
@@ -1506,7 +1514,7 @@ class DeepCleanTUI(App[None]):
 
     def _finish_more_scan(self, kind: str, result: ScanResult) -> None:
         self.scan_cancellations.pop("more", None)
-        self.more_result = result; self.more_selected = ({i for i, item in enumerate(result.items) if item.risk is not RiskLevel.MANUAL_ONLY} if result.is_complete else set()); self.query_one("#more-output", Static).update(""); self._render_more_scan()
+        self.more_result = result; self.more_selected = (set() if kind == "duplicates" else {i for i, item in enumerate(result.items) if item.risk is not RiskLevel.MANUAL_ONLY}) if result.is_complete else set(); self.query_one("#more-output", Static).update(""); self._render_more_scan()
         self.query_one("#more-progress", ProgressBar).update(total=100, progress=100)
         if result.is_complete:
             self._set_state("more", f"{kind} · {len(result.items)} öğe · {human_bytes(result.total_bytes)}")
@@ -1523,7 +1531,7 @@ class DeepCleanTUI(App[None]):
 
     def _confirm_more_apply(self) -> None:
         if not self.more_result or not self.more_selected:
-            self._warn("Önce Leftovers veya Installers tara ve öğe seç"); return
+            self._warn("Önce bir araç tara ve öğeleri elle seç"); return
         items = [self.more_result.items[i] for i in sorted(self.more_selected)]
         self._confirm(cleanup_plan("Apply selected tool results", items), lambda: self._more_apply_worker(items), self._current_more_plan)
 

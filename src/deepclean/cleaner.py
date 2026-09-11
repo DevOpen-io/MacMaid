@@ -6,6 +6,7 @@ import stat
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Callable
+from uuid import uuid4
 
 from .config import Config
 from .models import ActionType, CleanupAction, CleanupCategory, CleanupItem, OperationResult, RiskLevel
@@ -51,19 +52,20 @@ class Cleaner:
             if answer != "CLEAN":
                 result.skipped = len(items)
                 return result
+        operation_id = str(uuid4())
         free_space = FreeSpaceProbe.capture(item.path for item in items)
         for index, item in enumerate(items, 1):
             emit(index, item, "running")
             if item.risk is RiskLevel.MANUAL_ONLY and not (allow_manual_fallback and item.action.kind is ActionType.MANUAL_CACHE_FALLBACK):
                 result.skipped += 1
-                self._log(item, "skipped", "Manual action requires explicit authorization")
+                self._log(item, "skipped", "Manual action requires explicit authorization", operation_id=operation_id)
                 emit(index, item, "skipped")
                 continue
             try:
                 if item.requires_app_closed and (process_running(item.requires_app_closed) or process_running(item.requires_app_closed + ".app")):
                     raise PermissionError(f"Close {item.requires_app_closed} first")
                 before = size_of(item.path) if item.path else 0
-                self._execute_item(item, allow_manual_fallback=allow_manual_fallback)
+                trash_destination = self._execute_item(item, allow_manual_fallback=allow_manual_fallback)
                 after = size_of(item.path) if item.path else 0
                 reclaimed = 0
                 result.processed_estimated_bytes += max(0, item.estimated_bytes)
@@ -77,31 +79,35 @@ class Cleaner:
                     reclaimed = max(0, before - after)
                     result.freed += reclaimed
                     reclaim_status = "estimated_from_target_size"
-                self._log(item, "success", None, processed_estimated_bytes=max(0, item.estimated_bytes),
+                self._log(item, "success", None, operation_id=operation_id,
+                          trash_path=trash_destination if item.action.kind is ActionType.MOVE_TO_TRASH else None,
+                          processed_estimated_bytes=max(0, item.estimated_bytes),
                           estimated_reclaimed_bytes=reclaimed, reclaim_status=reclaim_status)
                 emit(index, item, "success")
             except PermissionError as exc:
                 result.skipped += 1
                 result.details.append(f"{item.label}: {exc}")
-                self._log(item, "skipped", str(exc))
+                self._log(item, "skipped", str(exc), operation_id=operation_id)
                 emit(index, item, "skipped")
             except Exception as exc:
                 result.failed += 1
                 result.details.append(f"{item.label}: {exc}")
-                self._log(item, "failed", str(exc))
+                self._log(item, "failed", str(exc), operation_id=operation_id)
                 emit(index, item, "failed")
         result.observed_free_bytes_delta, result.measurement_notes = free_space.finish()
-        self._log_summary(result)
+        self._log_summary(result, operation_id)
         return result
 
-    def _execute_item(self, item: CleanupItem, *, allow_manual_fallback: bool = False) -> None:
+    def _execute_item(self, item: CleanupItem, *, allow_manual_fallback: bool = False) -> Path | None:
         kind = item.action.kind
         if kind is ActionType.REMOVE_PATH:
             self._remove_path(item.path)
+            return None
         elif kind is ActionType.REMOVE_CHILDREN:
             self._remove_children(item.path)
+            return None
         elif kind is ActionType.MOVE_TO_TRASH:
-            self._move_to_trash(item.path)
+            return self._move_to_trash(item.path)
         elif kind in (ActionType.COMMAND, ActionType.COMMAND_WITH_CACHE_FALLBACK):
             if not item.action.executable:
                 raise ValueError("missing executable")
@@ -112,10 +118,12 @@ class Cleaner:
             command = run_command(item.action.executable, item.action.arguments, timeout=600)
             if not command.succeeded:
                 raise RuntimeError(command.stderr or command.stdout or "command failed")
+            return None
         elif kind is ActionType.MANUAL_CACHE_FALLBACK and allow_manual_fallback:
             if item.path is None or not item.action.fallback_manager or not manual_cache_allowed(item.action.fallback_manager, item.path):
                 raise PermissionError("manual cache fallback path rejected by strict allowlist")
             self._remove_manual_children(item.path)
+            return None
         else:
             raise PermissionError("manual recursive fallback requires a second interactive confirmation")
 
@@ -233,7 +241,7 @@ class Cleaner:
         except Exception as exc:
             self._log(item, "failed", str(exc))
             raise
-        self._log(item, "success", f"Moved to Trash: {destination}",
+        self._log(item, "success", f"Moved to Trash: {destination}", trash_path=destination,
                   processed_estimated_bytes=estimate, reclaim_status="moved_to_trash_not_reclaimed")
         return destination
 
@@ -242,12 +250,19 @@ class Cleaner:
         self.config._require_owned_regular_file(self.config.operation_log, allow_missing=True)
 
     def _log(self, item: CleanupItem, outcome: str, detail: str | None, *,
+             operation_id: str | None = None, trash_path: Path | None = None,
              processed_estimated_bytes: int = 0, estimated_reclaimed_bytes: int = 0,
              reclaim_status: str = "not_processed") -> None:
+        original_path = str(item.path) if item.path else None
+        trash_path_text = str(trash_path) if trash_path else None
+        restorable = outcome == "success" and item.action.kind is ActionType.MOVE_TO_TRASH and trash_path is not None
         record = {
             "timestamp": datetime.now(UTC).isoformat(), "recordType": "item", "action": item.action.kind.value,
+            "operation_id": operation_id or str(uuid4()),
+            "original_path": original_path, "trash_path": trash_path_text,
+            "size": item.estimated_bytes, "restorable": restorable,
             "category": item.category.value, "label": item.label,
-            "path": str(item.path) if item.path else None, "bytes": item.estimated_bytes,
+            "path": original_path, "bytes": item.estimated_bytes,
             "scannedEstimatedBytes": item.estimated_bytes,
             "processedEstimatedBytes": processed_estimated_bytes,
             "estimatedReclaimedBytes": estimated_reclaimed_bytes,
@@ -256,20 +271,24 @@ class Cleaner:
         }
         self._append_record(record)
 
-    def _log_summary(self, result: OperationResult) -> None:
+    def _log_summary(self, result: OperationResult, operation_id: str | None = None) -> None:
         self.log_space_summary(
             "cleanup_summary", scanned=result.scanned_estimated_bytes,
             processed=result.processed_estimated_bytes, reclaimed=result.freed,
             trash_moved=result.trash_moved_estimated_bytes, observed=result.observed_free_bytes_delta,
             unknown=result.unknown_reclaim_count, notes=result.measurement_notes,
-            failed=result.failed, skipped=result.skipped,
+            failed=result.failed, skipped=result.skipped, operation_id=operation_id,
         )
 
     def log_space_summary(self, action: str, *, scanned: int, processed: int, reclaimed: int,
                           trash_moved: int, observed: int | None, unknown: int,
-                          notes: list[str], failed: int = 0, skipped: int = 0) -> None:
+                          notes: list[str], failed: int = 0, skipped: int = 0,
+                          operation_id: str | None = None) -> None:
         self._append_record({
             "timestamp": datetime.now(UTC).isoformat(), "recordType": "operation_summary",
+            "operation_id": operation_id or str(uuid4()),
+            "original_path": None, "trash_path": None,
+            "size": processed, "restorable": False,
             "action": action, "result": "partial" if failed or skipped else "success",
             "scannedEstimatedBytes": scanned, "processedEstimatedBytes": processed,
             "estimatedReclaimedBytes": reclaimed, "trashMovedEstimatedBytes": trash_moved,

@@ -10,10 +10,11 @@ from . import __version__
 from .cleaner import Cleaner
 from .config import Config
 from .features import (
-    OPTIMIZATIONS, ApplicationManager, ProjectPurgeManager, analyze_directory, completion_activation_hint, completion_script,
-    developer_inventory, doctor, history, install_completion, list_snapshots, remove_completion_hooks,
+    OPTIMIZATIONS, ApplicationManager, ProjectPurgeManager, RecoveryCenter, analyze_directory, completion_activation_hint, completion_script,
+    developer_inventory, doctor, install_completion, list_snapshots, remove_completion_hooks,
     run_optimization, system_status, thin_snapshots,
 )
+from .duplicates import DuplicateFinder
 from .models import CleanupProfile
 from .review import cleanup_plan, optimization_plan, purge_plan, snapshot_plan
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
@@ -32,6 +33,7 @@ def _parser() -> argparse.ArgumentParser:
     leftovers = commands.add_parser("leftovers"); leftovers.add_argument("--older-than", type=int, default=30); leftovers.add_argument("--include-data", action="store_true"); leftovers.add_argument("--apply", action="store_true"); leftovers.add_argument("--yes", action="store_true")
     installers = commands.add_parser("installers"); installers.add_argument("--older-than", type=int, default=30); installers.add_argument("--apply", action="store_true"); installers.add_argument("--yes", action="store_true")
     analyze = commands.add_parser("analyze"); analyze.add_argument("path", nargs="?", default="~"); analyze.add_argument("--top", type=int, default=30); analyze.add_argument("--min-size", default="1GB"); analyze.add_argument("--plain", action="store_true")
+    duplicates = commands.add_parser("duplicates"); duplicates.add_argument("--path", action="append", default=[]); duplicates.add_argument("--min-size", default="1B")
     commands.add_parser("apps")
     purge = commands.add_parser("purge"); purge.add_argument("--path", action="append", default=[]); purge.add_argument("--apply", action="store_true"); purge.add_argument("--yes", action="store_true")
     commands.add_parser("status")
@@ -41,6 +43,7 @@ def _parser() -> argparse.ArgumentParser:
     optimize = commands.add_parser("optimize"); optimize.add_argument("--task"); optimize.add_argument("--all", action="store_true", dest="all_tasks"); optimize.add_argument("--apply", action="store_true"); optimize.add_argument("--yes", action="store_true")
     snapshots = commands.add_parser("snapshots"); snapshots.add_argument("--thin", type=int, metavar="GB"); snapshots.add_argument("--apply", action="store_true"); snapshots.add_argument("--yes", action="store_true")
     history_parser = commands.add_parser("history"); history_parser.add_argument("--limit", type=int, default=40)
+    restore = commands.add_parser("restore"); restore.add_argument("--operation-id", required=True); restore.add_argument("--trash-path", required=True); restore.add_argument("--copy", action="store_true")
     commands.add_parser("whitelist")
     uninstall = commands.add_parser("uninstall"); uninstall.add_argument("--purge-data", action="store_true")
     web = commands.add_parser("ui", aliases=["web", "gui", "dashboard"]); web.add_argument("--port", type=int, default=8123); web.add_argument("--no-open", action="store_true")
@@ -51,6 +54,16 @@ def _progress(percent: int, phase: str, path: str) -> None:
     target = f" · {path}" if path else ""
     print(f"\r[{percent:3d}%] {phase}{target}"[:160].ljust(160), end="", flush=True)
     if percent == 100: print()
+
+
+def _parse_bytes(value: str, default: int = 1) -> int:
+    units = {"B": 1, "KB": 1000, "MB": 1000**2, "GB": 1000**3, "TB": 1000**4}
+    raw = value.upper().strip()
+    suffix = next((u for u in ("TB", "GB", "MB", "KB", "B") if raw.endswith(u)), None)
+    try:
+        return max(1, int(float(raw[:-len(suffix)]) * units[suffix]) if suffix else int(raw))
+    except (TypeError, ValueError):
+        return default
 
 
 def _run_interruptible_scan(operation):
@@ -108,7 +121,8 @@ def _print_history_record(record: dict) -> None:
         observed_text = "ölçülemedi" if observed_value is None else f"{human_bytes(abs(observed_value))} {'artış' if observed_value >= 0 else 'azalış'}"
         print(f"{prefix} {record.get('action', 'operation')} · işlenen tahmin {human_bytes(record.get('processedEstimatedBytes', 0))} · tahmini geri kazanım {human_bytes(record.get('estimatedReclaimedBytes', 0))} · gözlenen fark {observed_text} (kesin atfedilemez)")
     else:
-        print(f"{prefix} {record.get('label', record.get('path', ''))} · hedef tahmini {human_bytes(record.get('bytes', 0))} · {record.get('reclaimStatus', 'legacy record')}")
+        restore = record.get("restoreStatus", "Restorable" if record.get("restorable") else "Not Restorable")
+        print(f"{prefix} {record.get('label', record.get('path', ''))} · hedef tahmini {human_bytes(record.get('bytes', 0))} · {record.get('reclaimStatus', 'legacy record')} · {restore}")
 
 
 def _run_clean_result(result, args) -> None:
@@ -181,16 +195,24 @@ def main(argv: list[str] | None = None) -> None:
             if item.get("recommendation"): print(f"  Suggestion: {item['recommendation']}")
         print(f"Measured {status['healthMeasuredAt']} · read-only snapshot; no health score")
     elif command == "analyze":
-        units = {"KB": 1000, "MB": 1000**2, "GB": 1000**3, "TB": 1000**4}
-        raw = args.min_size.upper().strip(); suffix = next((u for u in units if raw.endswith(u)), None)
-        try: minimum = int(float(raw[:-len(suffix)]) * units[suffix]) if suffix else int(raw)
-        except ValueError: minimum = 1_000_000_000
+        minimum = _parse_bytes(args.min_size, 1_000_000_000)
         result = _run_interruptible_scan(lambda: analyze_directory(Path(args.path), args.top, minimum))
         if result is None: return
         print(f"Path: {result['path']}")
         for item in result["entries"]: print(f"  {human_bytes(item['bytes']):>10}  {'[VIEW ONLY] ' if item['viewOnly'] else ''}{item['name']}")
         print("\nLargest files")
         for item in result.get("largestFiles", []): print(f"  {human_bytes(item['bytes']):>10}  {item['path']}")
+    elif command == "duplicates":
+        roots = [Path(p) for p in args.path] or None
+        groups = _run_interruptible_scan(lambda: DuplicateFinder(min_bytes=_parse_bytes(args.min_size)).scan(roots))
+        if groups is None: return
+        if not groups:
+            print("No byte-for-byte duplicates found."); return
+        for index, group in enumerate(groups, 1):
+            print(f"\nGroup {index}: {len(group.files)} files · {human_bytes(group.bytes)} each · potential review size {human_bytes(group.wasted_bytes)}")
+            for duplicate in group.files:
+                print(f"  {duplicate.path}")
+        print("\nNo files are selected automatically. Review duplicates before moving anything to Trash in the Web/TUI flows.")
     elif command == "apps":
         apps = _run_interruptible_scan(lambda: ApplicationManager(config).scan())
         if apps is None: return
@@ -227,7 +249,10 @@ def main(argv: list[str] | None = None) -> None:
         else:
             print("\n".join(list_snapshots()) or "No local snapshots found.")
     elif command == "history":
-        for record in history(args.limit): _print_history_record(record)
+        for record in RecoveryCenter(Config()).entries(args.limit): _print_history_record(record)
+    elif command == "restore":
+        outcome = RecoveryCenter(Config()).restore(args.operation_id, args.trash_path, copy=args.copy)
+        print(f"Restored: {outcome['restored_path']}")
     elif command == "completion":
         if args.install:
             print(f"Installed: {install_completion(args.shell, config)}")

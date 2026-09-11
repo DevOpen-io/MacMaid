@@ -5,6 +5,7 @@ import os
 import platform
 import plistlib
 import re
+import shutil
 import socket
 import sys
 import threading
@@ -723,8 +724,8 @@ def thin_snapshots(bytes_to_free: int, config: Config | None = None) -> dict[str
             "measurementNotes": notes}
 
 
-def history(limit: int = 40) -> list[dict[str, Any]]:
-    path = Config().operation_log
+def history(limit: int = 40, config: Config | None = None) -> list[dict[str, Any]]:
+    path = (config or Config()).operation_log
     try:
         lines = path.read_text(encoding="utf-8").splitlines()[-max(1, limit):]
     except OSError:
@@ -738,6 +739,115 @@ def history(limit: int = 40) -> list[dict[str, Any]]:
     return records
 
 
+class RecoveryCenter:
+    def __init__(self, config: Config | None = None) -> None:
+        self.config = config or Config()
+
+    def entries(self, limit: int = 200) -> list[dict[str, Any]]:
+        return [self._with_status(record) for record in history(limit, self.config)]
+
+    def restore(self, operation_id: str, trash_path: str, *, copy: bool = False) -> dict[str, Any]:
+        record = self._find_record(operation_id, trash_path)
+        source = self._validate_trash_path(Path(str(record["trash_path"])))
+        original = self._validate_original_path(Path(str(record["original_path"])))
+        if copy:
+            destination = self._copy_destination(original)
+            self._copy_source(source, destination)
+            action = "restore_copy"
+        else:
+            if original.exists() or original.is_symlink():
+                raise FileExistsError(f"Restore conflict: {original}")
+            os.replace(source, original)
+            destination = original
+            action = "restore"
+        self._audit_recovery(action, record, destination)
+        return {"success": True, "operation_id": operation_id, "original_path": str(original),
+                "trash_path": str(source), "restored_path": str(destination), "copied": copy}
+
+    def conflict(self, operation_id: str, trash_path: str) -> dict[str, Any]:
+        record = self._find_record(operation_id, trash_path)
+        source = self._validate_trash_path(Path(str(record["trash_path"])))
+        original = self._validate_original_path(Path(str(record["original_path"])))
+        return {"operation_id": operation_id, "trash_path": str(source), "original_path": str(original),
+                "trashExists": source.exists(), "originalExists": original.exists() or original.is_symlink(),
+                "restorable": bool(record.get("restorable")) and source.exists()}
+
+    def _find_record(self, operation_id: str, trash_path: str) -> dict[str, Any]:
+        if not operation_id or not trash_path:
+            raise ValueError("operation_id and trash_path are required")
+        for record in history(1000, self.config):
+            if (record.get("recordType") == "item" and record.get("operation_id") == operation_id
+                    and record.get("trash_path") == trash_path):
+                if not record.get("restorable"):
+                    raise PermissionError("History item is not restorable")
+                if not record.get("original_path"):
+                    raise PermissionError("History item has no original path")
+                return record
+        raise FileNotFoundError("Restorable history item was not found")
+
+    def _validate_trash_path(self, raw: Path) -> Path:
+        path = PathSafety._lexical(raw)
+        trash = self.config.home / ".Trash"
+        if trash not in path.parents:
+            raise PathSafetyError("Recovery source must be inside the current user's Trash")
+        PathSafety._reject_symlink_ancestors(path)
+        if path.is_symlink() or not path.exists() or path.lstat().st_uid != os.getuid():
+            raise PathSafetyError("Recovery source is unavailable or unsafe")
+        return path
+
+    def _validate_original_path(self, raw: Path) -> Path:
+        path = PathSafety._lexical(raw)
+        if self.config.home not in path.parents:
+            raise PathSafetyError("Recovery destination must be below HOME")
+        parent = path.parent
+        PathSafety._reject_symlink_ancestors(parent)
+        if not parent.exists() or parent.is_symlink() or not parent.is_dir() or parent.lstat().st_uid != os.getuid():
+            raise PathSafetyError("Recovery destination parent is unavailable or unsafe")
+        return path
+
+    def _copy_destination(self, original: Path) -> Path:
+        if not original.exists() and not original.is_symlink():
+            return original
+        stem = original.stem if original.suffix else original.name
+        suffix = original.suffix
+        for index in range(1, 1000):
+            extra = "Restored copy" if index == 1 else f"Restored copy {index}"
+            candidate = original.with_name(f"{stem} ({extra}){suffix}")
+            if not candidate.exists() and not candidate.is_symlink():
+                return candidate
+        raise FileExistsError("No collision-free restore-copy destination is available")
+
+    def _copy_source(self, source: Path, destination: Path) -> None:
+        if source.is_dir():
+            shutil.copytree(source, destination, symlinks=True)
+        else:
+            shutil.copy2(source, destination, follow_symlinks=False)
+        if not destination.exists() and not destination.is_symlink():
+            raise RuntimeError("Restore copy post-condition failed")
+
+    def _audit_recovery(self, action: str, record: dict[str, Any], destination: Path) -> None:
+        Cleaner(self.config)._append_record({
+            "timestamp": datetime.now(timezone.utc).isoformat(), "recordType": "recovery",
+            "operation_id": record.get("operation_id"), "action": action, "result": "success",
+            "original_path": record.get("original_path"), "trash_path": record.get("trash_path"),
+            "restored_path": str(destination), "size": record.get("size", record.get("bytes", 0)),
+            "restorable": False,
+        })
+
+    def _with_status(self, record: dict[str, Any]) -> dict[str, Any]:
+        copy = dict(record)
+        if record.get("action") in {ActionType.COMMAND.value, ActionType.COMMAND_WITH_CACHE_FALLBACK.value}:
+            copy["restoreStatus"] = "Not Restorable"
+        elif not record.get("restorable"):
+            copy["restoreStatus"] = "Not Restorable"
+        elif record.get("trash_path") and Path(str(record["trash_path"])).exists():
+            copy["restoreStatus"] = "Restorable"
+        else:
+            copy["restoreStatus"] = "Trash item missing"
+            copy["restorable"] = False
+        return copy
+
+
 def developer_inventory(kind: str) -> list[dict[str, Any]]:
     from .developer import DeveloperInventory
 
@@ -748,7 +858,7 @@ def developer_inventory(kind: str) -> list[dict[str, Any]]:
 
 
 def completion_script(shell: str) -> str:
-    commands = "doctor scan clean leftovers installers analyze apps purge status completion developer-caches developer optimize snapshots history whitelist uninstall ui web gui dashboard"
+    commands = "doctor scan clean leftovers installers analyze duplicates apps purge status completion developer-caches developer optimize snapshots history restore whitelist uninstall ui web gui dashboard"
     if shell == "fish":
         return f"complete -c deepclean -f -a '{commands}'"
     if shell == "bash":
@@ -767,6 +877,7 @@ _deepclean() {{
     'leftovers:Find application leftovers'
     'installers:Find old installer files'
     'analyze:Analyze disk usage'
+    'duplicates:Find byte-for-byte duplicate files'
     'apps:List installed applications'
     'purge:Find generated project artifacts'
     'status:Show evidence-based Mac health'
@@ -776,6 +887,7 @@ _deepclean() {{
     'optimize:Review macOS maintenance tasks'
     'snapshots:List or thin local snapshots'
     'history:Show operation history'
+    'restore:Restore a restorable Trash history item'
     'whitelist:Print the whitelist path'
     'uninstall:Uninstall DeepClean'
     'ui:Open the local Web UI'

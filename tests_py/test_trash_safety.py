@@ -49,6 +49,34 @@ def test_trash_preserves_data_and_avoids_name_collision(cleaner, analyzer):
         assert record["processedEstimatedBytes"] > 0
         assert record["estimatedReclaimedBytes"] == 0
         assert record["reclaimStatus"] == "moved_to_trash_not_reclaimed"
+        assert record["operation_id"]
+        assert record["original_path"] == str(path)
+        assert record["trash_path"] == str(destination)
+        assert record["size"] > 0
+        assert record["restorable"] is True
+
+
+def test_execute_records_recovery_metadata_for_trash_moves(cleaner):
+    path = target(cleaner)
+    size = path.stat().st_size
+    item = module.CleanupItem(
+        module.CleanupCategory.TRASH, "fixture", path, size, module.RiskLevel.AGGRESSIVE,
+        "reviewed fixture", module.CleanupAction(module.ActionType.MOVE_TO_TRASH),
+    )
+
+    result = cleaner.execute([item], apply=True, assume_yes=True)
+
+    records = [json.loads(line) for line in cleaner.config.operation_log.read_text().splitlines()]
+    item_record, summary = records[-2], records[-1]
+    assert result.failed == result.skipped == 0
+    assert item_record["operation_id"] == summary["operation_id"]
+    assert item_record["original_path"] == str(path)
+    assert item_record["trash_path"]
+    assert item_record["size"] == size
+    assert item_record["restorable"] is True
+    assert summary["original_path"] is None
+    assert summary["trash_path"] is None
+    assert summary["restorable"] is False
 
 
 @pytest.mark.parametrize("analyzer", [False, True])

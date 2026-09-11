@@ -56,12 +56,14 @@ deepclean scan --profile developer --scan-only
 deepclean scan --profile safe --apply
 deepclean apps
 deepclean analyze ~/Projects
+deepclean duplicates --path ~/Downloads --min-size 10MB
 deepclean purge --path ~/Projects
 deepclean developer-caches --scan-only
 deepclean developer runtimes
 deepclean optimize
 deepclean snapshots
 deepclean history
+deepclean restore --operation-id <id> --trash-path <path> [--copy]
 deepclean completion zsh --print
 deepclean ui
 ```
@@ -72,11 +74,15 @@ Cancelled, permission-limited and failed scans are not reported as “clean.” 
 
 Space reporting deliberately separates the reviewed scan estimate, the estimate for successfully processed targets, the conservative estimated reclaim, and the observed filesystem-wide free-space change. Trash moves are reported separately and are never counted as freed space. Manager effects remain unknown unless they can be measured safely. Observed changes are not attributed solely to DeepClean because APFS clones, snapshots, sparse files and concurrent disk activity can affect them.
 
+Duplicate File Finder is read-only during scanning and verifies candidates in the order `size → partial hash → full hash`; hardlinks/same-inode paths are not counted as duplicates. No duplicate is selected automatically, and moving a reviewed duplicate to Trash goes through the same preview, confirmation, PathSafety and history pipeline as analyzer Trash actions.
+
+Recovery history records each item with `operation_id`, original path, Trash path, timestamp, size and whether it is restorable. Restorable Trash entries can be restored from the Web UI or with `deepclean restore`; use `--copy` to avoid moving the Trash item back. If the original path already exists, normal restore fails closed and Restore as copy chooses a collision-free sibling. Package-manager cleanup commands are shown as Not Restorable because their managers perform the mutation.
+
 ## Terminal UI
 
 Running `deepclean` without arguments opens the Textual dashboard. It has persistent navigation, descriptive tool pages, live system metrics, background workers, review tables and a dedicated pre-operation review screen. Nothing starts until the exact displayed plan receives an explicit `y` response at its terminal-style `[y/N]` prompt; Enter, `n` and Esc safely cancel. User-data or MANUAL selections require a second explicit `y` confirmation. Use arrow keys or `j`/`k` to move, Enter to open, `h` or `Ctrl+N` to focus the sidebar, `l` to focus page content, `1`–`9` to jump directly, Space to toggle reviewed rows, `r` to refresh and `Esc` to return to the dashboard.
 
-The TUI exposes Smart Clean, application/component removal, incremental disk analysis, Project Purge, developer inventory/cache cleanup, optimization, evidence-based Mac health, leftovers, installers, snapshots, doctor, history and whitelist information. Mac health reports disk headroom, macOS memory-pressure headroom, thermal state and battery condition with measurement time and safe guidance; it does not invent a health score or act automatically. Expensive native probes are rate-limited and unavailable readings remain unknown. Long-running scans execute outside the UI event loop, so navigation remains responsive. Press `c` on a scan/result screen to request cooperative cancellation; active filesystem walks, bounded size workers and waiting subprocesses stop at safe checkpoints. Cleanup mutations are never force-cancelled.
+The TUI exposes Smart Clean, application/component removal, incremental disk analysis, Duplicate File Finder, Project Purge, developer inventory/cache cleanup, optimization, evidence-based Mac health, leftovers, installers, snapshots, doctor, history/recovery status and whitelist information. Mac health reports disk headroom, macOS memory-pressure headroom, thermal state and battery condition with measurement time and safe guidance; it does not invent a health score or act automatically. Expensive native probes are rate-limited and unavailable readings remain unknown. Long-running scans execute outside the UI event loop, so navigation remains responsive. Press `c` on a scan/result screen to request cooperative cancellation; active filesystem walks, bounded size workers and waiting subprocesses stop at safe checkpoints. Cleanup mutations are never force-cancelled.
 
 ## Web UI
 
@@ -86,7 +92,7 @@ deepclean ui
 ./start-web.sh
 ```
 
-The bundled dashboard listens only on `127.0.0.1:8123`. It exposes the same read-only Mac health indicators, Smart Clean, application inventory/removal, Project Purge, installer and leftover review, disk analysis, developer caches/inventory, snapshots, optimization, doctor, history and whitelist controls. Destructive requests use a two-step server-reviewed flow: the UI displays the server's exact plan, then submits a short-lived, single-use token bound to that selection and scan generation.
+The bundled dashboard listens only on `127.0.0.1:8123`. It exposes the same read-only Mac health indicators, Smart Clean, application inventory/removal, Project Purge, installer and leftover review, disk analysis, Duplicate File Finder, developer caches/inventory, snapshots, optimization, doctor, history/recovery and whitelist controls. Destructive requests use a two-step server-reviewed flow: the UI displays the server's exact plan, then submits a short-lived, single-use token bound to that selection and scan generation.
 
 Disk Analyzer lists a directory immediately and measures each visible child in a bounded background worker pool. Navigation never waits for the current directory to finish: moving elsewhere cancels its disk I/O while preserving completed measurements in the Web UI session cache. Returning shows that cache immediately and resumes only unfinished entries. The explicit Analyze/refresh action can force a fresh measurement. The progress HUD can stop Smart Clean or analyzer work through the shared cancellation API.
 

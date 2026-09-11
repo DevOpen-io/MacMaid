@@ -41,7 +41,7 @@
             </div>
             <div class="brand-text-wrap">
               <span class="brand-name">DeepClean <span class="badge-pro">PRO</span></span>
-              <span class="version-tag">v0.9.16 Python</span>
+              <span class="version-tag">v0.9.18 Python</span>
             </div>
           </div>
         </div>
@@ -1323,6 +1323,10 @@
               <span class="subnav-pill-symbol">↓</span>
               <span>Installers</span>
             </button>
+            <button class="subnav-pill" data-moretab="duplicates">
+              <span class="subnav-pill-symbol">⧉</span>
+              <span>Duplicates</span>
+            </button>
             <button class="subnav-pill" data-moretab="snapshots">
               <span class="subnav-pill-symbol">◷</span>
               <span>Snapshots</span>
@@ -1529,7 +1533,26 @@
             </div>
           </div>
 
-          <!-- Sub-Pane 3: Snapshots -->
+          <!-- Sub-Pane 3: Duplicate Finder -->
+          <div class="sub-pane" id="subpane-more-duplicates">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Duplicate File Finder</h3>
+                <p class="pane-subtitle">Byte-for-byte eşleşmeleri size → partial hash → full hash ile doğrular. Hiçbir dosya otomatik seçilmez.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-scan-duplicates"><span>⧉ Duplicate Tara</span></button>
+            </div>
+            <div class="glass-card">
+              <div class="table-container">
+                <table class="data-table" id="table-duplicates">
+                  <thead><tr><th>Grup</th><th>Dosya</th><th>Boyut</th><th>Aksiyon</th></tr></thead>
+                  <tbody id="tbody-duplicates"><tr><td colspan="4" class="empty-state">Duplicate taraması için yukarıdaki butona tıklayın.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 4: Snapshots -->
           <div class="sub-pane" id="subpane-more-snapshots">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
