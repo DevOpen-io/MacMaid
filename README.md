@@ -19,6 +19,9 @@ MacMaid helps you understand what is using space on your Mac and clean reviewed,
 Once the Homebrew tap release workflow has published a version:
 
 ```sh
+# On Homebrew 6.0+, third-party taps must be trusted before tapping:
+brew trust devopen-io/tap
+
 brew tap DevOpen-io/tap
 brew install --cask macmaid   # installs MacMaid.app
 brew install macmaid          # installs the macmaid CLI command
