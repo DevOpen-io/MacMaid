@@ -924,6 +924,8 @@ class DeepCleanTUI(App[None]):
 
     def _update_row_detail(self, table_id: str, row: int) -> None:
         detail_id = table_id.removesuffix("-table") + "-detail"
+        if table_id == "components-table":
+            detail_id = "apps-detail"
         detail = self.query_one(f"#{detail_id}", Static)
         text = ""
         if table_id == "clean-table" and self.clean_result and 0 <= row < len(self.clean_result.items):
@@ -1025,8 +1027,12 @@ class DeepCleanTUI(App[None]):
     def _finish_clean(self, result: ScanResult) -> None:
         self.scan_cancellations.pop("clean", None)
         self.clean_result = result
-        self.clean_selected = ({i for i, item in enumerate(result.items) if item.risk is not RiskLevel.MANUAL_ONLY}
-                               if result.is_complete else set())
+        if self.clean_profile == CleanupProfile.AGGRESSIVE:
+            self.clean_selected = ({i for i, item in enumerate(result.items) if item.risk is not RiskLevel.MANUAL_ONLY}
+                                   if result.is_complete else set())
+        else:
+            self.clean_selected = ({i for i, item in enumerate(result.items) if item.risk not in (RiskLevel.MANUAL_ONLY, RiskLevel.AGGRESSIVE)}
+                                   if result.is_complete else set())
         self.query_one("#clean-progress", ProgressBar).update(progress=100 if result.is_complete else 0)
         self.query_one("#clean-progress", ProgressBar).add_class("complete"); self.query_one("#clean-progress-line").add_class("complete"); self._render_clean()
         if result.items: self.query_one("#clean-table", DataTable).focus()

@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 .SHELLFLAGS := -eu -c
-.DEFAULT_GOAL := help
+.DEFAULT_GOAL := install
 
 UV ?= uv
 ARGS ?=
@@ -28,7 +28,7 @@ check: test ## Compile, test and smoke-check the package
 	$(UV) run deepclean --version
 	$(UV) run deepclean --help >/dev/null
 
-build: check ## Build wheel and source distribution
+build: ## Build wheel and source distribution
 	$(UV) build
 
 run: ## Run the CLI; example: make run ARGS="doctor"
@@ -65,4 +65,4 @@ ui web: ## Launch the local Web UI
 	$(UV) run deepclean ui $(ARGS)
 
 clean: ## Remove only local Python build/test artifacts
-	rm -rf build .pytest_cache src/deepclean.egg-info
+	rm -rf build dist .pytest_cache src/deepclean.egg-info

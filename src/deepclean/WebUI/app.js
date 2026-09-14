@@ -416,7 +416,7 @@ function renderInPageProgress(p) {
   let card = document.getElementById(`${service}-progress-card`);
   let activePrefix = service;
   if (!card && (service === 'developer' || serviceToTab[service] === 'developer')) {
-    const activeDevTab = document.querySelector('#pane-developer .subnav-pill.active')?.dataset.devtab || 'storage';
+    const activeDevTab = document.querySelector('#pane-developer .sub-pane.active')?.id?.replace('subpane-dev-', '') || 'storage';
     const devProgressPrefixes = { storage: 'devstorage', caches: 'devcaches', runtimes: 'runtimes', environments: 'environments', tools: 'devtools', sdks: 'sdks' };
     const mappedPrefix = devProgressPrefixes[activeDevTab] || 'devcaches';
     const subCard = document.getElementById(`${mappedPrefix}-progress-card`);
@@ -2072,6 +2072,116 @@ async function fetchDoctorReport() {
 let treemapPath = '~';
 let treemapParent = '~';
 let treemapRequestId = 0;
+let lastTreemapData = null;
+let lastTreemapRenderSignature = '';
+const treemapViews = new Map();
+
+function getTreemapRenderSignature(data) {
+  const nodePaths = (data.nodes || []).map(node => node.path || node.name || '').join('|');
+  return `${data.path || ''}:${data.isComplete ? 'done' : 'scan'}:${nodePaths}`;
+}
+
+function splitTreemapItems(items, x, y, width, height, depth = 0, out = []) {
+  if (!items.length || width <= 0 || height <= 0) return out;
+  if (items.length === 1) {
+    out.push({ ...items[0], x, y, width, height, depth });
+    return out;
+  }
+
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+  let running = 0;
+  let splitIndex = 1;
+  for (let i = 0; i < items.length - 1; i++) {
+    const next = running + items[i].value;
+    if (Math.abs(total / 2 - next) <= Math.abs(total / 2 - running)) {
+      running = next;
+      splitIndex = i + 1;
+    } else {
+      break;
+    }
+  }
+
+  const first = items.slice(0, splitIndex);
+  const second = items.slice(splitIndex);
+  const firstTotal = first.reduce((sum, item) => sum + item.value, 0);
+  const ratio = total ? firstTotal / total : 0.5;
+
+  if (width >= height) {
+    const firstWidth = Math.max(1, Math.round(width * ratio));
+    splitTreemapItems(first, x, y, firstWidth, height, depth + 1, out);
+    splitTreemapItems(second, x + firstWidth, y, width - firstWidth, height, depth + 1, out);
+  } else {
+    const firstHeight = Math.max(1, Math.round(height * ratio));
+    splitTreemapItems(first, x, y, width, firstHeight, depth + 1, out);
+    splitTreemapItems(second, x, y + firstHeight, width, height - firstHeight, depth + 1, out);
+  }
+  return out;
+}
+
+function renderTreemap(data) {
+  const box = document.getElementById('treemap-box');
+  if (!box) return;
+  const nodes = (data.nodes || [])
+    .map((node, index) => ({ ...node, index, value: Math.max(0, Number(node.bytes || 0)) }))
+    .filter(node => node.value > 0)
+    .sort((a, b) => b.value - a.value);
+
+  if (!nodes.length) {
+    box.innerHTML = `<div class="empty-state">${data.isComplete ? 'Bu klasörde gösterilecek öğe yok.' : 'İlk sonuçlar ölçülüyor…'}</div>`;
+    return;
+  }
+
+  const boxStyle = window.getComputedStyle(box);
+  const horizontalPadding = parseFloat(boxStyle.paddingLeft || '0') + parseFloat(boxStyle.paddingRight || '0');
+  const verticalPadding = parseFloat(boxStyle.paddingTop || '0') + parseFloat(boxStyle.paddingBottom || '0');
+  const width = Math.max(1, Math.floor((box.clientWidth || 720) - horizontalPadding));
+  const availableHeight = Math.max(1, Math.floor((box.clientHeight || 520) - verticalPadding));
+  const summaryReserve = width < 760 ? 68 : 44;
+  const height = Math.max(1, availableHeight - summaryReserve);
+  const rects = splitTreemapItems(nodes, 0, 0, width, height);
+  const largest = nodes[0]?.value || 1;
+  const totalBytes = nodes.reduce((sum, node) => sum + node.value, 0);
+  const palette = ['#3b82f6', '#06b6d4', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#6366f1', '#14b8a6'];
+
+  box.innerHTML = `
+    <div class="treemap-shell">
+      <div class="treemap-summary-row">
+        <span><strong>${nodes.length}</strong> öğe haritalandı</span>
+        <span>Toplam görünür alan: <strong>${escapeHtml(data.humanTotal || formatBytes(totalBytes))}</strong></span>
+        <span class="text-muted">Kare büyüklüğü disk kullanımına göre ölçeklenir. Klasöre girmek için kutuya tıkla.</span>
+      </div>
+      <div class="treemap-canvas" style="height:${height}px;">
+        ${rects.map(rect => {
+          const pad = rect.width > 26 && rect.height > 26 ? 4 : 2;
+          const color = palette[rect.index % palette.length];
+          const intensity = 0.45 + Math.min(0.35, rect.value / largest * 0.35);
+          const area = rect.width * rect.height;
+          const compact = area < 15000;
+          const tiny = area < 5200;
+          const percent = totalBytes ? rect.value / totalBytes * 100 : Number(rect.percentage || 0);
+          const action = rect.cleanupCandidate ? `<button class="mini-btn treemap-trash" data-path="${escapeHtml(rect.path)}">Review</button>` : '';
+          return `<div class="treemap-tile ${rect.directory ? 'is-directory' : 'is-file'} ${tiny ? 'is-tiny' : ''}" data-path="${escapeHtml(rect.path)}" data-directory="${rect.directory ? 'true' : 'false'}" title="${escapeHtml(rect.name)} · ${escapeHtml(rect.humanBytes || formatBytes(rect.value))} · ${percent.toFixed(1)}%" style="left:${rect.x + pad}px;top:${rect.y + pad}px;width:${Math.max(0, rect.width - pad * 2)}px;height:${Math.max(0, rect.height - pad * 2)}px;--tile-color:${color};--tile-glow:${color}66;--tile-alpha:${intensity};">
+            <div class="treemap-tile-bg"></div>
+            ${tiny ? '' : `<div class="treemap-tile-content">
+              <div class="treemap-tile-name">${escapeHtml(rect.directory ? '▸ ' : '')}${escapeHtml(rect.name)}</div>
+              <div class="treemap-tile-meta">${escapeHtml(rect.humanBytes || formatBytes(rect.value))} · ${percent.toFixed(1)}%</div>
+              ${compact ? '' : `<div class="treemap-tile-actions"><button class="mini-btn treemap-open" data-path="${escapeHtml(rect.path)}">Finder</button>${rect.directory ? `<button class="mini-btn treemap-drill" data-path="${escapeHtml(rect.path)}">Drill down</button>` : ''}${action}</div>`}
+            </div>`}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+  box.querySelectorAll('.treemap-tile').forEach(tile => {
+    tile.addEventListener('click', event => {
+      if (event.target.closest('button')) return;
+      if (tile.dataset.directory === 'true') fetchTreemap(tile.dataset.path);
+    });
+  });
+  box.querySelectorAll('.treemap-drill').forEach(btn => btn.addEventListener('click', () => fetchTreemap(btn.dataset.path)));
+  box.querySelectorAll('.treemap-open').forEach(btn => btn.addEventListener('click', () => openTreemapPath(btn.dataset.path)));
+  box.querySelectorAll('.treemap-trash').forEach(btn => btn.addEventListener('click', () => trashTreemapPath(btn.dataset.path)));
+}
 
 async function fetchTreemap(path = treemapPath, force = false, polling = false, requestId = 0) {
   const box = document.getElementById('treemap-box');
@@ -2079,8 +2189,20 @@ async function fetchTreemap(path = treemapPath, force = false, polling = false, 
   if (!box) return;
   if (!polling) {
     requestId = ++treemapRequestId;
-    box.innerHTML = `<div class="empty-state">Treemap ölçülüyor…</div>`;
-    card?.classList.remove('hidden');
+    lastTreemapRenderSignature = '';
+    const localSnapshot = !force ? treemapViews.get(path) : null;
+    if (localSnapshot) {
+      treemapPath = localSnapshot.path || path;
+      treemapParent = localSnapshot.parent || '~';
+      document.getElementById('treemap-path').textContent = `${treemapPath} · ${localSnapshot.humanTotal || '0 B'}`;
+      lastTreemapData = localSnapshot;
+      lastTreemapRenderSignature = getTreemapRenderSignature(localSnapshot);
+      renderTreemap(localSnapshot);
+      card?.classList.add('hidden');
+    } else {
+      box.innerHTML = `<div class="empty-state">Treemap ölçülüyor…</div>`;
+      card?.classList.remove('hidden');
+    }
   }
   try {
     const params = new URLSearchParams({ path, start: 'true' });
@@ -2089,6 +2211,8 @@ async function fetchTreemap(path = treemapPath, force = false, polling = false, 
     if (requestId !== treemapRequestId) return;
     treemapPath = data.path || path;
     treemapParent = data.parent || '~';
+    treemapViews.set(path, data);
+    if (data.path) treemapViews.set(data.path, data);
     const total = Math.max(0, Number(data.total || 0));
     const done = Math.max(0, Number(data.completed || 0) + Number(data.failed || 0));
     const percent = total ? Math.min(100, Math.round(done / total * 100)) : 100;
@@ -2097,22 +2221,21 @@ async function fetchTreemap(path = treemapPath, force = false, polling = false, 
     document.getElementById('treemap-progress-bar').style.width = `${percent}%`;
     document.getElementById('treemap-progress-path').textContent = data.currentScanPath || treemapPath;
     document.getElementById('treemap-action-label').textContent = data.isComplete ? 'Treemap taraması tamamlandı' : 'Treemap taranıyor…';
-    const nodes = data.nodes || [];
-    box.innerHTML = nodes.map(node => {
-      const width = Math.max(4, Number(node.percentage || 0));
-      const action = node.cleanupCandidate ? `<button class="mini-btn treemap-trash" data-path="${escapeHtml(node.path)}">Review cleanup</button>` : '<span class="text-muted">View only</span>';
-      return `<div class="glass-card treemap-node" style="margin: 6px 0; padding: 10px; border-left: ${width}px solid var(--accent-cyan);">
-        <div><strong>${escapeHtml(node.name)}</strong> <span class="text-muted">${node.percentage || 0}% · ${escapeHtml(node.humanBytes || '')} · ${Number(node.fileCount || 0)} files</span></div>
-        <div style="margin-top: 6px;"><button class="mini-btn treemap-open" data-path="${escapeHtml(node.path)}">Open in Finder</button> ${node.directory ? `<button class="mini-btn treemap-drill" data-path="${escapeHtml(node.path)}">Drill down</button>` : ''} ${action}</div>
-      </div>`;
-    }).join('') || `<div class="empty-state">${data.isComplete ? 'Bu klasörde gösterilecek öğe yok.' : 'İlk sonuçlar ölçülüyor…'}</div>`;
-    box.querySelectorAll('.treemap-drill').forEach(btn => btn.addEventListener('click', () => fetchTreemap(btn.dataset.path, true)));
-    box.querySelectorAll('.treemap-open').forEach(btn => btn.addEventListener('click', () => openTreemapPath(btn.dataset.path)));
-    box.querySelectorAll('.treemap-trash').forEach(btn => btn.addEventListener('click', () => trashTreemapPath(btn.dataset.path)));
+    lastTreemapData = data;
+    const renderSignature = getTreemapRenderSignature(data);
+    if (renderSignature !== lastTreemapRenderSignature) {
+      lastTreemapRenderSignature = renderSignature;
+      renderTreemap(data);
+    }
     if (!data.isComplete && document.getElementById('subpane-more-treemap')?.classList.contains('active')) {
+      card?.classList.remove('hidden');
       setTimeout(() => fetchTreemap(treemapPath, false, true, requestId), 500);
     } else if (data.isComplete) {
-      setTimeout(() => card?.classList.add('hidden'), 1200);
+      setTimeout(() => {
+        card?.classList.add('hidden');
+        lastTreemapRenderSignature = '';
+        requestAnimationFrame(() => renderTreemap(data));
+      }, 1200);
     }
   } catch (err) {
     if (requestId !== treemapRequestId) return;
@@ -2544,68 +2667,86 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => toggleInPageLogs(button.dataset.logService));
   });
 
+  function activateTopLevelTab(tab, navItem = document.querySelector(`.nav-item[data-tab="${tab}"]`)) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.removeAttribute('aria-current'));
+    document.querySelectorAll('.nav-item.has-submenu').forEach(n => { if (n !== navItem) n.classList.remove('expanded'); });
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+    navItem?.classList.add('active');
+    navItem?.setAttribute('aria-current', 'page');
+    if (navItem?.classList.contains('has-submenu')) navItem.classList.add('expanded');
+    const targetPane = document.getElementById(`pane-${tab}`);
+    if (targetPane) targetPane.classList.add('active');
+    state.activeTab = tab;
+  }
+
+  function setActiveSidebarSubmenu(selector) {
+    document.querySelectorAll('.nav-submenu-item').forEach(n => n.classList.remove('active'));
+    document.querySelector(selector)?.classList.add('active');
+  }
+
+  function activateDeveloperSubtab(devtab) {
+    activateTopLevelTab('developer');
+    document.querySelectorAll('#pane-developer .sub-pane').forEach(pane => pane.classList.remove('active'));
+    document.getElementById(`subpane-dev-${devtab}`)?.classList.add('active');
+    setActiveSidebarSubmenu(`.nav-submenu-item[data-devsubtab="${devtab}"]`);
+    if (devtab === 'storage') scanDeveloperStorage();
+  }
+
+  function activateMoreSubtab(moretab) {
+    activateTopLevelTab('more');
+    document.querySelectorAll('#pane-more .sub-pane').forEach(pane => pane.classList.remove('active'));
+    document.getElementById(`subpane-more-${moretab}`)?.classList.add('active');
+    setActiveSidebarSubmenu(`.nav-submenu-item[data-subtab="${moretab}"]`);
+
+    if (moretab !== 'treemap') treemapRequestId += 1;
+    if (moretab === 'treemap') fetchTreemap('~');
+    if (moretab === 'browser-storage') fetchBrowserStorage();
+    if (moretab === 'smart-downloads') fetchSmartDownloads();
+    if (moretab === 'duplicates') fetchDuplicates();
+    if (moretab === 'large-files') fetchLargeFiles();
+    if (moretab === 'history' && (!state.history || state.history.length === 0)) fetchHistory();
+    if (moretab === 'whitelist' && (!state.whitelist || state.whitelist.length === 0)) fetchWhitelist();
+  }
+
   // Sidebar navigation
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
       SoundEffects.playClick();
       const tab = item.dataset.tab;
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      document.querySelectorAll('.nav-item').forEach(n => n.removeAttribute('aria-current'));
-      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      activateTopLevelTab(tab, item);
 
-      item.classList.add('active');
-      item.setAttribute('aria-current', 'page');
-      const targetPane = document.getElementById(`pane-${tab}`);
-      if (targetPane) targetPane.classList.add('active');
-      state.activeTab = tab;
+      if (item.classList.contains('has-submenu')) return;
 
       // Only lazy load static settings / metadata; DO NOT auto-run scans without user action
       if (tab === 'optimize' && (!state.optimizeTasks || state.optimizeTasks.length === 0)) fetchOptimizationTasks();
-      if (tab === 'more') {
-        const activeMoreTab = document.querySelector('#pane-more .subnav-pill.active')?.dataset.moretab || 'leftovers';
-        if (activeMoreTab === 'history' && (!state.history || state.history.length === 0)) fetchHistory();
-        if (activeMoreTab === 'whitelist' && (!state.whitelist || state.whitelist.length === 0)) fetchWhitelist();
-      }
     });
   });
 
-  // Developer Tools sub-navigation pills
-  document.querySelectorAll('#pane-developer .subnav-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
+  // Submenu navigation is now only in the left sidebar; legacy in-page pill markup is hidden.
+  document.querySelectorAll('.nav-submenu-item[data-subtab]').forEach(subItem => {
+    subItem.addEventListener('click', () => {
       SoundEffects.playClick();
-      const devtab = pill.dataset.devtab;
-      document.querySelectorAll('#pane-developer .subnav-pill').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('#pane-developer .sub-pane').forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      const targetSubPane = document.getElementById(`subpane-dev-${devtab}`);
-      if (targetSubPane) targetSubPane.classList.add('active');
-      if (devtab === 'storage') scanDeveloperStorage();
+      activateMoreSubtab(subItem.dataset.subtab);
     });
   });
 
-  // More Tools sub-navigation pills
-  document.querySelectorAll('#pane-more .subnav-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
+  document.querySelectorAll('.nav-submenu-item[data-devsubtab]').forEach(subItem => {
+    subItem.addEventListener('click', () => {
       SoundEffects.playClick();
-      const moretab = pill.dataset.moretab;
-      document.querySelectorAll('#pane-more .subnav-pill').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('#pane-more .sub-pane').forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      const targetSubPane = document.getElementById(`subpane-more-${moretab}`);
-      if (targetSubPane) targetSubPane.classList.add('active');
-      if (moretab !== 'treemap') treemapRequestId += 1;
-      if (moretab === 'treemap') fetchTreemap('~', true);
-      if (moretab === 'browser-storage') fetchBrowserStorage();
-      if (moretab === 'smart-downloads') fetchSmartDownloads();
-      if (moretab === 'duplicates') fetchDuplicates();
-      if (moretab === 'large-files') fetchLargeFiles();
-      if (moretab === 'history' && (!state.history || state.history.length === 0)) fetchHistory();
-      if (moretab === 'whitelist' && (!state.whitelist || state.whitelist.length === 0)) fetchWhitelist();
+      activateDeveloperSubtab(subItem.dataset.devsubtab);
     });
   });
 
   document.getElementById('btn-scan-treemap')?.addEventListener('click', () => fetchTreemap(treemapPath, true));
-  document.getElementById('btn-treemap-back')?.addEventListener('click', () => fetchTreemap(treemapParent, true));
+  document.getElementById('btn-treemap-back')?.addEventListener('click', () => fetchTreemap(treemapParent));
+  let treemapResizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (!lastTreemapData || !document.getElementById('subpane-more-treemap')?.classList.contains('active')) return;
+    clearTimeout(treemapResizeTimer);
+    treemapResizeTimer = setTimeout(() => renderTreemap(lastTreemapData), 120);
+  });
   document.getElementById('btn-scan-browser-storage')?.addEventListener('click', fetchBrowserStorage);
   document.getElementById('btn-clean-browser-cache')?.addEventListener('click', cleanBrowserCache);
   document.getElementById('btn-scan-smart-downloads')?.addEventListener('click', fetchSmartDownloads);
@@ -2828,6 +2969,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.querySelector('.nav-item.active')?.setAttribute('aria-current', 'page');
+
+  // Initialize sidebar submenu state from the active sub-pane; in-page subnav was removed.
+  const activeMoreTab = document.querySelector('#pane-more .sub-pane.active')?.id?.replace('subpane-more-', '') || 'leftovers';
+  document.querySelector(`.nav-submenu-item[data-subtab="${activeMoreTab}"]`)?.classList.add('active');
+
+  const activeDevTab = document.querySelector('#pane-developer .sub-pane.active')?.id?.replace('subpane-dev-', '') || 'storage';
+  document.querySelector(`.nav-submenu-item[data-devsubtab="${activeDevTab}"]`)?.classList.add('active');
+
+  // Expand submenus if they are the active tab
+  if (state.activeTab === 'more') {
+    document.querySelector('.nav-item[data-tab="more"]')?.classList.add('expanded');
+  }
+  if (state.activeTab === 'developer') {
+    document.querySelector('.nav-item[data-tab="developer"]')?.classList.add('expanded');
+  }
 
   // Initial polling
   fetchStatus();

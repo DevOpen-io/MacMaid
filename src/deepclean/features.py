@@ -261,6 +261,8 @@ class ApplicationManager:
             info = plistlib.load(handle)
         if info.get("CFBundleIdentifier") != app.bundle_id:
             raise PermissionError("application identity changed after review")
+        if app.bundle_id.startswith("com.apple."):
+            raise PermissionError("Apple system applications cannot be removed")
         self.config.require_unprotected(path)
         if process_running(str(path)):
             raise PermissionError("application is currently running")

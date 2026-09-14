@@ -100,14 +100,41 @@
           </button>
 
           <!-- 6. Developer Tools -->
-          <button class="nav-item" data-tab="developer">
+          <button class="nav-item has-submenu" data-tab="developer">
             <span class="nav-symbol">⌘</span>
             <div class="nav-text-group">
               <span class="nav-main-title">Developer Tools</span>
               <span class="nav-sub-title">Runtimes, SDKs & Caches</span>
             </div>
+            <span class="nav-submenu-toggle">▼</span>
             <span class="nav-task-dot hidden" id="dot-developer"></span>
           </button>
+          <div class="nav-submenu" id="submenu-developer">
+            <button class="nav-submenu-item" data-devsubtab="storage">
+              <span class="nav-submenu-symbol">▤</span>
+              <span>Storage Center</span>
+            </button>
+            <button class="nav-submenu-item" data-devsubtab="caches">
+              <span class="nav-submenu-symbol">▦</span>
+              <span>Package Caches</span>
+            </button>
+            <button class="nav-submenu-item" data-devsubtab="runtimes">
+              <span class="nav-submenu-symbol">{}</span>
+              <span>Runtimes & Languages</span>
+            </button>
+            <button class="nav-submenu-item" data-devsubtab="environments">
+              <span class="nav-submenu-symbol">◌</span>
+              <span>Environments</span>
+            </button>
+            <button class="nav-submenu-item" data-devsubtab="tools">
+              <span class="nav-submenu-symbol">⌁</span>
+              <span>Global CLI Tools</span>
+            </button>
+            <button class="nav-submenu-item" data-devsubtab="sdks">
+              <span class="nav-submenu-symbol">▣</span>
+              <span>SDKs & Simulators</span>
+            </button>
+          </div>
 
           <!-- 7. Status -->
           <button class="nav-item" data-tab="dashboard">
@@ -120,14 +147,64 @@
           </button>
 
           <!-- 8. More Tools -->
-          <button class="nav-item" data-tab="more">
+          <button class="nav-item has-submenu" data-tab="more">
             <span class="nav-symbol">⋯</span>
             <div class="nav-text-group">
               <span class="nav-main-title">More Tools</span>
               <span class="nav-sub-title">Artıklar, Teşhis & Geçmiş</span>
             </div>
+            <span class="nav-submenu-toggle">▼</span>
             <span class="nav-task-dot hidden" id="dot-more"></span>
           </button>
+          <div class="nav-submenu" id="submenu-more">
+            <div class="nav-submenu-category">Cleanup</div>
+            <button class="nav-submenu-item" data-subtab="leftovers">
+              <span class="nav-submenu-symbol">◇</span>
+              <span>Leftovers</span>
+            </button>
+            <button class="nav-submenu-item" data-subtab="installers">
+              <span class="nav-submenu-symbol">↓</span>
+              <span>Installers</span>
+            </button>
+            <div class="nav-submenu-category">Storage & Data</div>
+            <button class="nav-submenu-item" data-subtab="treemap">
+              <span class="nav-submenu-symbol">▧</span>
+              <span>Treemap</span>
+            </button>
+            <button class="nav-submenu-item" data-subtab="browser-storage">
+              <span class="nav-submenu-symbol">◉</span>
+              <span>Browsers</span>
+            </button>
+            <button class="nav-submenu-item" data-subtab="smart-downloads">
+              <span class="nav-submenu-symbol">↓</span>
+              <span>Smart Downloads</span>
+            </button>
+            <button class="nav-submenu-item" data-subtab="duplicates">
+              <span class="nav-submenu-symbol">⧉</span>
+              <span>Duplicates</span>
+            </button>
+            <button class="nav-submenu-item" data-subtab="large-files">
+              <span class="nav-submenu-symbol">◫</span>
+              <span>Large & Old</span>
+            </button>
+            <div class="nav-submenu-category">System & History</div>
+            <button class="nav-submenu-item" data-subtab="snapshots">
+              <span class="nav-submenu-symbol">◷</span>
+              <span>Snapshots</span>
+            </button>
+            <button class="nav-submenu-item" data-subtab="doctor">
+              <span class="nav-submenu-symbol">✚</span>
+              <span>Doctor</span>
+            </button>
+            <button class="nav-submenu-item" data-subtab="history">
+              <span class="nav-submenu-symbol">≡</span>
+              <span>History</span>
+            </button>
+            <button class="nav-submenu-item" data-subtab="whitelist">
+              <span class="nav-submenu-symbol">✓</span>
+              <span>Whitelist & Ayarlar</span>
+            </button>
+          </div>
         </nav>
 
         <div class="sidebar-footer">
@@ -946,34 +1023,6 @@
             </div>
           </div>
 
-          <!-- Developer Tools Subnav Pills -->
-          <div class="subnav-pill-group">
-            <button class="subnav-pill active" data-devtab="storage">
-              <span class="subnav-pill-symbol">▤</span>
-              <span>Storage Center</span>
-            </button>
-            <button class="subnav-pill" data-devtab="caches">
-              <span class="subnav-pill-symbol">▦</span>
-              <span>Package Caches</span>
-            </button>
-            <button class="subnav-pill" data-devtab="runtimes">
-              <span class="subnav-pill-symbol">{}</span>
-              <span>Runtimes & Languages</span>
-            </button>
-            <button class="subnav-pill" data-devtab="environments">
-              <span class="subnav-pill-symbol">◌</span>
-              <span>Environments</span>
-            </button>
-            <button class="subnav-pill" data-devtab="tools">
-              <span class="subnav-pill-symbol">⌁</span>
-              <span>Global CLI Tools</span>
-            </button>
-            <button class="subnav-pill" data-devtab="sdks">
-              <span class="subnav-pill-symbol">▣</span>
-              <span>SDKs & Simulators</span>
-            </button>
-          </div>
-
           <!-- Sub-Pane 1: Developer Storage Center -->
           <div class="sub-pane active" id="subpane-dev-storage">
             <div class="pane-header" style="margin-bottom: 16px;">
@@ -1335,58 +1384,6 @@
               <p class="pane-subtitle">Araçlar kullanım amacına göre Cleanup, Storage & Data ve System & History olarak gruplandırılmıştır.</p>
             </div>
           </div>
-
-          <!-- Categorized Tool Center navigation -->
-          <div class="tool-category-group"><span class="tool-category-label">Cleanup</span><div class="subnav-pill-group">
-            <button class="subnav-pill active" data-moretab="leftovers">
-              <span class="subnav-pill-symbol">◇</span>
-              <span>Leftovers</span>
-            </button>
-            <button class="subnav-pill" data-moretab="installers">
-              <span class="subnav-pill-symbol">↓</span>
-              <span>Installers</span>
-            </button>
-          </div></div>
-          <div class="tool-category-group"><span class="tool-category-label">Storage & Data</span><div class="subnav-pill-group">
-            <button class="subnav-pill" data-moretab="treemap">
-              <span class="subnav-pill-symbol">▧</span>
-              <span>Treemap</span>
-            </button>
-            <button class="subnav-pill" data-moretab="browser-storage">
-              <span class="subnav-pill-symbol">◉</span>
-              <span>Browsers</span>
-            </button>
-            <button class="subnav-pill" data-moretab="smart-downloads">
-              <span class="subnav-pill-symbol">↓</span>
-              <span>Smart Downloads</span>
-            </button>
-            <button class="subnav-pill" data-moretab="duplicates">
-              <span class="subnav-pill-symbol">⧉</span>
-              <span>Duplicates</span>
-            </button>
-            <button class="subnav-pill" data-moretab="large-files">
-              <span class="subnav-pill-symbol">◫</span>
-              <span>Large & Old</span>
-            </button>
-          </div></div>
-          <div class="tool-category-group"><span class="tool-category-label">System & History</span><div class="subnav-pill-group">
-            <button class="subnav-pill" data-moretab="snapshots">
-              <span class="subnav-pill-symbol">◷</span>
-              <span>Snapshots</span>
-            </button>
-            <button class="subnav-pill" data-moretab="doctor">
-              <span class="subnav-pill-symbol">✚</span>
-              <span>Doctor</span>
-            </button>
-            <button class="subnav-pill" data-moretab="history">
-              <span class="subnav-pill-symbol">≡</span>
-              <span>History</span>
-            </button>
-            <button class="subnav-pill" data-moretab="whitelist">
-              <span class="subnav-pill-symbol">✓</span>
-              <span>Whitelist & Ayarlar</span>
-            </button>
-          </div></div>
 
           <!-- Sub-Pane 1: Leftovers -->
           <div class="sub-pane active" id="subpane-more-leftovers">

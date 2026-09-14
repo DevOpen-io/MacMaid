@@ -13,12 +13,32 @@ SCRIPT_DIR=$(dirname "$0")
 ROOT=$(CDPATH= cd "$SCRIPT_DIR" 2>/dev/null && pwd -P) || fail "Could not resolve project directory."
 
 printf '%s\n' "Installing DeepClean into your user-owned uv tool directory..."
+
+# Ensure the uv tool bin directory exists and is writable
+TOOL_BIN=$("$UV" tool dir --bin)
+if [ ! -d "$TOOL_BIN" ]; then
+  printf '%s\n' "Creating tool directory: $TOOL_BIN"
+  mkdir -p "$TOOL_BIN" || fail "Could not create tool directory: $TOOL_BIN"
+else
+  # Directory exists - check ownership and permissions
+  DIR_OWNER=$(stat -f "%u" "$TOOL_BIN" 2>/dev/null || echo "unknown")
+  CURRENT_USER=$(id -u)
+  if [ "$DIR_OWNER" != "$CURRENT_USER" ]; then
+    fail "Tool directory $TOOL_BIN is owned by user $DIR_OWNER, not you ($CURRENT_USER). Fix with: sudo chown $CURRENT_USER $TOOL_BIN"
+  fi
+fi
+
+# Check if the directory is writable
+if [ ! -w "$TOOL_BIN" ]; then
+  DIR_PERMS=$(stat -f "%A" "$TOOL_BIN" 2>/dev/null || echo "unknown")
+  fail "Tool directory is not writable: $TOOL_BIN (permissions: $DIR_PERMS). Fix with: chmod u+w $TOOL_BIN"
+fi
+
 "$UV" tool install --force "$ROOT"
 
 ACTIVE_SHELL=${SHELL##*/}
 case "$ACTIVE_SHELL" in
   zsh|bash|fish)
-    TOOL_BIN=$("$UV" tool dir --bin)
     if "$TOOL_BIN/deepclean" completion "$ACTIVE_SHELL" --install; then
       printf '%s\n' "Shell completion installed automatically for $ACTIVE_SHELL."
     else
