@@ -1,0 +1,172 @@
+name: macOS DMG
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Tests
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync dependencies
+        run: uv sync --all-groups
+      - name: Compile Python
+        run: uv run python -m compileall -q src/macmaid
+      - name: Check Web UI JavaScript
+        run: node --check src/macmaid/WebUI/app.js
+      - name: Run tests
+        run: uv run pytest -q
+
+  build-dmg:
+    name: Build DMG (${{ matrix.arch }})
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-13
+            arch: x86_64
+          - os: macos-14
+            arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Build app bundle
+        run: |
+          chmod +x scripts/build-macos-app.sh scripts/create-dmg.sh
+          scripts/build-macos-app.sh
+
+      - name: Build DMG
+        run: |
+          VERSION=$(uv run python - <<'PY'
+          from macmaid import __version__
+          print(__version__)
+          PY
+          )
+          REF_NAME="${GITHUB_REF_NAME}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then VERSION_TAG="$REF_NAME"; else VERSION_TAG="v$VERSION-${GITHUB_SHA::7}"; fi
+          DMG="build/macos-app/MacMaid-$VERSION_TAG-${{ matrix.arch }}.dmg"
+          scripts/create-dmg.sh build/macos-app/MacMaid.app "$DMG"
+          mkdir -p artifacts
+          cp "$DMG" "$DMG.sha256" artifacts/
+          ACTUAL_ARCH=$(uname -m)
+          if [ "$ACTUAL_ARCH" != "${{ matrix.arch }}" ]; then
+            echo "Expected ${{ matrix.arch }} runner but got $ACTUAL_ARCH" >&2
+            exit 1
+          fi
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MacMaid-dmg-${{ matrix.arch }}
+          path: artifacts/*
+          if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    needs: build-dmg
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download DMG artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+
+  update-homebrew-tap:
+    name: Update Homebrew tap
+    needs: release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    env:
+      TAP_REPOSITORY: DevOpen-io/homebrew-tap
+      TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+    steps:
+      - name: Stop if tap token is not configured
+        if: env.TAP_TOKEN == ''
+        run: |
+          echo "HOMEBREW_TAP_TOKEN is not configured; skipping tap update."
+          exit 0
+
+      - name: Checkout tap
+        if: env.TAP_TOKEN != ''
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TAP_REPOSITORY }}
+          token: ${{ env.TAP_TOKEN }}
+          path: tap
+
+      - name: Update Cask
+        if: env.TAP_TOKEN != ''
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+          ARM_DMG="MacMaid-${GITHUB_REF_NAME}-arm64.dmg"
+          INTEL_DMG="MacMaid-${GITHUB_REF_NAME}-x86_64.dmg"
+          curl -fsSL "$BASE_URL/$ARM_DMG" -o "$ARM_DMG"
+          curl -fsSL "$BASE_URL/$INTEL_DMG" -o "$INTEL_DMG"
+          ARM_SHA=$(sha256sum "$ARM_DMG" | awk '{print $1}')
+          INTEL_SHA=$(sha256sum "$INTEL_DMG" | awk '{print $1}')
+          mkdir -p tap/Casks
+          cat > tap/Casks/macmaid.rb <<RUBY
+          cask "macmaid" do
+            version "$VERSION"
+
+            on_arm do
+              sha256 "$ARM_SHA"
+              url "$BASE_URL/$ARM_DMG"
+            end
+
+            on_intel do
+              sha256 "$INTEL_SHA"
+              url "$BASE_URL/$INTEL_DMG"
+            end
+
+            name "MacMaid"
+            desc "Safe macOS cleanup, disk analysis and developer-tool maintenance"
+            homepage "https://github.com/${GITHUB_REPOSITORY}"
+
+            app "MacMaid.app"
+            binary "#{appdir}/MacMaid.app/Contents/MacOS/macmaid-bin", target: "macmaid"
+          end
+          RUBY
+
+      - name: Commit and push tap update
+        if: env.TAP_TOKEN != ''
+        working-directory: tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/macmaid.rb
+          if git diff --cached --quiet; then
+            echo "Tap is already up to date."
+            exit 0
+          fi
+          git commit -m "Update MacMaid to ${GITHUB_REF_NAME}"
+          git push

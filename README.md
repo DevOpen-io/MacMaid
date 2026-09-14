@@ -1,13 +1,21 @@
-# MacMaid
+<p align="center">
+  <img src="assets/MacMaid-Logo.png" alt="MacMaid logo" width="140" height="140">
+</p>
+
+<h1 align="center">MacMaid</h1>
+
+<p align="center">
+  Safe macOS cleanup, application removal, disk analysis and developer-tool maintenance.
+</p>
 
 MacMaid is a safe macOS cleanup, application removal, disk analysis and developer-tool maintenance application. The active implementation is Python 3.11+ and is built, locked and installed with `uv`.
 
-The application is fully implemented in Python. The repository contains no legacy implementation source or build artifacts.
+The application is fully implemented in Python under `src/macmaid`, with bundled Web UI assets in `src/macmaid/WebUI`. The repository also includes a production-style local installer that can build a standalone macOS binary and app launcher.
 
 ## Safety contract
 
 - Run MacMaid as your normal account. The CLI, Web UI and installer reject root execution.
-- Installation is user-local through `uv tool`; it does not write to `/usr/local/bin` and does not request sudo.
+- Default installation is user-local through `uv tool`; production-style local installation writes only to `~/.local/bin` and `~/Applications`. Neither path requires sudo.
 - Broad roots such as `/`, `/System`, `/Library`, `/Applications`, `/Users` and `/private` are never generic cleanup targets.
 - Cleanup candidates are restricted to known cache/log/temp domains and are validated again immediately before mutation.
 - Whitelist rules are reread at execution time.
@@ -47,17 +55,17 @@ Production-style local install:
 make prod-install
 ```
 
-This builds a standalone PyInstaller binary, installs it to `~/.local/bin/macmaid`, creates `~/Applications/MacMaid.app` as a Web UI launcher, clears quarantine metadata when allowed, and applies an ad-hoc local code signature. Apple notarization still requires an Apple Developer ID certificate and cannot be done generically from another user's Mac.
+This builds a standalone PyInstaller binary, installs it to `~/.local/bin/macmaid`, creates `~/Applications/MacMaid.app` as a Web UI launcher, uses `assets/MacMaid-Logo.png` as the `.app` icon, clears quarantine metadata when allowed, and applies an ad-hoc local code signature. Apple notarization still requires an Apple Developer ID certificate and cannot be done generically from another user's Mac.
 
-If `~/.local/bin` is not on `PATH`, run `uv tool update-shell` once.
+If `~/.local/bin` is not on `PATH`, run `uv tool update-shell` once or add it to your shell profile.
 
-`./install.sh` detects zsh, bash or fish and installs command/argument completion automatically. New terminal sessions load it without another setup step. For an existing installation, run:
+`./install.sh` and `make prod-install` detect zsh, bash or fish and install command/argument completion automatically when the shell configuration is writable. New terminal sessions load it without another setup step. For an existing installation, run:
 
 ```sh
 macmaid completion zsh --install
 ```
 
-The command prints the exact one-line activation command for the current terminal. A child installer cannot modify the already-running parent shell; this limitation applies to all shell-completion installers.
+The command prints the exact one-line activation command for the current terminal. A child installer cannot modify the already-running parent shell, so open a new terminal or run the printed activation command if completion is needed immediately.
 
 ## Main commands
 
@@ -83,6 +91,7 @@ macmaid snapshots
 macmaid history
 macmaid restore --operation-id <id> --trash-path <path> [--copy]
 macmaid completion zsh --print
+macmaid uninstall
 macmaid ui
 ```
 
@@ -108,7 +117,7 @@ Recovery history records each item with `operation_id`, original path, Trash pat
 
 ## Terminal UI
 
-Running `macmaid` without arguments opens the Textual dashboard. It has persistent navigation, descriptive tool pages, live system metrics, background workers, review tables and a dedicated pre-operation review screen. Nothing starts until the exact displayed plan receives an explicit `y` response at its terminal-style `[y/N]` prompt; Enter, `n` and Esc safely cancel. User-data or MANUAL selections require a second explicit `y` confirmation. Use arrow keys or `j`/`k` to move, Enter to open, `h` or `Ctrl+N` to focus the sidebar, `l` to focus page content, `1`–`9` to jump directly, Space to toggle reviewed rows, `r` to refresh and `Esc` to return to the dashboard.
+Running `macmaid` without arguments opens the Textual dashboard. It has persistent navigation, descriptive tool pages, live system metrics, background workers, review tables and a dedicated pre-operation review screen. Read-only scans start only from explicit navigation/action choices. Destructive operations do not run until the exact displayed plan receives an explicit `y` response at its terminal-style `[y/N]` prompt; Enter, `n` and Esc safely cancel. User-data or MANUAL selections require a second explicit `y` confirmation. Use arrow keys or `j`/`k` to move, Enter to open, `h` or `Ctrl+N` to focus the sidebar, `l` to focus page content, `1`–`9` to jump directly, Space to toggle reviewed rows, `r` to refresh and `Esc` to return to the dashboard.
 
 The TUI exposes Smart Clean, application/component removal, incremental disk analysis, Duplicate File Finder, Project Purge, developer inventory/cache cleanup, optimization, evidence-based Mac health, leftovers, installers, snapshots, doctor, history/recovery status and whitelist information. Mac health reports disk headroom, macOS memory-pressure headroom, thermal state and battery condition with measurement time and safe guidance; it does not invent a health score or act automatically. Expensive native probes are rate-limited and unavailable readings remain unknown. Long-running scans execute outside the UI event loop, so navigation remains responsive. Press `c` on a scan/result screen to request cooperative cancellation; active filesystem walks, bounded size workers and waiting subprocesses stop at safe checkpoints. Cleanup mutations are never force-cancelled.
 
@@ -120,9 +129,25 @@ macmaid ui
 ./start-web.sh
 ```
 
-The bundled dashboard listens only on `127.0.0.1:8123`. It exposes the same read-only Mac health indicators, Smart Clean, application inventory/removal, Project Purge, installer and leftover review, disk analysis, Duplicate File Finder, developer caches/inventory, snapshots, optimization, doctor, history/recovery and whitelist controls. Destructive requests use a two-step server-reviewed flow: the UI displays the server's exact plan, then submits a short-lived, single-use token bound to that selection and scan generation.
+The bundled dashboard listens only on `127.0.0.1:8123`. If that port is already serving MacMaid, a second launch opens the existing session instead of starting another server. It exposes the same read-only Mac health indicators, Smart Clean, application inventory/removal, Project Purge, installer and leftover review, disk analysis, Storage Treemap, Duplicate File Finder, developer caches/inventory, snapshots, optimization, doctor, history/recovery and whitelist controls. Destructive requests use a two-step server-reviewed flow: the UI displays the server's exact plan, then submits a short-lived, single-use token bound to that selection and scan generation.
 
 Disk Analyzer lists a directory immediately and measures each visible child in a bounded background worker pool. Navigation never waits for the current directory to finish: moving elsewhere cancels its disk I/O while preserving completed measurements in the Web UI session cache. Returning shows that cache immediately and resumes only unfinished entries. The explicit Analyze/refresh action can force a fresh measurement. The progress HUD can stop Smart Clean or analyzer work through the shared cancellation API.
+
+## CI/CD
+
+GitHub Actions workflows are included under `.github/workflows`:
+
+- `CI` runs on pushes and pull requests to `main`; it syncs dependencies, checks the lockfile, compiles Python, validates Web UI JavaScript and runs the Python test suite.
+- `macOS DMG` runs on pushes to `main`, version tags such as `v0.9.22`, and manual dispatch. It runs the same verification, builds standalone macOS app bundles for Intel and Apple Silicon runners, creates `.dmg` artifacts, and uploads them to the workflow run.
+- On version tags (`v*`), the DMG workflow also publishes the DMGs to a GitHub Release.
+- On version tags, the workflow can update a Homebrew tap cask at `DevOpen-io/homebrew-tap` when the repository secret `HOMEBREW_TAP_TOKEN` is configured with write access to that tap.
+
+Homebrew users will install from the tap with:
+
+```sh
+brew tap DevOpen-io/tap
+brew install --cask macmaid
+```
 
 ## Development
 
@@ -146,7 +171,7 @@ The wheel contains the Web UI assets, so an installed `uv tool` does not depend 
 
 MacMaid targets macOS 13 and newer on both Apple Silicon (`arm64`) and Intel (`x86_64`), with Python 3.11 or newer. Platform-specific features are capability-detected: a missing package manager or native command produces an empty/limited result instead of enabling a filesystem fallback. Finder-launched applications may have a shorter `PATH`; install managers normally and treat Doctor's unavailable result as authoritative for that session.
 
-The 2026-09-11 release check was run on macOS 26.2 (build 25C56), Apple Silicon, with Python 3.11.15. The 201-test automated suite covers both architecture identifiers, missing `PATH`/manager commands, empty inventories, permission-denied directories, Unicode and space-containing paths, 80×24 and 120×40 TUI navigation, CLI dry-run/confirmation, and Web Host/Origin/session gates. No physical Intel runner was available for this check, so Intel remains a target supported by architecture-neutral code and automated regression tests, not a claim of same-day hardware validation. macOS 13–15 likewise remain supported targets but were not physically exercised in this local run.
+The latest local validation was run on macOS 26.2 (build 25C56), Apple Silicon, with Python 3.11.15. The automated suite currently has 241 tests covering both architecture identifiers, missing `PATH`/manager commands, empty inventories, permission-denied directories, Unicode and space-containing paths, TUI navigation, CLI dry-run/confirmation, Web Host/Origin/session gates, review flows, recovery, treemap behavior and execution safety. No physical Intel runner was available for this check, so Intel remains a target supported by architecture-neutral code and automated regression tests, not a claim of same-day hardware validation. macOS 13–15 likewise remain supported targets but were not physically exercised in this local run.
 
 APFS allocation, snapshots and concurrent disk activity can make observed free-space changes differ from scan estimates. TCC can hide otherwise valid locations; MacMaid reports those scans as incomplete and never bypasses macOS security controls. Battery and thermal sensors may be absent, and those health values remain unknown rather than being presented as normal.
 
@@ -160,4 +185,4 @@ APFS allocation, snapshots and concurrent disk activity can make observed free-s
 # asks before deleting MacMaid-owned user data
 ```
 
-`uv` installs and manages the required Python runtime and dependencies in the user's own environment.
+`uv` installs and manages the required Python runtime and dependencies in the user's own environment. `make prod-install` additionally installs a standalone `macmaid` binary and `~/Applications/MacMaid.app`; both are removed by `./uninstall.sh`.
