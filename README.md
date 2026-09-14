@@ -138,7 +138,7 @@ Disk Analyzer lists a directory immediately and measures each visible child in a
 GitHub Actions workflows are included under `.github/workflows`:
 
 - `CI` runs on pushes and pull requests to `main`; it syncs dependencies, checks the lockfile, compiles Python, validates Web UI JavaScript and runs the Python test suite.
-- `macOS DMG` runs on pushes to `main` and manual dispatch. It runs the same verification, builds standalone macOS app bundles for Intel and Apple Silicon runners, creates `.dmg` artifacts, and uploads them to the workflow run.
+- `macOS DMG` runs on pushes to `main` and manual dispatch. It runs the same verification, builds a standalone Apple Silicon (`arm64`) macOS app bundle, creates a `.dmg` artifact, and uploads it to the workflow run.
 - After a successful `main` push, the DMG workflow reads the project version from `pyproject.toml`, creates/updates the matching release tag such as `v0.9.22`, and publishes or updates the GitHub Release with the generated DMGs.
 - After the release is updated, the workflow can update a Homebrew tap cask at `DevOpen-io/homebrew-tap` when the repository secret `HOMEBREW_TAP_TOKEN` is configured with write access to that tap.
 
@@ -169,7 +169,7 @@ The wheel contains the Web UI assets, so an installed `uv tool` does not depend 
 
 ## Compatibility and release validation
 
-MacMaid targets macOS 13 and newer on both Apple Silicon (`arm64`) and Intel (`x86_64`), with Python 3.11 or newer. Platform-specific features are capability-detected: a missing package manager or native command produces an empty/limited result instead of enabling a filesystem fallback. Finder-launched applications may have a shorter `PATH`; install managers normally and treat Doctor's unavailable result as authoritative for that session.
+MacMaid targets macOS 13 and newer with Python 3.11 or newer. The packaged GitHub Release/Homebrew Cask currently ships an Apple Silicon (`arm64`) DMG only; Intel (`x86_64`) users can still run from source with `uv` until an Intel release runner is enabled again. Platform-specific features are capability-detected: a missing package manager or native command produces an empty/limited result instead of enabling a filesystem fallback. Finder-launched applications may have a shorter `PATH`; install managers normally and treat Doctor's unavailable result as authoritative for that session.
 
 The latest local validation was run on macOS 26.2 (build 25C56), Apple Silicon, with Python 3.11.15. The automated suite currently has 241 tests covering both architecture identifiers, missing `PATH`/manager commands, empty inventories, permission-denied directories, Unicode and space-containing paths, TUI navigation, CLI dry-run/confirmation, Web Host/Origin/session gates, review flows, recovery, treemap behavior and execution safety. No physical Intel runner was available for this check, so Intel remains a target supported by architecture-neutral code and automated regression tests, not a claim of same-day hardware validation. macOS 13–15 likewise remain supported targets but were not physically exercised in this local run.
 

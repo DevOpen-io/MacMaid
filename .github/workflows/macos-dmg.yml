@@ -37,17 +37,11 @@ jobs:
         run: uv run pytest -q
 
   build-dmg:
-    name: Build DMG (${{ matrix.arch }})
+    name: Build DMG (arm64)
     needs: test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-13
-            arch: x86_64
-          - os: macos-14
-            arch: arm64
+    runs-on: macos-14
+    env:
+      BUILD_ARCH: arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,20 +64,20 @@ jobs:
           PY
           )
           VERSION_TAG="v$VERSION"
-          DMG="build/macos-app/MacMaid-$VERSION_TAG-${{ matrix.arch }}.dmg"
+          DMG="build/macos-app/MacMaid-$VERSION_TAG-$BUILD_ARCH.dmg"
           scripts/create-dmg.sh build/macos-app/MacMaid.app "$DMG"
           mkdir -p artifacts
           cp "$DMG" "$DMG.sha256" artifacts/
           ACTUAL_ARCH=$(uname -m)
-          if [ "$ACTUAL_ARCH" != "${{ matrix.arch }}" ]; then
-            echo "Expected ${{ matrix.arch }} runner but got $ACTUAL_ARCH" >&2
+          if [ "$ACTUAL_ARCH" != "$BUILD_ARCH" ]; then
+            echo "Expected $BUILD_ARCH runner but got $ACTUAL_ARCH" >&2
             exit 1
           fi
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MacMaid-dmg-${{ matrix.arch }}
+          name: MacMaid-dmg-arm64
           path: artifacts/*
           if-no-files-found: error
 
@@ -170,29 +164,19 @@ jobs:
         run: |
           BASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/$VERSION_TAG"
           ARM_DMG="MacMaid-$VERSION_TAG-arm64.dmg"
-          INTEL_DMG="MacMaid-$VERSION_TAG-x86_64.dmg"
           curl -fsSL "$BASE_URL/$ARM_DMG" -o "$ARM_DMG"
-          curl -fsSL "$BASE_URL/$INTEL_DMG" -o "$INTEL_DMG"
           ARM_SHA=$(sha256sum "$ARM_DMG" | awk '{print $1}')
-          INTEL_SHA=$(sha256sum "$INTEL_DMG" | awk '{print $1}')
           mkdir -p tap/Casks
           cat > tap/Casks/macmaid.rb <<RUBY
           cask "macmaid" do
             version "$VERSION"
+            sha256 "$ARM_SHA"
 
-            on_arm do
-              sha256 "$ARM_SHA"
-              url "$BASE_URL/$ARM_DMG"
-            end
-
-            on_intel do
-              sha256 "$INTEL_SHA"
-              url "$BASE_URL/$INTEL_DMG"
-            end
-
+            url "$BASE_URL/$ARM_DMG"
             name "MacMaid"
             desc "Safe macOS cleanup, disk analysis and developer-tool maintenance"
             homepage "https://github.com/${GITHUB_REPOSITORY}"
+            depends_on arch: :arm64
 
             app "MacMaid.app"
             binary "#{appdir}/MacMaid.app/Contents/MacOS/macmaid-bin", target: "macmaid"
