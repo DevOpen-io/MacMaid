@@ -65,9 +65,14 @@ jobs:
           )
           VERSION_TAG="v$VERSION"
           DMG="build/macos-app/MacMaid-$VERSION_TAG-$BUILD_ARCH.dmg"
+          CLI_TARBALL="build/macos-app/MacMaid-$VERSION_TAG-$BUILD_ARCH-cli.tar.gz"
           scripts/create-dmg.sh build/macos-app/MacMaid.app "$DMG"
-          mkdir -p artifacts
-          cp "$DMG" "$DMG.sha256" artifacts/
+          mkdir -p artifacts build/macos-app/cli-package
+          cp build/macos-app/MacMaid.app/Contents/MacOS/macmaid-bin build/macos-app/cli-package/macmaid
+          chmod 755 build/macos-app/cli-package/macmaid
+          tar -C build/macos-app/cli-package -czf "$CLI_TARBALL" macmaid
+          shasum -a 256 "$CLI_TARBALL" | awk '{print $1}' > "$CLI_TARBALL.sha256"
+          cp "$DMG" "$DMG.sha256" "$CLI_TARBALL" "$CLI_TARBALL.sha256" artifacts/
           ACTUAL_ARCH=$(uname -m)
           if [ "$ACTUAL_ARCH" != "$BUILD_ARCH" ]; then
             echo "Expected $BUILD_ARCH runner but got $ACTUAL_ARCH" >&2
@@ -162,18 +167,21 @@ jobs:
           fi
           git -C tap checkout main 2>/dev/null || git -C tap checkout -b main
 
-      - name: Update Cask
+      - name: Update Cask and Formula
         if: env.TAP_TOKEN != ''
         run: |
           BASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/$VERSION_TAG"
           ARM_DMG="MacMaid-$VERSION_TAG-arm64.dmg"
+          ARM_CLI="MacMaid-$VERSION_TAG-arm64-cli.tar.gz"
           curl -fsSL "$BASE_URL/$ARM_DMG" -o "$ARM_DMG"
-          ARM_SHA=$(sha256sum "$ARM_DMG" | awk '{print $1}')
-          mkdir -p tap/Casks
+          curl -fsSL "$BASE_URL/$ARM_CLI" -o "$ARM_CLI"
+          ARM_DMG_SHA=$(sha256sum "$ARM_DMG" | awk '{print $1}')
+          ARM_CLI_SHA=$(sha256sum "$ARM_CLI" | awk '{print $1}')
+          mkdir -p tap/Casks tap/Formula
           cat > tap/Casks/macmaid.rb <<RUBY
           cask "macmaid" do
             version "$VERSION"
-            sha256 "$ARM_SHA"
+            sha256 "$ARM_DMG_SHA"
 
             url "$BASE_URL/$ARM_DMG"
             name "MacMaid"
@@ -182,12 +190,30 @@ jobs:
             depends_on arch: :arm64
 
             app "MacMaid.app"
-            binary "#{appdir}/MacMaid.app/Contents/MacOS/macmaid-bin", target: "macmaid"
 
             zap trash: [
               "~/.config/macmaid",
               "~/Library/Logs/MacMaid",
             ]
+          end
+          RUBY
+          cat > tap/Formula/macmaid.rb <<RUBY
+          class Macmaid < Formula
+            version "$VERSION"
+            sha256 "$ARM_CLI_SHA"
+
+            url "$BASE_URL/$ARM_CLI"
+            desc "Safe macOS cleanup, disk analysis and developer-tool maintenance"
+            homepage "https://github.com/${GITHUB_REPOSITORY}"
+            depends_on arch: :arm64
+
+            def install
+              bin.install "macmaid"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/macmaid --version")
+            end
           end
           RUBY
 
@@ -197,7 +223,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Casks/macmaid.rb
+          git add Casks/macmaid.rb Formula/macmaid.rb
           if git diff --cached --quiet; then
             echo "Tap is already up to date."
             exit 0

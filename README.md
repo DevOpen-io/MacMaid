@@ -20,18 +20,18 @@ Once the Homebrew tap release workflow has published a version:
 
 ```sh
 brew tap DevOpen-io/tap
-brew install --cask macmaid
+brew install --cask macmaid   # installs MacMaid.app
+brew install macmaid          # installs the macmaid CLI command
 ```
 
 Then run:
 
 ```sh
 macmaid
-# or
 macmaid ui
 ```
 
-The current Homebrew/GitHub Release DMG is Apple Silicon (`arm64`) only.
+The current Homebrew/GitHub Release packages are Apple Silicon (`arm64`) only.
 
 ### Standalone local app build
 
@@ -192,10 +192,11 @@ then commit and push to `main`.
 Homebrew install:
 
 ```sh
-brew uninstall --cask macmaid
+brew uninstall --cask macmaid  # removes MacMaid.app
+brew uninstall macmaid         # removes the macmaid CLI command
 ```
 
-That removes `MacMaid.app` and the `macmaid` command. To also remove MacMaid config/log data, use Homebrew zap:
+To also remove MacMaid config/log data, use Homebrew zap:
 
 ```sh
 brew uninstall --zap --cask macmaid
