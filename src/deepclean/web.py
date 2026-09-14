@@ -96,6 +96,7 @@ class WebState:
         self.apps = []
         self.projects = []
         self.analyzed_paths: set[Path] = set()
+        self.treemap_paths: set[Path] = set()
         self.developer_items: dict[str, list] = {}
         self.generations: dict[str, int] = {}
         self.review_tokens: dict[str, tuple[str, int, str]] = {}
@@ -345,6 +346,21 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
                 self._bump_generation("leftovers")
             return {"status": result.status, "isComplete": result.is_complete, "issues": result.issues, "notes": result.notes,
                     "leftovers": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
+        if path == "/api/treemap":
+            result = state.analyzer.snapshot(
+                query.get("path", "~"), start=query.get("start") == "true", force=query.get("force") == "true",
+                top=50, min_file_bytes=1_048_576,
+            )
+            nodes = []
+            for entry in result["entries"]:
+                if entry.get("state") != "ready":
+                    continue
+                nodes.append(dict(entry, cleanupCandidate=not entry.get("viewOnly"),
+                                  percentage=entry.get("percent", 0)))
+            with state.lock:
+                state.treemap_paths = {Path(entry["path"]) for entry in nodes}
+                self._bump_generation("treemap")
+            return dict(result, nodes=nodes)
         if path == "/api/analyze":
             result = state.analyzer.snapshot(
                 query.get("path", "~"),
@@ -524,6 +540,37 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
             plan = purge_plan(selected)
             if review := self._review_gate("purge", body, plan): return review
             return ProjectPurgeManager(state.config).purge(selected)
+        if path == "/api/treemap/open":
+            requested = Path(str(body.get("path", ""))).expanduser().absolute()
+            if requested not in state.treemap_paths:
+                raise PermissionError("Treemap path was not present in latest view")
+            result = run_command("/usr/bin/open", ["-R", str(requested)], timeout=15)
+            if not result.succeeded:
+                raise RuntimeError(result.stderr or result.stdout or "Open in Finder failed")
+            return {"success": True, "path": str(requested)}
+        if path == "/api/treemap/trash":
+            requested = [Path(item).expanduser().absolute() for item in body.get("paths", [])]
+            if not requested or not set(requested).issubset(state.treemap_paths):
+                raise PermissionError("Treemap path was not present in latest view")
+            plan = analyzer_trash_plan(requested)
+            if review := self._review_gate("treemap", body, plan): return review
+            moved = []
+            estimates = {item: size_of(item) for item in requested}
+            free_space = FreeSpaceProbe.capture(requested)
+            for item in requested:
+                destination = Cleaner(state.config).move_analyzer_item_to_trash(item, estimates[item])
+                moved.append(str(destination))
+            with state.lock: state.treemap_paths.difference_update(requested)
+            observed, notes = free_space.finish()
+            processed = sum(estimates.values())
+            Cleaner(state.config).log_space_summary(
+                "treemap_trash_summary", scanned=processed, processed=processed, reclaimed=0,
+                trash_moved=processed, observed=observed, unknown=0, notes=notes,
+            )
+            return {"success": True, "removed": len(moved), "moved": moved,
+                    "processedEstimatedBytes": processed, "estimatedReclaimedBytes": 0,
+                    "trashMovedEstimatedBytes": processed, "observedFreeBytesDelta": observed,
+                    "measurementNotes": notes}
         if path == "/api/browser-storage/clean":
             if state.browser_storage is None: raise ValueError("Run browser storage scan first")
             items = self._select_ids(state.browser_storage, body.get("itemIds", []))

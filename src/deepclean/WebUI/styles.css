@@ -2121,6 +2121,17 @@ body:has(.global-operation-hud:not(.hidden)) .toast-container { bottom: 92px; }
 /* =========================================================
    Sub-Navigation (Segmented Pills inside Panes)
    ========================================================= */
+.tool-category-group { margin-bottom: 8px; }
+.tool-category-label {
+  display: block;
+  margin: 0 0 4px 6px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.tool-category-group .subnav-pill-group { margin-bottom: 0; }
 .subnav-pill-group {
   display: flex;
   align-items: center;

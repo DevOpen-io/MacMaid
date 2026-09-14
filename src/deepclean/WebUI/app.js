@@ -2067,6 +2067,85 @@ async function fetchDoctorReport() {
 }
 
 // =========================================================
+// Storage Treemap
+// =========================================================
+let treemapPath = '~';
+let treemapParent = '~';
+let treemapRequestId = 0;
+
+async function fetchTreemap(path = treemapPath, force = false, polling = false, requestId = 0) {
+  const box = document.getElementById('treemap-box');
+  const card = document.getElementById('treemap-progress-card');
+  if (!box) return;
+  if (!polling) {
+    requestId = ++treemapRequestId;
+    box.innerHTML = `<div class="empty-state">Treemap ölçülüyor…</div>`;
+    card?.classList.remove('hidden');
+  }
+  try {
+    const params = new URLSearchParams({ path, start: 'true' });
+    if (force) params.set('force', 'true');
+    const data = await readAPIResponse(await fetch(`/api/treemap?${params}`));
+    if (requestId !== treemapRequestId) return;
+    treemapPath = data.path || path;
+    treemapParent = data.parent || '~';
+    const total = Math.max(0, Number(data.total || 0));
+    const done = Math.max(0, Number(data.completed || 0) + Number(data.failed || 0));
+    const percent = total ? Math.min(100, Math.round(done / total * 100)) : 100;
+    document.getElementById('treemap-path').textContent = `${treemapPath} · ${data.humanTotal || '0 B'}`;
+    document.getElementById('treemap-progress-percent').textContent = `${percent}% · ${done}/${total}`;
+    document.getElementById('treemap-progress-bar').style.width = `${percent}%`;
+    document.getElementById('treemap-progress-path').textContent = data.currentScanPath || treemapPath;
+    document.getElementById('treemap-action-label').textContent = data.isComplete ? 'Treemap taraması tamamlandı' : 'Treemap taranıyor…';
+    const nodes = data.nodes || [];
+    box.innerHTML = nodes.map(node => {
+      const width = Math.max(4, Number(node.percentage || 0));
+      const action = node.cleanupCandidate ? `<button class="mini-btn treemap-trash" data-path="${escapeHtml(node.path)}">Review cleanup</button>` : '<span class="text-muted">View only</span>';
+      return `<div class="glass-card treemap-node" style="margin: 6px 0; padding: 10px; border-left: ${width}px solid var(--accent-cyan);">
+        <div><strong>${escapeHtml(node.name)}</strong> <span class="text-muted">${node.percentage || 0}% · ${escapeHtml(node.humanBytes || '')} · ${Number(node.fileCount || 0)} files</span></div>
+        <div style="margin-top: 6px;"><button class="mini-btn treemap-open" data-path="${escapeHtml(node.path)}">Open in Finder</button> ${node.directory ? `<button class="mini-btn treemap-drill" data-path="${escapeHtml(node.path)}">Drill down</button>` : ''} ${action}</div>
+      </div>`;
+    }).join('') || `<div class="empty-state">${data.isComplete ? 'Bu klasörde gösterilecek öğe yok.' : 'İlk sonuçlar ölçülüyor…'}</div>`;
+    box.querySelectorAll('.treemap-drill').forEach(btn => btn.addEventListener('click', () => fetchTreemap(btn.dataset.path, true)));
+    box.querySelectorAll('.treemap-open').forEach(btn => btn.addEventListener('click', () => openTreemapPath(btn.dataset.path)));
+    box.querySelectorAll('.treemap-trash').forEach(btn => btn.addEventListener('click', () => trashTreemapPath(btn.dataset.path)));
+    if (!data.isComplete && document.getElementById('subpane-more-treemap')?.classList.contains('active')) {
+      setTimeout(() => fetchTreemap(treemapPath, false, true, requestId), 500);
+    } else if (data.isComplete) {
+      setTimeout(() => card?.classList.add('hidden'), 1200);
+    }
+  } catch (err) {
+    if (requestId !== treemapRequestId) return;
+    card?.classList.add('hidden');
+    box.innerHTML = `<div class="empty-state">Treemap başarısız: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function openTreemapPath(path) {
+  try {
+    await readAPIResponse(await fetch('/api/treemap/open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) }));
+  } catch (err) { showToast(`Open in Finder failed: ${err.message}`, 'error'); }
+}
+
+async function trashTreemapPath(path) {
+  const payload = { paths: [path] };
+  try {
+    const reviewResponse = await requestOperationReview('/api/treemap/trash', payload);
+    showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
+      { text: 'Vazgeç', class: 'btn-secondary', onClick: hideModal },
+      { text: 'Trash’e Taşı', class: 'btn-danger', onClick: async () => {
+        const authorized = reviewedPayload({ ...payload, extraOptIn: true }, reviewResponse);
+        if (!authorized) return;
+        hideModal();
+        const result = await readAPIResponse(await fetch('/api/treemap/trash', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) }));
+        showToast(operationOutcomeText(result), 'success');
+        fetchTreemap(treemapPath, true);
+      }}
+    ]);
+  } catch (err) { showToast(`Treemap cleanup failed: ${err.message}`, 'error'); }
+}
+
+// =========================================================
 // Browser Storage Inspector
 // =========================================================
 
@@ -2514,6 +2593,8 @@ document.addEventListener('DOMContentLoaded', () => {
       pill.classList.add('active');
       const targetSubPane = document.getElementById(`subpane-more-${moretab}`);
       if (targetSubPane) targetSubPane.classList.add('active');
+      if (moretab !== 'treemap') treemapRequestId += 1;
+      if (moretab === 'treemap') fetchTreemap('~', true);
       if (moretab === 'browser-storage') fetchBrowserStorage();
       if (moretab === 'smart-downloads') fetchSmartDownloads();
       if (moretab === 'duplicates') fetchDuplicates();
@@ -2523,6 +2604,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  document.getElementById('btn-scan-treemap')?.addEventListener('click', () => fetchTreemap(treemapPath, true));
+  document.getElementById('btn-treemap-back')?.addEventListener('click', () => fetchTreemap(treemapParent, true));
   document.getElementById('btn-scan-browser-storage')?.addEventListener('click', fetchBrowserStorage);
   document.getElementById('btn-clean-browser-cache')?.addEventListener('click', cleanBrowserCache);
   document.getElementById('btn-scan-smart-downloads')?.addEventListener('click', fetchSmartDownloads);

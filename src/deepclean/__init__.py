@@ -1,6 +1,6 @@
 """DeepClean's Python implementation."""
 
-__version__ = "0.9.21"
+__version__ = "0.9.22"
 
 
 def main() -> None:

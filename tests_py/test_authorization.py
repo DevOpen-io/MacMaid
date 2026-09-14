@@ -118,7 +118,7 @@ def test_web_serializes_mutations(monkeypatch, tmp_path):
         connection.close(); server.shutdown(); server.server_close(); thread.join()
 
 
-@pytest.mark.parametrize("path", ["/api/clean", "/api/purge", "/api/analyze/trash", "/api/duplicates/trash", "/api/large-files/trash", "/api/smart-downloads/trash", "/api/browser-storage/clean", "/api/apps/uninstall", "/api/developer/remove"])
+@pytest.mark.parametrize("path", ["/api/clean", "/api/purge", "/api/analyze/trash", "/api/duplicates/trash", "/api/large-files/trash", "/api/smart-downloads/trash", "/api/browser-storage/clean", "/api/treemap/trash", "/api/treemap/open", "/api/apps/uninstall", "/api/developer/remove"])
 def test_get_routes_never_mutate(monkeypatch, tmp_path, path):
     monkeypatch.setattr(web, "Config", lambda: Config(home=tmp_path))
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))

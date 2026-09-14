@@ -62,9 +62,9 @@ Her uzun tarama cancellable, non-blocking ve incremental olmalı; recursive syml
 
 ### 0.9.22 — Storage Treemap
 
-- [ ] Existing Disk Analyzer backend'ini kullanan interactive Web UI treemap ekle.
-- [ ] Folder size, percentage ve file count göster.
-- [ ] Drill-down, back navigation, Open in Finder ve cleanup candidate review ekle.
+- [x] Existing Disk Analyzer backend'ini kullanan interactive Web UI treemap ekle.
+- [x] Folder size, percentage ve file count göster.
+- [x] Drill-down, back navigation, Open in Finder ve cleanup candidate review ekle.
 
 ### 0.9.23 — Diagnostic Reports
 

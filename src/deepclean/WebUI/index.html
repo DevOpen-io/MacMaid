@@ -41,7 +41,7 @@
             </div>
             <div class="brand-text-wrap">
               <span class="brand-name">DeepClean <span class="badge-pro">PRO</span></span>
-              <span class="version-tag">v0.9.21 Python</span>
+              <span class="version-tag">v0.9.22 Python</span>
             </div>
           </div>
         </div>
@@ -1331,13 +1331,13 @@
         <section class="tab-pane" id="pane-more">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title">More Tools — Ekstra Araçlar & Bakım</h1>
-              <p class="pane-subtitle">Uygulama artıkları, eski yükleyiciler, Time Machine snapshot daraltma, sistem teşhisi ve beyaz liste.</p>
+              <h1 class="pane-title">Tool Center</h1>
+              <p class="pane-subtitle">Araçlar kullanım amacına göre Cleanup, Storage & Data ve System & History olarak gruplandırılmıştır.</p>
             </div>
           </div>
 
-          <!-- More Tools Subnav Pills -->
-          <div class="subnav-pill-group">
+          <!-- Categorized Tool Center navigation -->
+          <div class="tool-category-group"><span class="tool-category-label">Cleanup</span><div class="subnav-pill-group">
             <button class="subnav-pill active" data-moretab="leftovers">
               <span class="subnav-pill-symbol">◇</span>
               <span>Leftovers</span>
@@ -1345,6 +1345,12 @@
             <button class="subnav-pill" data-moretab="installers">
               <span class="subnav-pill-symbol">↓</span>
               <span>Installers</span>
+            </button>
+          </div></div>
+          <div class="tool-category-group"><span class="tool-category-label">Storage & Data</span><div class="subnav-pill-group">
+            <button class="subnav-pill" data-moretab="treemap">
+              <span class="subnav-pill-symbol">▧</span>
+              <span>Treemap</span>
             </button>
             <button class="subnav-pill" data-moretab="browser-storage">
               <span class="subnav-pill-symbol">◉</span>
@@ -1362,6 +1368,8 @@
               <span class="subnav-pill-symbol">◫</span>
               <span>Large & Old</span>
             </button>
+          </div></div>
+          <div class="tool-category-group"><span class="tool-category-label">System & History</span><div class="subnav-pill-group">
             <button class="subnav-pill" data-moretab="snapshots">
               <span class="subnav-pill-symbol">◷</span>
               <span>Snapshots</span>
@@ -1378,7 +1386,7 @@
               <span class="subnav-pill-symbol">✓</span>
               <span>Whitelist & Ayarlar</span>
             </button>
-          </div>
+          </div></div>
 
           <!-- Sub-Pane 1: Leftovers -->
           <div class="sub-pane active" id="subpane-more-leftovers">
@@ -1568,7 +1576,27 @@
             </div>
           </div>
 
-          <!-- Sub-Pane 3: Browser Storage Inspector -->
+          <!-- Sub-Pane 3: Storage Treemap -->
+          <div class="sub-pane" id="subpane-more-treemap">
+            <div class="pane-header" style="margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 16px; font-weight: 600;">Storage Treemap</h3>
+                <p class="pane-subtitle">Disk Analyzer backend ile folder size, percentage ve file count gösterir; drill-down/back/Open in Finder destekler.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-scan-treemap"><span>Treemap Tara</span></button>
+            </div>
+            <div class="inpage-progress-card hidden" id="treemap-progress-card">
+              <div class="inpage-progress-header"><div class="inpage-title-group"><span class="live-pulse-dot"></span><span id="treemap-action-label">Treemap taranıyor…</span></div><span id="treemap-progress-percent">0%</span></div>
+              <div class="inpage-progress-track"><div class="inpage-progress-fill" id="treemap-progress-bar" style="width:0%"></div></div>
+              <div class="inpage-path-ticker"><span class="inpage-path-icon">📂</span><span id="treemap-progress-path">Hazırlanıyor…</span></div>
+            </div>
+            <div class="glass-card">
+              <div class="table-toolbar"><button class="btn btn-secondary btn-sm" id="btn-treemap-back">Back</button><strong id="treemap-path" class="highlight-cyan">~</strong></div>
+              <div id="treemap-box" class="table-container"><div class="empty-state">Treemap için tara.</div></div>
+            </div>
+          </div>
+
+          <!-- Sub-Pane 4: Browser Storage Inspector -->
           <div class="sub-pane" id="subpane-more-browser-storage">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>

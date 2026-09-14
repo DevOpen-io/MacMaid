@@ -88,6 +88,8 @@ Developer Storage Center groups Xcode, Node.js, Python, Rust, Android and Docker
 
 Browser Storage Inspector separates Safari, Chrome, Chromium, Brave, Edge, Firefox and Arc cache/site-data areas. Smart Clean only targets safe cache leaves (`Cache`, `Code Cache`, `GPU Cache`); Service Workers, IndexedDB, Local Storage, Cookies and Sessions are shown as user data and are not selected automatically.
 
+Storage Treemap in the Web UI uses the existing incremental Disk Analyzer backend. It shows folder size, percentage and file count, supports drill-down/back navigation, can reveal reviewed paths in Finder, and routes cleanup candidate review through the same Trash safety pipeline.
+
 Recovery history records each item with `operation_id`, original path, Trash path, timestamp, size and whether it is restorable. Restorable Trash entries can be restored from the Web UI or with `deepclean restore`; use `--copy` to avoid moving the Trash item back. If the original path already exists, normal restore fails closed and Restore as copy chooses a collision-free sibling. Package-manager cleanup commands are shown as Not Restorable because their managers perform the mutation.
 
 ## Terminal UI

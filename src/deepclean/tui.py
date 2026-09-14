@@ -46,7 +46,8 @@ NAVIGATION = [
     ("purge", "⌁", "Project Purge", "Find old rebuildable project artifacts and dependency folders"),
     ("developer", "⌘", "Developer Tools", "Inspect runtimes, SDKs, global tools and package caches"),
     ("status", "●", "Mac Health", "Evidence-based disk, memory-pressure, thermal and battery status"),
-    ("more", "⋯", "More", "Leftovers, installers, snapshots, history and inspection tools"),
+    ("files", "▧", "Files & Storage", "Large files, duplicates, downloads and browser storage"),
+    ("more", "⋯", "System & History", "Leftovers, installers, snapshots, history and diagnostics"),
 ]
 
 OPTIMIZATION_HELP = {
@@ -167,7 +168,7 @@ class DeepCleanTUI(App[None]):
         self.artifacts: list[ProjectArtifact] = []; self.purge_selected: set[int] = set()
         self.developer_kind = "runtime"
         self.developer_items: list[DeveloperItem] = []; self.developer_storage: list[DeveloperStorageSection] = []; self.dev_cache_result: ScanResult | None = None; self.dev_selected: set[int] = set()
-        self.more_kind: str | None = None
+        self.more_kind: str | None = None; self.more_origin = "more"
         self.more_result: ScanResult | None = None; self.more_selected: set[int] = set()
         self.optimize_selected = {i for i, task in enumerate(OPTIMIZATIONS) if task["recommended"]}
         self.analyzer = IncrementalAnalyzer(); self.analyzer_path = Path.home(); self.analyzer_focus = 0
@@ -193,7 +194,7 @@ class DeepCleanTUI(App[None]):
             yield self._developer_page(); yield self._developer_results_page()
             yield self._optimize_page(); yield self._optimize_results_page()
             yield self._status_page(); yield self._status_results_page()
-            yield self._more_page(); yield self._more_results_page()
+            yield self._files_page(); yield self._more_page(); yield self._more_results_page()
             yield self._review_page(); yield self._operation_page()
         yield Static("", id="activity")
 
@@ -332,18 +333,23 @@ class DeepCleanTUI(App[None]):
     def _status_results_page(self) -> Vertical:
         return self._page("status-results", "Mac Health", "Read-only indicators with evidence, freshness and safe recommendations; no health score or automatic action.", Static("Loading metrics…", id="status-state", classes="state busy"), Static("Loading metrics…", id="status-output", markup=False), Static("R Refresh · Q / Esc Back", classes="hint"))
 
+    def _files_page(self) -> Vertical:
+        return self._page("files", "Files & Storage", "User-file and browser inspection tools; nothing is removed without review", self._action_menu("files-actions", [
+            ("files-browser-storage", "◉  Browser Storage", "Inspect cache, site data, cookies and session boundaries"),
+            ("files-smart-downloads", "↓  Smart Downloads", "Classify installers, archives, incomplete downloads and duplicates"),
+            ("files-duplicates", "⧉  Duplicate Files", "Find byte-for-byte matches; nothing is selected automatically"),
+            ("files-large-files-500mb", "◫  Large & Old >500 MB", "Scan HOME except Library; no automatic selection"),
+            ("files-large-files-1gb", "◫  Large & Old >1 GB", "Scan HOME except Library; no automatic selection"),
+            ("files-large-files-5gb", "◫  Large & Old >5 GB", "Scan HOME except Library; no automatic selection"),
+            ("files-large-files-10gb", "◫  Large & Old >10 GB", "Scan HOME except Library; no automatic selection"),
+            ("files-large-files-500mb-90d", "◫  Old Large >500 MB / 90d", "Apply both size and age filters"),
+            ("back", "←  Back", "Return to the main menu"),
+        ]), Static("↑↓ / j k  Navigate     Enter  Select     Esc/B  Back", classes="hint"))
+
     def _more_page(self) -> Vertical:
-        return self._page("more", "More tools", "Extra maintenance and inspection commands", self._action_menu("more-actions", [
+        return self._page("more", "System & History", "Maintenance, diagnostics and audit tools", self._action_menu("more-actions", [
             ("more-leftovers", "◇  Leftovers", "Find safe remnants from removed applications"),
             ("more-installers", "↓  Installers", "Find old DMG, PKG, XIP, ISO and IPSW files"),
-            ("more-browser-storage", "◉  Browser Storage", "Inspect Safari, Chrome, Brave, Edge, Firefox, Arc cache and site data boundaries"),
-            ("more-smart-downloads", "↓  Smart Downloads", "Classify installers, archives, incomplete downloads and duplicates"),
-            ("more-duplicates", "⧉  Duplicate Files", "Find byte-for-byte matches; nothing is selected automatically"),
-            ("more-large-files-500mb", "◫  Large & Old >500 MB", "Scan HOME except Library; no automatic selection"),
-            ("more-large-files-1gb", "◫  Large & Old >1 GB", "Scan HOME except Library; no automatic selection"),
-            ("more-large-files-5gb", "◫  Large & Old >5 GB", "Scan HOME except Library; no automatic selection"),
-            ("more-large-files-10gb", "◫  Large & Old >10 GB", "Scan HOME except Library; no automatic selection"),
-            ("more-large-files-500mb-90d", "◫  Old Large >500 MB / 90d", "Apply both size and age filters"),
             ("more-snapshots", "◷  Snapshots", "List local Time Machine snapshots"),
             ("more-doctor", "+  Doctor", "Check DeepClean and macOS capabilities"),
             ("more-history", "≡  History", "Show recent activity in a readable timeline"),
@@ -652,7 +658,14 @@ class DeepCleanTUI(App[None]):
             self._show_results("developer")
             self._scan_developer()
             return
+        if action.startswith("files-"):
+            self.more_origin = "files"
+            self.more_kind = action.removeprefix("files-")
+            self._show_results("more")
+            self._load_more(self.more_kind)
+            return
         if action.startswith("more-") and action not in {"more-apply", "more-reload"}:
+            self.more_origin = "more"
             self.more_kind = action.removeprefix("more-")
             self._show_results("more")
             self._load_more(self.more_kind)
@@ -823,7 +836,10 @@ class DeepCleanTUI(App[None]):
             self._cancel_review()
         elif self.current_page.endswith("-results"):
             section = self.current_page.removesuffix("-results")
-            self.open_page("dashboard" if section in {"apps", "optimize", "analyzer", "purge", "status"} else section)
+            if section == "more":
+                self.open_page(self.more_origin)
+            else:
+                self.open_page("dashboard" if section in {"apps", "optimize", "analyzer", "purge", "status"} else section)
         elif self.current_page != "dashboard":
             self.open_page("dashboard")
 

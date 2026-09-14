@@ -155,6 +155,7 @@ class IncrementalAnalyzer:
                 "directory": directory,
                 "viewOnly": _view_only(child),
                 "state": "pending",
+                "fileCount": 0,
             })
         return AnalyzerJob(path, top, min_file_bytes, entries, self._generation)
 
@@ -187,7 +188,7 @@ class IncrementalAnalyzer:
             job.current_scan_path = entry["path"]
         target = Path(entry["path"])
         try:
-            size, largest = self._walk(target, job.min_file_bytes, job.top, cancelled)
+            size, largest, file_count = self._walk(target, job.min_file_bytes, job.top, cancelled)
         except Exception as exc:
             with self._lock:
                 if self._jobs.get(job.path) is job and job.generation == generation and not cancelled.is_set():
@@ -203,6 +204,7 @@ class IncrementalAnalyzer:
             if cancelled.is_set() or job.generation != generation or self._jobs.get(job.path) is not job:
                 return
             entry["bytes"] = size
+            entry["fileCount"] = file_count
             entry["state"] = "ready"
             job.completed += 1
             for item in largest:
@@ -216,19 +218,20 @@ class IncrementalAnalyzer:
                 self._submit_next_locked(job)
 
     @staticmethod
-    def _walk(target: Path, threshold: int, top: int, cancelled: threading.Event) -> tuple[int, list[dict[str, Any]]]:
+    def _walk(target: Path, threshold: int, top: int, cancelled: threading.Event) -> tuple[int, list[dict[str, Any]], int]:
         if cancelled.is_set():
             return 0, []
         try:
             if not target.is_dir():
                 size = target.stat().st_size
                 largest = [{"name": target.name, "path": str(target), "bytes": size, "directory": False, "viewOnly": _view_only(target)}] if size >= threshold else []
-                return size, largest
+                return size, largest, 1
         except OSError:
             raise
         total = 0
         largest: list[dict[str, Any]] = []
         inaccessible = 0
+        file_count = 0
         stack = [target]
         while stack and not cancelled.is_set():
             directory = stack.pop()
@@ -248,6 +251,7 @@ class IncrementalAnalyzer:
                             inaccessible += 1
                             continue
                         total += stat.st_size
+                        file_count += 1
                         if stat.st_size >= threshold:
                             path = Path(child.path)
                             largest.append({"name": child.name, "path": child.path, "bytes": stat.st_size, "directory": False, "viewOnly": _view_only(path)})
@@ -258,7 +262,7 @@ class IncrementalAnalyzer:
                 continue
         if inaccessible and not cancelled.is_set():
             raise PermissionError(f"{inaccessible} analyzer entries were inaccessible; result is incomplete")
-        return total, sorted(largest, key=lambda item: -item["bytes"])[:top]
+        return total, sorted(largest, key=lambda item: -item["bytes"])[:top], file_count
 
     def _serialize(self, job: AnalyzerJob, *, cached: bool) -> dict[str, Any]:
         total_bytes = sum(int(entry["bytes"]) for entry in job.entries if entry["state"] == "ready")
@@ -268,6 +272,7 @@ class IncrementalAnalyzer:
         for entry in entries:
             entry["isDirectory"] = entry["directory"]
             entry["humanBytes"] = human_bytes(int(entry["bytes"]))
+            entry["fileCount"] = int(entry.get("fileCount", 0))
             entry["percent"] = int(entry["bytes"] / total_bytes * 100) if total_bytes and entry["state"] == "ready" else 0
         largest = sorted(job.largest_files.values(), key=lambda item: -item["bytes"])[: job.top]
         return {
