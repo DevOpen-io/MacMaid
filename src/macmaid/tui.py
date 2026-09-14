@@ -12,6 +12,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.worker import get_current_worker
 from textual.containers import Horizontal, Vertical
+from textual.css.query import NoMatches
 from textual.widgets import ContentSwitcher, DataTable, Input, Label, ListItem, ListView, ProgressBar, Static
 
 from . import __version__
@@ -530,6 +531,13 @@ class MacMaidTUI(App[None]):
             event.stop()
             self.open_page("dashboard")
 
+    def _update_static_if_present(self, selector: str, value: object) -> bool:
+        try:
+            self.query_one(selector, Static).update(value)
+            return True
+        except NoMatches:
+            return False
+
     def _set_state(self, page: str, text: str) -> None:
         lowered = text.casefold()
         busy_words = ("taranıyor", "yükleniyor", "çalışıyor", "uygulanıyor", "listeleniyor", "ölçülüyor", "kaldırılıyor", "taşınıyor", "doğrulanıyor", "scanning", "loading", "working", "measuring", "removing", "moving", "validating")
@@ -554,7 +562,10 @@ class MacMaidTUI(App[None]):
             icon, state_class = "!", "warning"
         else:
             icon, state_class = "✓", "success"
-        state = self.query_one(f"#{page}-state", Static)
+        try:
+            state = self.query_one(f"#{page}-state", Static)
+        except NoMatches:
+            return
         state.set_classes(f"state {state_class}")
         state.update(f"{icon}  {text}")
     def _clear_review(self) -> None:
@@ -1464,7 +1475,7 @@ class MacMaidTUI(App[None]):
             self._status_running.clear()
 
     def _status_failed(self, message: str) -> None:
-        self.query_one("#system-strip", Static).update("Sistem ölçümleri kullanılamıyor")
+        self._update_static_if_present("#system-strip", "Sistem ölçümleri kullanılamıyor")
         self._set_state("status", f"Durum yenileme hatası: {message}")
     def _finish_status(self, m: dict[str, Any]) -> None:
         disk_ratio = float(m["diskPercent"]) / 100
@@ -1480,7 +1491,7 @@ class MacMaidTUI(App[None]):
         preview.append(f"{human_bytes(m['memoryUsed'])}/{human_bytes(m['memoryTotal'])}", style=ram_color)
         preview.append("   NET ")
         preview.append(f"↓{human_bytes(m['networkDownPerSecond'])}/s ↑{human_bytes(m['networkUpPerSecond'])}/s", style="#5ee7e7")
-        self.query_one("#system-strip", Static).update(preview)
+        self._update_static_if_present("#system-strip", preview)
         battery = m.get("battery") or {}
         output = Text()
         health = m.get("healthIndicators") or []
@@ -1509,7 +1520,7 @@ class MacMaidTUI(App[None]):
                 output.append(f"  {process['pid']:>6}  CPU {process['cpu']:>6.1f}%  MEM {process['memory']:>5.1f}%  {process['command']}\n")
         else:
             output.append("  Process data unavailable.", style="#777b83")
-        self.query_one("#status-output", Static).update(output)
+        self._update_static_if_present("#status-output", output)
         if self.current_page == "status-results": self._set_state("status", "Live metrics updated · health probes refresh at most every 30 seconds")
 
     @staticmethod
