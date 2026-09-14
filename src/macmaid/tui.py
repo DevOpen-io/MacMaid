@@ -26,7 +26,7 @@ from .duplicates import DuplicateFinder
 from .large_files import LargeOldFileScanner
 from .smart_downloads import SmartDownloadsScanner
 from .features import (
-    OPTIMIZATIONS, AppComponent, ApplicationManager, InstalledApplication,
+    OPTIMIZATIONS, OPTIMIZATION_UNAVAILABLE_REASON, AppComponent, ApplicationManager, InstalledApplication,
     ProjectArtifact, ProjectPurgeManager, RecoveryCenter, doctor, history, list_snapshots,
     run_optimization, system_status,
 )
@@ -318,8 +318,8 @@ class MacMaidTUI(App[None]):
         return self._page("developer-results", "Developer Inventory", "Only manager-owned items are removable. Active and protected items remain view-only.", ProgressBar(total=None, show_eta=False, id="developer-progress"), Static("Scanning developer inventory…", id="developer-state", classes="state"), DataTable(id="developer-table", zebra_stripes=True), Static("Active, base and manager-protected items cannot be removed.", id="developer-detail", classes="detail", markup=False), Static("↑↓ Navigate · Enter/D Remove · R Rescan · C Stop scan · Esc Back", classes="hint"))
 
     def _optimize_page(self) -> Vertical:
-        return self._page("optimize", "macOS Optimize", "Bakım görevlerini ayrı seçim ekranında incele; her görev etkisini ve riskini açıklar.", self._action_menu("optimize-actions", [
-            ("optimize-open", "Bakım görevlerini aç", "Görevleri incele, seç ve sonuçlarını canlı takip et"),
+        return self._page("optimize", "macOS Optimize", OPTIMIZATION_UNAVAILABLE_REASON, self._action_menu("optimize-actions", [
+            ("optimize-open", "Bakım görevleri devre dışı", "Kararlılık incelemesi tamamlanana kadar komut çalıştırılmaz"),
         ]), Static("Enter ile görev ekranını aç · Esc ile ana menü", classes="hint"))
 
     def _optimize_results_page(self) -> Vertical:
@@ -1426,6 +1426,9 @@ class MacMaidTUI(App[None]):
     # Optimize, status, more
     def _render_optimize(self, cursor: int | None = None) -> None:
         table = self.query_one("#optimize-table", DataTable); table.clear()
+        if not OPTIMIZATIONS:
+            self._set_state("optimize", OPTIMIZATION_UNAVAILABLE_REASON)
+            return
         for i, task in enumerate(OPTIMIZATIONS):
             table.add_row(self._selection_cell(i in self.optimize_selected), self._risk_cell(task["risk"]), task["title"], OPTIMIZATION_HELP.get(task["id"], ""))
         self._restore_cursor(table, cursor)

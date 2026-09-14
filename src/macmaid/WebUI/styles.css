@@ -141,47 +141,35 @@ body {
   left: 30%;
 }
 
-/* App window frame */
 .app-layout {
   position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
   height: 100vh;
-  max-width: 1600px;
-  margin: 0 auto;
+  width: 100vw;
+  max-width: none;
+  margin: 0;
   backdrop-filter: blur(30px);
   overflow: hidden;
 }
 
 /* Sidebar Top Header & App Brand */
 .sidebar-header {
-  padding: 4px 4px 14px 4px;
+  padding: 6px 4px 14px 4px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   border-bottom: 1px solid var(--border-glass);
   margin-bottom: 6px;
   flex-shrink: 0;
 }
 
-.window-controls {
-  display: flex;
-  align-items: center;
-  gap: 7px;
+.window-controls-spacer {
+  height: 22px;
+  width: 100%;
+  flex-shrink: 0;
 }
-.control-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  display: inline-block;
-  cursor: pointer;
-  transition: opacity 0.15s ease;
-}
-.control-dot:hover { opacity: 0.8; }
-.control-dot.close { background-color: #ff5f56; border: 1px solid #e0443e; }
-.control-dot.minimize { background-color: #ffbd2e; border: 1px solid #dea123; }
-.control-dot.zoom { background-color: #27c93f; border: 1px solid #1aab29; }
 
 .brand-block {
   display: flex;
@@ -2480,11 +2468,9 @@ body:has(.global-operation-hud:not(.hidden)) .toast-container { bottom: 92px; }
 }
 
 body {
-  background:
-    radial-gradient(circle at 88% 8%, var(--ambient-one), transparent 31%),
-    radial-gradient(circle at 16% 92%, var(--ambient-two), transparent 34%),
-    linear-gradient(145deg, var(--page-bg), var(--bg-app));
-  padding: 18px;
+  background: var(--bg-app);
+  padding: 0;
+  margin: 0;
 }
 
 .glow-1 { background: radial-gradient(circle, var(--ambient-one), transparent 70%); }
@@ -2492,12 +2478,39 @@ body {
 .glow-3 { background: radial-gradient(circle, var(--ambient-three), transparent 70%); }
 
 .app-layout {
-  height: calc(100vh - 36px);
-  border: 1px solid var(--border-glass-strong);
-  border-radius: 22px;
+  height: 100vh;
+  width: 100vw;
+  max-width: none;
+  border: none;
+  border-radius: 0;
   background: var(--surface-soft);
-  box-shadow: var(--window-shadow);
+  box-shadow: none;
   isolation: isolate;
+}
+
+/* Native macOS App integration */
+.is-native-app,
+.is-native-app body {
+  padding: 0 !important;
+  margin: 0 !important;
+  background: var(--bg-app) !important;
+}
+
+.is-native-app .ambient-glow {
+  display: none !important;
+}
+
+.is-native-app .app-layout {
+  height: 100vh !important;
+  width: 100vw !important;
+  max-width: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.is-native-app .content-container {
+  padding-top: 28px !important;
 }
 
 .sidebar {

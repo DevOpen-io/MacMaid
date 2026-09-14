@@ -11,7 +11,7 @@ from .browser_storage import BrowserStorageInspector
 from .cleaner import Cleaner
 from .config import Config
 from .features import (
-    OPTIMIZATIONS, ApplicationManager, ProjectPurgeManager, RecoveryCenter, analyze_directory, completion_activation_hint, completion_script,
+    OPTIMIZATIONS, OPTIMIZATION_UNAVAILABLE_REASON, ApplicationManager, ProjectPurgeManager, RecoveryCenter, analyze_directory, completion_activation_hint, completion_script,
     developer_inventory, doctor, install_completion, list_snapshots, remove_completion_hooks,
     run_optimization, system_status, thin_snapshots,
 )
@@ -53,7 +53,7 @@ def _parser() -> argparse.ArgumentParser:
     restore = commands.add_parser("restore"); restore.add_argument("--operation-id", required=True); restore.add_argument("--trash-path", required=True); restore.add_argument("--copy", action="store_true")
     commands.add_parser("whitelist")
     uninstall = commands.add_parser("uninstall"); uninstall.add_argument("--purge-data", action="store_true")
-    web = commands.add_parser("ui", aliases=["web", "gui", "dashboard"]); web.add_argument("--port", type=int, default=8123); web.add_argument("--no-open", action="store_true")
+    web = commands.add_parser("ui", aliases=["web", "gui", "dashboard", "app"]); web.add_argument("--port", type=int, default=8123); web.add_argument("--no-open", action="store_true"); web.add_argument("--app", action="store_true", help="Launch native macOS app window")
     return parser
 
 
@@ -275,6 +275,9 @@ def main(argv: list[str] | None = None) -> None:
         if inventory is None: return
         for item in inventory: print(f"{item['name']:<16} {item['version']}\n{item['detail']}\n")
     elif command == "optimize":
+        if not OPTIMIZATIONS:
+            print(OPTIMIZATION_UNAVAILABLE_REASON)
+            return
         selected = [task for task in OPTIMIZATIONS if task["id"] == args.task] if args.task else [task for task in OPTIMIZATIONS if args.all_tasks or task["recommended"]]
         for task in selected: print(f"  {task['risk']:<12} {task['id']:<20} {task['title']}")
         if args.apply: _print_review(optimization_plan(selected))
@@ -302,7 +305,19 @@ def main(argv: list[str] | None = None) -> None:
         else: print(completion_script(args.shell))
     elif command == "whitelist":
         print(config.whitelist_file)
-    elif command in ("ui", "web", "gui", "dashboard"):
+    elif command in ("ui", "web", "gui", "dashboard", "app"):
+        if command == "app" or getattr(args, "app", False):
+            home = Path.home()
+            candidates = [
+                home / "Applications/MacMaid.app",
+                Path("/Applications/MacMaid.app"),
+            ]
+            found_app = next((p for p in candidates if p.exists()), None)
+            if found_app:
+                import subprocess
+                subprocess.Popen(["open", "-a", str(found_app)])
+                return
+            print("MacMaid.app bulunamadı. Yerel uygulama olarak oluşturmak için: make prod-install")
         from .web import serve
         serve(args.port, not args.no_open)
     elif command == "uninstall":

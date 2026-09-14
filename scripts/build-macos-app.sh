@@ -60,12 +60,19 @@ info "Building standalone MacMaid binary..."
 [ -x "$DIST_DIR/$BIN_NAME" ] || fail "PyInstaller did not produce $DIST_DIR/$BIN_NAME"
 install -m 755 "$DIST_DIR/$BIN_NAME" "$APP_MACOS/macmaid-bin"
 
-cat > "$APP_MACOS/$APP_NAME" <<'APP'
+SWIFT_APP_SRC="$ROOT/src/macmaid/native/MacMaidApp.swift"
+if command -v swiftc >/dev/null 2>&1 && [ -f "$SWIFT_APP_SRC" ]; then
+  info "Compiling native Cocoa/WebKit window wrapper with swiftc..."
+  swiftc -O -framework Cocoa -framework WebKit "$SWIFT_APP_SRC" -o "$APP_MACOS/$APP_NAME"
+else
+  info "swiftc not found; using fallback shell launcher."
+  cat > "$APP_MACOS/$APP_NAME" <<'APP'
 #!/bin/sh
 HERE=$(CDPATH= cd "$(dirname "$0")" 2>/dev/null && pwd -P)
 exec "$HERE/macmaid-bin" ui "$@"
 APP
-chmod 755 "$APP_MACOS/$APP_NAME"
+  chmod 755 "$APP_MACOS/$APP_NAME"
+fi
 
 if [ -f "$LOGO_PNG" ]; then
   cp "$LOGO_PNG" "$APP_RESOURCES/MacMaid-Logo.png"

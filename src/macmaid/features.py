@@ -631,43 +631,15 @@ def system_status(*, force_health_refresh: bool = False) -> dict[str, Any]:
     return status
 
 
-OPTIMIZATIONS = [
-    {"id": "dns", "title": "Flush DNS cache", "risk": "SAFE", "recommended": True},
-    {"id": "quicklook", "title": "Refresh Quick Look cache", "risk": "SAFE", "recommended": True},
-    {"id": "finder", "title": "Refresh Finder", "risk": "SAFE", "recommended": True},
-    {"id": "dock", "title": "Refresh Dock", "risk": "SAFE", "recommended": True},
-    {"id": "launchservices", "title": "Rebuild LaunchServices registration", "risk": "MODERATE", "recommended": True},
-    {"id": "spotlight-health", "title": "Check Spotlight indexing", "risk": "SAFE", "recommended": True},
-    {"id": "spotlight-rebuild", "title": "Reindex Spotlight", "risk": "ADVANCED", "recommended": False},
-]
+# Disabled pending a safe redesign.  The previous commands could restart user-facing
+# services, interrupt networking, or trigger expensive system-wide reindexing.
+OPTIMIZATION_UNAVAILABLE_REASON = "macOS bakım görevleri kararlılık incelemesi tamamlanana kadar geçici olarak devre dışı."
+OPTIMIZATIONS: list[dict[str, Any]] = []
 
 
 def run_optimization(task_id: str) -> dict[str, Any]:
-    if task_id == "spotlight-reindex":
-        task_id = "spotlight-rebuild"
-    if task_id == "spotlight-rebuild":
-        command = "/usr/bin/mdutil -E /"
-        escaped = command.replace("\\", "\\\\").replace('"', '\\"')
-        script = f'do shell script "{escaped}" with administrator privileges'
-        result = run_command("/usr/bin/osascript", ["-e", script], timeout=600)
-        return {"success": result.succeeded, "output": result.stdout, "error": result.stderr}
-    commands = {
-        "dns": [("/usr/bin/dscacheutil", ["-flushcache"]), ("/usr/bin/killall", ["-HUP", "mDNSResponder"])],
-        "quicklook": [("/usr/bin/qlmanage", ["-r", "cache"])],
-        "finder": [("/usr/bin/killall", ["Finder"])],
-        "dock": [("/usr/bin/killall", ["Dock"])],
-        "launchservices": [("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister", ["-kill", "-r", "-domain", "local", "-domain", "system", "-domain", "user"])],
-        "spotlight-health": [("/usr/bin/mdutil", ["-s", "/"])],
-    }
-    attempts = commands.get(task_id)
-    if not attempts:
-        return {"success": False, "error": "unknown optimization"}
-    last = None
-    for executable, arguments in attempts:
-        last = run_command(executable, arguments, timeout=600)
-        if last.succeeded:
-            return {"success": True, "output": last.stdout}
-    return {"success": False, "error": (last.stderr or last.stdout) if last else "unavailable"}
+    """Fail closed: no maintenance subprocess may run while this feature is disabled."""
+    return {"success": False, "error": OPTIMIZATION_UNAVAILABLE_REASON}
 
 
 def compatibility_checks() -> list[dict[str, Any]]:

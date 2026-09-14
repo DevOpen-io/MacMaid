@@ -3,6 +3,17 @@
    With Real-time Continuous Live Feedback Engine & Full Tool Suite
    ========================================================= */
 
+if (typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAgent.includes('MacMaidApp')) {
+  document.documentElement.classList.add('is-native-app');
+  if (document.body) {
+    document.body.classList.add('is-native-app');
+  } else {
+    document.addEventListener('DOMContentLoaded', () => {
+      if (document.body) document.body.classList.add('is-native-app');
+    });
+  }
+}
+
 // State Management
 const state = {
   activeTab: 'cleaner',
@@ -1973,16 +1984,16 @@ async function fetchOptimizationTasks() {
   try {
     const res = await fetch('/api/optimize');
     const data = await readAPIResponse(res);
-    renderOptimizationTasks(data.tasks || []);
+    renderOptimizationTasks(data.tasks || [], data.reason || 'Kullanılabilir optimizasyon görevi bulunamadı.');
   } catch (err) {
     container.innerHTML = `<div class="empty-state">Görevler alınamadı: ${escapeHtml(err.message)}</div>`;
   }
 }
 
-function renderOptimizationTasks(tasks) {
+function renderOptimizationTasks(tasks, unavailableReason = 'Kullanılabilir optimizasyon görevi bulunamadı.') {
   const container = document.getElementById('optimize-tasks-grid');
   if (tasks.length === 0) {
-    container.innerHTML = `<div class="empty-state">Kullanılabilir optimizasyon görevi bulunamadı.</div>`;
+    container.innerHTML = `<div class="empty-state">${escapeHtml(unavailableReason)}</div>`;
     return;
   }
 

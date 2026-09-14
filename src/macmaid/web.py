@@ -21,7 +21,7 @@ from .cancellation import CancellationToken
 from .cleaner import Cleaner
 from .config import Config
 from .features import (
-    OPTIMIZATIONS, ApplicationManager, ProjectPurgeManager, RecoveryCenter,
+    OPTIMIZATIONS, OPTIMIZATION_UNAVAILABLE_REASON, ApplicationManager, ProjectPurgeManager, RecoveryCenter,
     doctor, history, list_snapshots, run_optimization, system_status, thin_snapshots,
 )
 from .developer import DeveloperInventory, DeveloperStorageCenter
@@ -145,7 +145,12 @@ class MacMaidHandler(BaseHTTPRequestHandler):
         return body
 
     def _same_host(self) -> bool:
-        expected = {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}
+        expected = {
+            f"127.0.0.1:{self.server.server_port}",
+            f"localhost:{self.server.server_port}",
+            "127.0.0.1",
+            "localhost",
+        }
         return self.headers.get("Host", "").lower() in expected
 
     def _authorized_mutation(self) -> bool:
@@ -211,6 +216,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", mimetypes.guess_type(path)[0] or "application/octet-stream")
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("X-Content-Type-Options", "nosniff")
         if filename == "index.html":
             self.send_header("Set-Cookie", f"macmaid_session={self.server.state.token}; Path=/; HttpOnly; SameSite=Strict")
@@ -440,7 +446,8 @@ class MacMaidHandler(BaseHTTPRequestHandler):
         if path == "/api/snapshots":
             snapshots = list_snapshots(); return {"snapshots": [{"id": item, "date": item.rsplit(".", 1)[-1]} for item in snapshots], "raw": "\n".join(snapshots)}
         if path == "/api/optimize":
-            return {"tasks": [dict(item, subtitle="", requiresSudo=False) for item in OPTIMIZATIONS]}
+            return {"tasks": [dict(item, subtitle="", requiresSudo=False) for item in OPTIMIZATIONS],
+                    "available": bool(OPTIMIZATIONS), "reason": OPTIMIZATION_UNAVAILABLE_REASON}
         if path == "/api/doctor":
             checks = doctor(); by_name = {c["name"]: c["value"] for c in checks}
             return {"macosVersion": by_name.get("macOS", ""), "buildVersion": "", "architecture": by_name.get("Architecture", ""), "sipStatus": by_name.get("System Integrity Protection", ""), "diskRoot": "/", "snapshots": "", "probes": [{"path": c["name"], "ok": c.get("ok") is True} for c in checks]}
@@ -683,11 +690,13 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             if review := self._review_gate("snapshots", body, snapshot_plan(target)): return review
             return thin_snapshots(target * 1024**3, state.config)
         if path == "/api/optimize/run":
+            if not OPTIMIZATIONS: raise RuntimeError(OPTIMIZATION_UNAVAILABLE_REASON)
             tasks = [task for task in OPTIMIZATIONS if task["id"] == str(body.get("taskId", ""))]
             if not tasks: raise ValueError("Unknown optimization task")
             if review := self._review_gate("optimize", body, optimization_plan(tasks)): return review
             return run_optimization(tasks[0]["id"])
         if path == "/api/optimize/run-all":
+            if not OPTIMIZATIONS: raise RuntimeError(OPTIMIZATION_UNAVAILABLE_REASON)
             tasks = [task for task in OPTIMIZATIONS if task["recommended"]]
             if review := self._review_gate("optimize", body, optimization_plan(tasks)): return review
             results = [run_optimization(task["id"]) for task in tasks]

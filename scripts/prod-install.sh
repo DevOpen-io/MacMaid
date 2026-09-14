@@ -122,11 +122,20 @@ cat > "$APP_ROOT/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
-cat > "$APP_MACOS/$APP_NAME" <<APP
+install -m 755 "$BINARY" "$APP_MACOS/macmaid-bin"
+
+SWIFT_APP_SRC="$ROOT/src/macmaid/native/MacMaidApp.swift"
+if command -v swiftc >/dev/null 2>&1 && [ -f "$SWIFT_APP_SRC" ]; then
+  info "Compiling native Cocoa/WebKit window wrapper with swiftc..."
+  swiftc -O -framework Cocoa -framework WebKit "$SWIFT_APP_SRC" -o "$APP_MACOS/$APP_NAME"
+else
+  info "swiftc not found; using fallback shell launcher."
+  cat > "$APP_MACOS/$APP_NAME" <<APP
 #!/bin/sh
 exec "$INSTALL_BIN_DIR/$BIN_NAME" ui "\$@"
 APP
-chmod 755 "$APP_MACOS/$APP_NAME"
+  chmod 755 "$APP_MACOS/$APP_NAME"
+fi
 
 if command -v xattr >/dev/null 2>&1; then
   xattr -dr com.apple.quarantine "$INSTALL_BIN_DIR/$BIN_NAME" "$APP_ROOT" >/dev/null 2>&1 || true
