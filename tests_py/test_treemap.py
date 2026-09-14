@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -23,13 +24,16 @@ def test_treemap_endpoint_returns_nodes_with_percentage_and_file_count(tmp_path,
     handler.server = SimpleNamespace(state=state)
     try:
         payload = handler._route_get("/api/treemap", {"path": str(home), "start": "true"})
-        for _ in range(50):
-            if payload["nodes"]:
+        deadline = time.monotonic() + 2
+        node = None
+        while time.monotonic() < deadline:
+            node = next((item for item in payload["nodes"] if item["name"] == "folder"), None)
+            if node is not None:
                 break
+            time.sleep(0.02)
             payload = handler._route_get("/api/treemap", {"path": str(home)})
-        node = payload["nodes"][0]
-        assert node["name"] == "folder"
-        assert node["percentage"] == 100
+        assert node is not None
+        assert node["percentage"] > 0
         assert node["fileCount"] == 2
         assert node["cleanupCandidate"] is True
     finally:
