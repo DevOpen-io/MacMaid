@@ -20,20 +20,34 @@ Changing the implementation language does not bypass macOS SIP/TCC/filesystem pe
 
 ## Setup
 
-Install [uv](https://docs.astral.sh/uv/), then:
+User-local installation, without sudo:
+
+```sh
+sh install.sh
+```
+
+The installer bootstraps `uv` into the current user's home directory when it is missing, clears browser/AirDrop quarantine metadata from this checkout when allowed, and installs DeepClean as a user-owned `uv tool`. It never writes to `/usr/local` and never needs `sudo`.
+
+For development, install [uv](https://docs.astral.sh/uv/) manually, then:
 
 ```sh
 uv sync --all-groups
 uv run deepclean --help
 ```
 
-User-local installation, without sudo:
+Manual equivalent:
 
 ```sh
-./install.sh
-# equivalent:
-uv tool install --force .
+uv tool install --python 3.11 --force .
 ```
+
+Production-style local install:
+
+```sh
+make prod-install
+```
+
+This builds a standalone PyInstaller binary, installs it to `~/.local/bin/deepclean`, creates `~/Applications/DeepClean.app` as a Web UI launcher, clears quarantine metadata when allowed, and applies an ad-hoc local code signature. Apple notarization still requires an Apple Developer ID certificate and cannot be done generically from another user's Mac.
 
 If `~/.local/bin` is not on `PATH`, run `uv tool update-shell` once.
 

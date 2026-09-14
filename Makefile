@@ -5,7 +5,7 @@ SHELL := /bin/sh
 UV ?= uv
 ARGS ?=
 
-.PHONY: help sync install uninstall test check build run doctor status scan-dry scan-developer-dry apps analyze purge-scan developer-caches-dry completion-print ui web clean
+.PHONY: help sync install prod-install uninstall test check build run doctor status scan-dry scan-developer-dry apps analyze purge-scan developer-caches-dry completion-print ui web clean
 
 help: ## Show available commands
 	@printf "DeepClean Python/uv workflow\n\n"
@@ -16,6 +16,9 @@ sync: ## Create/update the uv environment and lock file
 
 install: ## Install into the current user's uv tool directory; never uses sudo
 	./install.sh
+
+prod-install: ## Build and install standalone macOS binary + ~/Applications app wrapper
+	sh scripts/prod-install.sh
 
 uninstall: ## Remove the uv-managed command
 	./uninstall.sh
