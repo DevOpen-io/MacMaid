@@ -36,6 +36,22 @@ macmaid ui
 
 The current Homebrew/GitHub Release packages are Apple Silicon (`arm64`) only.
 
+> [!NOTE]
+> **First Launch on macOS (Gatekeeper / "Apple could not verify..." alert):**  
+> Because MacMaid is an open-source tool without paid Apple Developer notarization, macOS Gatekeeper may show an alert on first launch stating *"Apple could not verify MacMaid..."*.
+>
+> To open it:
+> 1. Go to **System Settings** → **Privacy & Security**.
+> 2. Scroll down to the **Security** section.
+> 3. Click **Open Anyway** next to the MacMaid blocked notification, then confirm with **Open**.
+>
+> Alternatively, you can remove the macOS quarantine flag via Terminal:
+> ```sh
+> xattr -cr /Applications/MacMaid.app
+> # or if using local user Applications:
+> xattr -cr ~/Applications/MacMaid.app
+> ```
+
 ### Standalone local app build
 
 For a local production-style install from this repository:
