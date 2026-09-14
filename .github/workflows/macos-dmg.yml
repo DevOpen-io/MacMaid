@@ -183,6 +183,11 @@ jobs:
 
             app "MacMaid.app"
             binary "#{appdir}/MacMaid.app/Contents/MacOS/macmaid-bin", target: "macmaid"
+
+            zap trash: [
+              "~/.config/macmaid",
+              "~/Library/Logs/MacMaid",
+            ]
           end
           RUBY
 
