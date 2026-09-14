@@ -173,8 +173,17 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             self._json({"error": "Invalid Host header"}, 403); return
         parsed = urlparse(self.path)
         query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
-        if parsed.path in ("/", "/index.html", "/styles.css", "/app.js"):
-            self._static("index.html" if parsed.path in ("/", "/index.html") else parsed.path[1:], head); return
+        static_files = {
+            "/": "index.html",
+            "/index.html": "index.html",
+            "/styles.css": "styles.css",
+            "/app.js": "app.js",
+            "/favicon.ico": "assets/MacMaid-Logo.png",
+            "/assets/MacMaid-Logo.png": "assets/MacMaid-Logo.png",
+            "/MacMaid-Logo.png": "assets/MacMaid-Logo.png",
+        }
+        if parsed.path in static_files:
+            self._static(static_files[parsed.path], head); return
         if parsed.path == "/api/apps/icon":
             self._app_icon(query.get("path", ""), head); return
         try:
@@ -209,12 +218,21 @@ class MacMaidHandler(BaseHTTPRequestHandler):
         self._json({"error": "Cross-origin requests are not allowed"}, 403)
 
     def _static(self, filename: str, head: bool) -> None:
-        path = _webui_root() / filename
+        web_root = _webui_root().resolve()
+        path = (web_root / filename).resolve()
+        try:
+            path.relative_to(web_root)
+        except ValueError:
+            self._json({"error": "Forbidden"}, 403); return
         if not path.is_file():
-            self._json({"error": "File not found"}, 404); return
+            repo_file = (Path(__file__).resolve().parents[2] / filename).resolve()
+            if repo_file.is_file():
+                path = repo_file
+            else:
+                self._json({"error": "File not found"}, 404); return
         data = path.read_bytes()
         self.send_response(200)
-        self.send_header("Content-Type", mimetypes.guess_type(path)[0] or "application/octet-stream")
+        self.send_header("Content-Type", mimetypes.guess_type(str(path))[0] or "application/octet-stream")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("X-Content-Type-Options", "nosniff")

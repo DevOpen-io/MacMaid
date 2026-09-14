@@ -177,16 +177,26 @@ body {
   gap: 10px;
 }
 .brand-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--primary-gradient);
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  box-shadow: 0 0 15px var(--primary-glow);
   flex-shrink: 0;
+  border-radius: 8px;
+}
+.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.28));
+  transition: transform 0.2s ease;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.brand-block:hover .brand-logo-img {
+  transform: scale(1.04);
 }
 .brand-text-wrap {
   display: flex;
@@ -2526,8 +2536,8 @@ body {
 .sidebar-footer { border-color: var(--row-border); }
 
 .brand-logo {
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 24px var(--primary-glow);
+  border: none;
+  box-shadow: none;
 }
 
 .nav-item:hover,
