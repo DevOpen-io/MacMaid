@@ -15,12 +15,12 @@ UV=${UV:-$(command -v uv 2>/dev/null || true)}
 [ -n "$UV" ] || fail "uv is required for production packaging. Run sh install.sh once or install uv manually."
 
 PYTHON_VERSION=${PYTHON_VERSION:-3.11}
-APP_NAME=${APP_NAME:-DeepClean}
-BIN_NAME=${BIN_NAME:-deepclean}
+APP_NAME=${APP_NAME:-MacMaid}
+BIN_NAME=${BIN_NAME:-macmaid}
 INSTALL_BIN_DIR=${INSTALL_BIN_DIR:-$HOME/.local/bin}
 INSTALL_APP_DIR=${INSTALL_APP_DIR:-$HOME/Applications}
 BUILD_DIR=${BUILD_DIR:-$ROOT/build/prod}
-ENTRYPOINT=$BUILD_DIR/deepclean_entry.py
+ENTRYPOINT=$BUILD_DIR/macmaid_entry.py
 DIST_DIR=$BUILD_DIR/dist
 WORK_DIR=$BUILD_DIR/work
 SPEC_DIR=$BUILD_DIR/spec
@@ -36,13 +36,13 @@ fi
 
 mkdir -p "$BUILD_DIR" "$DIST_DIR" "$WORK_DIR" "$SPEC_DIR" "$INSTALL_BIN_DIR" "$INSTALL_APP_DIR"
 cat > "$ENTRYPOINT" <<'PY'
-from deepclean import main
+from macmaid import main
 
 if __name__ == "__main__":
     main()
 PY
 
-info "Building standalone DeepClean binary with PyInstaller..."
+info "Building standalone MacMaid binary with PyInstaller..."
 "$UV" run --python "$PYTHON_VERSION" --with pyinstaller pyinstaller \
   --noconfirm \
   --clean \
@@ -52,7 +52,7 @@ info "Building standalone DeepClean binary with PyInstaller..."
   --workpath "$WORK_DIR" \
   --specpath "$SPEC_DIR" \
   --paths "$ROOT/src" \
-  --add-data "$ROOT/src/deepclean/WebUI:deepclean/WebUI" \
+  --add-data "$ROOT/src/macmaid/WebUI:macmaid/WebUI" \
   --collect-all textual \
   "$ENTRYPOINT"
 
@@ -63,6 +63,12 @@ if command -v codesign >/dev/null 2>&1; then
   info "Applying ad-hoc code signature..."
   codesign --force --sign - "$BINARY" >/dev/null 2>&1 || info "Ad-hoc codesign failed; continuing with unsigned binary."
 fi
+
+OLD_COMMAND=$(printf '%s%s' deep clean)
+OLD_APP=$(printf '%s%s.app' Deep Clean)
+rm -f "$INSTALL_BIN_DIR/$OLD_COMMAND" 2>/dev/null || true
+rm -rf "$INSTALL_APP_DIR/$OLD_APP" 2>/dev/null || true
+if [ -n "$UV" ]; then "$UV" tool uninstall "$OLD_COMMAND" >/dev/null 2>&1 || true; fi
 
 info "Installing binary to $INSTALL_BIN_DIR/$BIN_NAME"
 install -m 755 "$BINARY" "$INSTALL_BIN_DIR/$BIN_NAME"
@@ -77,7 +83,7 @@ cat > "$APP_ROOT/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
   <key>CFBundleExecutable</key><string>$APP_NAME</string>
-  <key>CFBundleIdentifier</key><string>com.deepclean.deepclean</string>
+  <key>CFBundleIdentifier</key><string>com.macmaid.macmaid</string>
   <key>CFBundleName</key><string>$APP_NAME</string>
   <key>CFBundleDisplayName</key><string>$APP_NAME</string>
   <key>CFBundlePackageType</key><string>APPL</string>
@@ -101,6 +107,18 @@ if command -v codesign >/dev/null 2>&1; then
 fi
 
 "$INSTALL_BIN_DIR/$BIN_NAME" --version >/dev/null || fail "Installed binary smoke test failed."
+
+ACTIVE_SHELL=${SHELL##*/}
+case "$ACTIVE_SHELL" in
+  zsh|bash|fish)
+    if "$INSTALL_BIN_DIR/$BIN_NAME" completion "$ACTIVE_SHELL" --install >/dev/null 2>&1; then
+      info "Shell completion installed for $ACTIVE_SHELL. Open a new terminal for Tab completion."
+    else
+      info "Shell completion could not be installed automatically. You can print it with: $BIN_NAME completion $ACTIVE_SHELL --print"
+    fi
+    ;;
+  *) info "Shell completion was not changed for unsupported shell: ${ACTIVE_SHELL:-unknown}" ;;
+esac
 
 case ":${PATH:-}:" in
   *":$INSTALL_BIN_DIR:"*) : ;;

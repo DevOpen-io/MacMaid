@@ -10,13 +10,13 @@ from types import SimpleNamespace
 import pytest
 from textual.widgets import Static
 
-from deepclean import tui, web
-from deepclean.analyzer import IncrementalAnalyzer
-from deepclean.cancellation import CancellationToken, ScanCancelled
-from deepclean.config import Config
-from deepclean.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, CleanupProfile, RiskLevel, ScanResult
-from deepclean.scanner import Scanner
-from deepclean.system import run_command, sizes_of
+from macmaid import tui, web
+from macmaid.analyzer import IncrementalAnalyzer
+from macmaid.cancellation import CancellationToken, ScanCancelled
+from macmaid.config import Config
+from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, CleanupProfile, RiskLevel, ScanResult
+from macmaid.scanner import Scanner
+from macmaid.system import run_command, sizes_of
 
 
 def candidate(path: Path) -> CleanupItem:
@@ -53,7 +53,7 @@ def test_measurement_error_marks_scan_partial(monkeypatch, tmp_path):
         kwargs["on_error"](listed[0], "Operation not permitted")
         return {}
 
-    monkeypatch.setattr("deepclean.scanner.sizes_of", failed_measure)
+    monkeypatch.setattr("macmaid.scanner.sizes_of", failed_measure)
     monkeypatch.setattr(scanner, "_user_caches", lambda profile: scanner._candidates(
         [("cache", root, RiskLevel.SAFE, "test", ActionType.REMOVE_PATH, None)],
         CleanupCategory.USER_CACHES, RiskLevel.SAFE,
@@ -96,7 +96,7 @@ def test_cancellation_terminates_waiting_subprocess_promptly():
 
 
 def test_bounded_size_scheduler_does_not_enqueue_after_cancel(monkeypatch, tmp_path):
-    import deepclean.system as system
+    import macmaid.system as system
     token = CancellationToken(); calls = []
 
     def fake_size(path, *, cancel=None, on_error=None):
@@ -154,7 +154,7 @@ def test_analyzer_measurement_failure_is_partial_not_complete(monkeypatch, tmp_p
 
 def test_tui_cancel_key_requests_cooperative_stop_and_partial_result_cannot_clean(monkeypatch):
     async def exercise():
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(100, 30)) as pilot:
             app._show_results("clean")
             token = CancellationToken(); app.scan_cancellations["clean"] = token
@@ -171,7 +171,7 @@ def test_tui_cancel_key_requests_cooperative_stop_and_partial_result_cannot_clea
 
 def test_tui_scan_cancel_never_cancels_a_mutation(monkeypatch):
     async def exercise():
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(100, 30)):
             app.current_page = "operation"
             app._mutation_requested = True
@@ -185,7 +185,7 @@ def test_web_cancel_endpoint_and_incomplete_scan_gate(tmp_path):
     token = CancellationToken()
     state = SimpleNamespace(scan_cancellations={"clean": token}, lock=threading.RLock(),
                             progress=SimpleNamespace(finish=lambda *args, **kwargs: None))
-    handler = object.__new__(web.DeepCleanHandler); handler.server = SimpleNamespace(state=state)
+    handler = object.__new__(web.MacMaidHandler); handler.server = SimpleNamespace(state=state)
     response = handler._route_post("/api/scan/cancel", {"service": "clean"})
     assert response["cancelled"] and token.cancelled
     partial = ScanResult([candidate(tmp_path / "cache")], status="cancelled")

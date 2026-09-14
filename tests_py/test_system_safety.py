@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from deepclean import system
+from macmaid import system
 
 
 def test_command_drains_output_larger_than_pipe_buffer():

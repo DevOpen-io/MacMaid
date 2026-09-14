@@ -60,13 +60,12 @@ OPTIMIZATION_HELP = {
     "spotlight-rebuild": "Tüm Spotlight indeksini yeniden kurar; uzun sürebilir ve yönetici onayı ister.",
 }
 
-WORDMARK = r""" ____                  ____ _                  
-|  _ \  ___  ___ _ __ / ___| | ___  __ _ _ __ 
-| | | |/ _ \/ _ \ '_ \| |   | |/ _ \/ _` | '_ \
-| |_| |  __/  __/ |_) | |___| |  __/ (_| | | | |
-|____/ \___|\___| .__/ \____|_|\___|\__,_|_| |_|
-                 |_|"""
-COMPACT_WORDMARK = "\n".join(WORDMARK.splitlines()[:5])
+WORDMARK = r""" __  __            __  __       _     _ 
+|  \/  | __ _  ___|  \/  | __ _(_) __| |
+| |\/| |/ _` |/ __| |\/| |/ _` | |/ _` |
+| |  | | (_| | (__| |  | | (_| | | (_| |
+|_|  |_|\__,_|\___|_|  |_|\__,_|_|\__,_|"""
+COMPACT_WORDMARK = WORDMARK
 
 
 class ReviewPrompt(Static):
@@ -75,8 +74,8 @@ class ReviewPrompt(Static):
     can_focus = True
 
 
-class DeepCleanTUI(App[None]):
-    TITLE = "DeepClean"
+class MacMaidTUI(App[None]):
+    TITLE = "MacMaid"
     SUB_TITLE = "Safe macOS maintenance"
     ENABLE_COMMAND_PALETTE = False
     BINDINGS = [
@@ -158,7 +157,7 @@ class DeepCleanTUI(App[None]):
 
     def __init__(self) -> None:
         if os.geteuid() == 0:
-            raise PermissionError("DeepClean must never run as root")
+            raise PermissionError("MacMaid must never run as root")
         self._mutation_requested = False
         super().__init__(); self.config = Config(); self.config.ensure_files(); self.current_page = "dashboard"
         self.clean_profile = CleanupProfile.SAFE
@@ -254,7 +253,7 @@ class DeepCleanTUI(App[None]):
                     Vertical(
                         Horizontal(
                             Label("➤", classes="menu-marker"),
-                            Label(DeepCleanTUI._menu_title(index, title), classes="action-title"),
+                            Label(MacMaidTUI._menu_title(index, title), classes="action-title"),
                             classes="menu-line",
                         ),
                         Label(description, classes="action-desc"),
@@ -351,7 +350,7 @@ class DeepCleanTUI(App[None]):
             ("more-leftovers", "◇  Leftovers", "Find safe remnants from removed applications"),
             ("more-installers", "↓  Installers", "Find old DMG, PKG, XIP, ISO and IPSW files"),
             ("more-snapshots", "◷  Snapshots", "List local Time Machine snapshots"),
-            ("more-doctor", "+  Doctor", "Check DeepClean and macOS capabilities"),
+            ("more-doctor", "+  Doctor", "Check MacMaid and macOS capabilities"),
             ("more-history", "≡  History", "Show recent activity in a readable timeline"),
             ("more-whitelist", "✓  Whitelist", "Show the protected custom-path list"),
             ("back", "←  Back", "Return to the main menu"),
@@ -376,7 +375,7 @@ class DeepCleanTUI(App[None]):
             Static("Preparing operation…", id="operation-current", markup=False),
             Static("", id="operation-log", markup=False),
             Static("Preparing before-operation system metrics…", id="operation-summary", markup=False),
-            Static("When complete, press Enter to return to DeepClean.", id="operation-hint", markup=False),
+            Static("When complete, press Enter to return to MacMaid.", id="operation-hint", markup=False),
         )
 
     def on_mount(self) -> None:
@@ -438,7 +437,7 @@ class DeepCleanTUI(App[None]):
             parts.append(f"Trash'e taşınan {human_bytes(trash)} (alan boşalmadı)")
         if getattr(result, "unknown_reclaim_count", 0):
             parts.append(f"{result.unknown_reclaim_count} manager etkisi bilinmiyor")
-        parts.append(f"gözlenen boş alan farkı {observed_text}; DeepClean'e kesin atfedilemez")
+        parts.append(f"gözlenen boş alan farkı {observed_text}; MacMaid'e kesin atfedilemez")
         return " · ".join(parts)
 
     @staticmethod
@@ -490,7 +489,7 @@ class DeepCleanTUI(App[None]):
             observed = f"GÖZLENEN BOŞ ALAN FARKI: {human_bytes(abs(delta))} {'artış' if delta >= 0 else 'azalış'}"
         else:
             observed = "GÖZLENEN BOŞ ALAN FARKI: ölçülemedi"
-        caveat = "Dosya sistemi genelindeki bu fark DeepClean'e kesin atfedilemez; APFS clone/snapshot/sparse dosya ve eşzamanlı etkinlik etkileyebilir."
+        caveat = "Dosya sistemi genelindeki bu fark MacMaid'e kesin atfedilemez; APFS clone/snapshot/sparse dosya ve eşzamanlı etkinlik etkileyebilir."
         self.query_one("#operation-summary", Static).update(
             f"{self._snapshot_line('ÖNCE', before)}\n{self._snapshot_line('SONRA', after)}\n{observed}\n{caveat}\n\n{summary}"
         )
@@ -1530,7 +1529,7 @@ class DeepCleanTUI(App[None]):
                 restore = record.get("restoreStatus", "Restorable" if record.get("restorable") else "Not Restorable")
                 suffix = f" · {restore}"
                 if record.get("restorable") and record.get("operation_id") and record.get("trash_path"):
-                    suffix += f" · CLI: deepclean restore --operation-id {record.get('operation_id')} --trash-path {record.get('trash_path')!r}"
+                    suffix += f" · CLI: macmaid restore --operation-id {record.get('operation_id')} --trash-path {record.get('trash_path')!r}"
                 lines.append(f"{record.get('timestamp','')} {record.get('result',''):<9} {record.get('label', record.get('path',''))}{suffix}")
         return "\n".join(lines) or "Geçmiş boş."
 
@@ -1655,4 +1654,4 @@ class DeepCleanTUI(App[None]):
 
 class InteractiveUI:
     """Compatibility entrypoint used by the CLI."""
-    def run(self) -> None: DeepCleanTUI().run()
+    def run(self) -> None: MacMaidTUI().run()

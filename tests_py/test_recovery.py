@@ -5,11 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from deepclean import cleaner as cleaning
-from deepclean.config import Config
-from deepclean.features import RecoveryCenter
-from deepclean.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
-from deepclean.safety import PathSafetyError
+from macmaid import cleaner as cleaning
+from macmaid.config import Config
+from macmaid.features import RecoveryCenter
+from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
+from macmaid.safety import PathSafetyError
 
 
 @pytest.fixture

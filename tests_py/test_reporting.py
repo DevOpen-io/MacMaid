@@ -4,11 +4,11 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from deepclean import cleaner as cleaner_module, web
-from deepclean.cleaner import Cleaner
-from deepclean.config import Config
-from deepclean.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
-from deepclean.reporting import FreeSpaceProbe, MEASUREMENT_CAVEAT
+from macmaid import cleaner as cleaner_module, web
+from macmaid.cleaner import Cleaner
+from macmaid.config import Config
+from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
+from macmaid.reporting import FreeSpaceProbe, MEASUREMENT_CAVEAT
 
 
 def item(path: Path, size: int, action: ActionType = ActionType.REMOVE_PATH, label: str = "item") -> CleanupItem:
@@ -76,7 +76,7 @@ def test_history_api_totals_only_explicit_estimated_reclaim(monkeypatch):
          "estimatedReclaimedBytes": 0, "trashMovedEstimatedBytes": 0, "result": "partial"},
     ]
     monkeypatch.setattr(web, "history", lambda limit: records)
-    handler = object.__new__(web.DeepCleanHandler)
+    handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=SimpleNamespace())
     payload = handler._route_get("/api/history", {})
     assert payload["totalEstimatedReclaimed"] == 100

@@ -1,12 +1,12 @@
-# DeepClean Architecture Diagram
+# MacMaid Architecture Diagram
 
 ## System Overview
 
-DeepClean is a Python-based macOS cleanup, maintenance, and system optimization tool with a safety-first architecture. The system is designed around a core principle: **never compromise user data safety for disk space recovery**.
+MacMaid is a Python-based macOS cleanup, maintenance, and system optimization tool with a safety-first architecture. The system is designed around a core principle: **never compromise user data safety for disk space recovery**.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           DEEPCLEAN SYSTEM ARCHITECTURE                      │
+│                           MACMAID SYSTEM ARCHITECTURE                      │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -410,7 +410,7 @@ AGGRESSIVE Profile:
 ## Key Design Principles
 
 1. **Fail-Closed**: If safety cannot be established, skip the operation
-2. **Never Run as Root**: DeepClean must never run with sudo/root privileges
+2. **Never Run as Root**: MacMaid must never run with sudo/root privileges
 3. **Trash Before Delete**: Prefer moving to Trash over permanent deletion
 4. **Manager-Owned Resources**: Use manager commands for package manager cleanup
 5. **TOCTOU Protection**: Re-validate paths at execution time
@@ -438,4 +438,4 @@ Forbidden Patterns:
 └─► Following symlinks blindly
 ```
 
-This architecture ensures DeepClean can safely clean macOS systems while protecting user data and maintaining system integrity.
+This architecture ensures MacMaid can safely clean macOS systems while protecting user data and maintaining system integrity.

@@ -4,7 +4,7 @@ import threading
 import time
 from pathlib import Path
 
-from deepclean.analyzer import IncrementalAnalyzer
+from macmaid.analyzer import IncrementalAnalyzer
 
 
 def _wait_complete(analyzer: IncrementalAnalyzer, path: Path, timeout: float = 3, min_file_bytes: int = 1) -> dict:

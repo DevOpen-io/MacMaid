@@ -7,11 +7,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from deepclean import web
-from deepclean.config import Config
-from deepclean.features import AppComponent, InstalledApplication
-from deepclean.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, OperationResult, RiskLevel, ScanResult
-from deepclean.review import application_plan, cleanup_plan, issue_review_token, validate_review_token
+from macmaid import web
+from macmaid.config import Config
+from macmaid.features import AppComponent, InstalledApplication
+from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, OperationResult, RiskLevel, ScanResult
+from macmaid.review import application_plan, cleanup_plan, issue_review_token, validate_review_token
 
 
 def cleanup_item(label="Cache", risk=RiskLevel.SAFE):
@@ -22,13 +22,13 @@ def cleanup_item(label="Cache", risk=RiskLevel.SAFE):
 
 def state(**values):
     defaults = dict(token="secret", generations={"clean": 1}, review_tokens={}, lock=threading.RLock(),
-                    config=Config(home=Path("/tmp/deepclean-review-test")))
+                    config=Config(home=Path("/tmp/macmaid-review-test")))
     defaults.update(values)
     return SimpleNamespace(**defaults)
 
 
 def handler(current):
-    result = object.__new__(web.DeepCleanHandler)
+    result = object.__new__(web.MacMaidHandler)
     result.server = SimpleNamespace(state=current)
     return result
 

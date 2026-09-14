@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from deepclean import cleaner as cleaning, web
-from deepclean.config import Config
-from deepclean.large_files import LargeOldFileScanner, SIZE_FILTERS
+from macmaid import cleaner as cleaning, web
+from macmaid.config import Config
+from macmaid.large_files import LargeOldFileScanner, SIZE_FILTERS
 
 
 def _home(tmp_path, monkeypatch):
@@ -70,7 +70,7 @@ def test_web_large_file_cleanup_requires_scan_and_review(monkeypatch, tmp_path):
     other.write_bytes(b"x" * 20)
     state = SimpleNamespace(config=config, large_files={target}, token="secret", generations={"large-files": 1},
                             review_tokens={}, lock=__import__("threading").RLock())
-    handler = object.__new__(web.DeepCleanHandler)
+    handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=state)
 
     with pytest.raises(PermissionError):

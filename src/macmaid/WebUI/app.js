@@ -1,5 +1,5 @@
 /* =========================================================
-   DeepClean Pro — Modern Web Dashboard Controller
+   MacMaid Pro — Modern Web Dashboard Controller
    With Real-time Continuous Live Feedback Engine & Full Tool Suite
    ========================================================= */
 
@@ -11,7 +11,7 @@ const state = {
   progressTimer: null,
   isOperationRunning: false,
   operationObservedActive: false,
-  soundEnabled: localStorage.getItem('deepclean_sound') !== 'off',
+  soundEnabled: localStorage.getItem('macmaid_sound') !== 'off',
   currentScan: null,
   selectedCleanItems: new Set(),
   apps: [],
@@ -29,8 +29,8 @@ const state = {
   analyzerViews: new Map(),
   analyzerRequestId: Date.now(),
   analyzerPollTimer: null,
-  theme: ['dark', 'midnight', 'cyber', 'light'].includes(localStorage.getItem('deepclean_theme'))
-    ? localStorage.getItem('deepclean_theme')
+  theme: ['dark', 'midnight', 'cyber', 'light'].includes(localStorage.getItem('macmaid_theme'))
+    ? localStorage.getItem('macmaid_theme')
     : 'dark',
   modalReturnFocus: null,
 };
@@ -1951,7 +1951,7 @@ async function executeSnapshotThin() {
             const observed = data.observedFreeBytesDelta === null || data.observedFreeBytesDelta === undefined
               ? 'gözlenen fark ölçülemedi'
               : `gözlenen boş alan ${formatBytes(Math.abs(data.observedFreeBytesDelta))} ${data.observedFreeBytesDelta >= 0 ? 'arttı' : 'azaldı'}`;
-            showToast(`Snapshot daraltma isteği tamamlandı · gerçek manager etkisi bilinmiyor · ${observed} (DeepClean’e kesin atfedilemez)`, 'success');
+            showToast(`Snapshot daraltma isteği tamamlandı · gerçek manager etkisi bilinmiyor · ${observed} (MacMaid’e kesin atfedilemez)`, 'success');
             fetchSnapshotsList();
           } catch (e) {
             showToast(`Hata: ${e.message}`, 'error');
@@ -2603,7 +2603,7 @@ function operationOutcomeText(result) {
   if (result.observedFreeBytesDelta === null || result.observedFreeBytesDelta === undefined) {
     parts.push('gözlenen boş alan farkı ölçülemedi');
   } else {
-    parts.push(`gözlenen boş alan ${result.humanObservedFreeDelta} ${result.observedFreeDirection === 'decrease' ? 'azaldı' : 'arttı'} (DeepClean’e kesin atfedilemez)`);
+    parts.push(`gözlenen boş alan ${result.humanObservedFreeDelta} ${result.observedFreeDirection === 'decrease' ? 'azaldı' : 'arttı'} (MacMaid’e kesin atfedilemez)`);
   }
   return parts.join(' · ');
 }
@@ -2757,7 +2757,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const soundBtn = document.getElementById('sound-toggle');
   soundBtn?.addEventListener('click', () => {
     state.soundEnabled = !state.soundEnabled;
-    localStorage.setItem('deepclean_sound', state.soundEnabled ? 'on' : 'off');
+    localStorage.setItem('macmaid_sound', state.soundEnabled ? 'on' : 'off');
     soundBtn.querySelector('.icon-sound-on').classList.toggle('hidden', !state.soundEnabled);
     soundBtn.querySelector('.icon-sound-off').classList.toggle('hidden', state.soundEnabled);
     document.getElementById('chk-sound-setting').checked = state.soundEnabled;
@@ -2767,7 +2767,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   soundSetting?.addEventListener('change', event => {
     state.soundEnabled = event.target.checked;
-    localStorage.setItem('deepclean_sound', state.soundEnabled ? 'on' : 'off');
+    localStorage.setItem('macmaid_sound', state.soundEnabled ? 'on' : 'off');
     soundBtn?.querySelector('.icon-sound-on')?.classList.toggle('hidden', !state.soundEnabled);
     soundBtn?.querySelector('.icon-sound-off')?.classList.toggle('hidden', state.soundEnabled);
   });
@@ -2778,7 +2778,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let nextIdx = (themes.indexOf(state.theme) + 1) % themes.length;
     state.theme = themes[nextIdx];
     document.documentElement.setAttribute('data-theme', state.theme);
-    localStorage.setItem('deepclean_theme', state.theme);
+    localStorage.setItem('macmaid_theme', state.theme);
     if (themeSelect) themeSelect.value = state.theme;
     SoundEffects.playClick();
   });
@@ -2787,7 +2787,7 @@ document.addEventListener('DOMContentLoaded', () => {
     themeSelect.addEventListener('change', (e) => {
       state.theme = e.target.value;
       document.documentElement.setAttribute('data-theme', state.theme);
-      localStorage.setItem('deepclean_theme', state.theme);
+      localStorage.setItem('macmaid_theme', state.theme);
     });
   }
 

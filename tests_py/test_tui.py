@@ -8,12 +8,12 @@ import pytest
 
 from textual.widgets import ContentSwitcher, DataTable, ListView, Select, Static
 
-from deepclean.models import RiskLevel
+from macmaid.models import RiskLevel
 
-from deepclean import tui
-from deepclean.config import Config
-from deepclean.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, ScanResult
-from deepclean.review import cleanup_plan
+from macmaid import tui
+from macmaid.config import Config
+from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, ScanResult
+from macmaid.review import cleanup_plan
 
 
 @pytest.fixture(autouse=True)
@@ -44,7 +44,7 @@ def test_textual_tui_navigation_and_page_tables(monkeypatch) -> None:
     monkeypatch.setattr(tui, "system_status", _metrics)
 
     async def exercise() -> None:
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
             switcher = app.query_one("#pages", ContentSwitcher)
@@ -97,7 +97,7 @@ def test_tui_keyboard_submenus_replace_dropdowns(monkeypatch) -> None:
     monkeypatch.setattr(tui, "system_status", _metrics)
 
     async def exercise() -> None:
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.press("6")
             await pilot.pause()
@@ -131,7 +131,7 @@ def test_every_tool_section_has_a_separate_results_screen(monkeypatch) -> None:
     monkeypatch.setattr(tui, "system_status", _metrics)
 
     async def exercise() -> None:
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(120, 40)):
             for section in ("clean", "apps", "analyzer", "purge", "developer", "optimize", "status", "more"):
                 app._show_results(section)
@@ -143,7 +143,7 @@ def test_every_tool_section_has_a_separate_results_screen(monkeypatch) -> None:
 
 def test_review_requires_explicit_y_and_defaults_enter_to_cancel(monkeypatch) -> None:
     async def exercise() -> None:
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(100, 30)) as pilot:
             called: list[bool] = []
             app._show_results("clean")
@@ -166,7 +166,7 @@ def test_review_requires_explicit_y_and_defaults_enter_to_cancel(monkeypatch) ->
 
 def test_tui_selection_change_invalidates_visible_review(monkeypatch) -> None:
     async def exercise() -> None:
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(100, 30)) as pilot:
             app._show_results("clean")
             app._finish_clean(_scan_result("first"))
@@ -186,7 +186,7 @@ def test_operation_summary_returns_home_only_after_completion(monkeypatch) -> No
     monkeypatch.setattr(tui, "system_status", _metrics)
 
     async def exercise() -> None:
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(120, 40)) as pilot:
             before = app._system_snapshot()
             app._begin_operation("Fixture temizliği", 1, before)
@@ -211,7 +211,7 @@ def test_operation_summary_returns_home_only_after_completion(monkeypatch) -> No
 
 def test_tui_blocks_duplicate_mutations_while_worker_starts(monkeypatch) -> None:
     async def exercise() -> None:
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(100, 30)) as pilot:
             app._show_results("clean")
             app._finish_clean(_scan_result("fixture"))
@@ -230,7 +230,7 @@ def test_tui_blocks_duplicate_mutations_while_worker_starts(monkeypatch) -> None
 
 def test_manual_fallback_requires_selection_and_second_authorization(monkeypatch) -> None:
     async def exercise() -> None:
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(100, 30)) as pilot:
             app._show_results("clean")
             result = _scan_result("manual")
@@ -256,10 +256,10 @@ def test_manual_fallback_requires_selection_and_second_authorization(monkeypatch
 
 
 def test_tui_risk_cells_are_clear_and_distinct() -> None:
-    assert tui.DeepCleanTUI._risk_cell(RiskLevel.SAFE).plain == "SAFE"
-    assert tui.DeepCleanTUI._risk_cell(RiskLevel.MODERATE).plain == "MODERATE"
-    assert tui.DeepCleanTUI._risk_cell(RiskLevel.AGGRESSIVE).plain == "AGGRESSIVE"
-    assert tui.DeepCleanTUI._risk_cell(RiskLevel.MANUAL_ONLY).plain == "MANUAL"
+    assert tui.MacMaidTUI._risk_cell(RiskLevel.SAFE).plain == "SAFE"
+    assert tui.MacMaidTUI._risk_cell(RiskLevel.MODERATE).plain == "MODERATE"
+    assert tui.MacMaidTUI._risk_cell(RiskLevel.AGGRESSIVE).plain == "AGGRESSIVE"
+    assert tui.MacMaidTUI._risk_cell(RiskLevel.MANUAL_ONLY).plain == "MANUAL"
 
 
 @pytest.mark.parametrize("late_failure", [False, True])
@@ -286,7 +286,7 @@ def test_clean_profile_switch_discards_results_and_late_callbacks(monkeypatch, l
     monkeypatch.setattr(tui, "Scanner", FakeScanner)
 
     async def exercise() -> None:
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(120, 40)) as pilot:
             app._show_results("clean")
             app._finish_clean(_scan_result("previous cleanup"))
@@ -320,7 +320,7 @@ def test_clean_profile_switch_discards_results_and_late_callbacks(monkeypatch, l
 
 def test_all_scan_tools_clear_review_state_before_rescan(monkeypatch) -> None:
     async def exercise() -> None:
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(120, 40)):
             for worker in ("_clean_worker", "_apps_worker", "_projects_worker", "_developer_worker", "_more_worker"):
                 monkeypatch.setattr(app, worker, lambda *args: None)
@@ -360,7 +360,7 @@ def test_all_tools_keyboard_smoke(monkeypatch, size) -> None:
     monkeypatch.setattr(tui, "history", lambda count: [])
 
     async def exercise() -> None:
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=size) as pilot:
             for index, (section, *_) in enumerate(tui.NAVIGATION, 1):
                 app.open_page("dashboard")
@@ -382,7 +382,7 @@ def test_all_tools_keyboard_smoke(monkeypatch, size) -> None:
 
 
 def test_cleanup_keyboard_flow_returns_to_fresh_scan(monkeypatch) -> None:
-    from deepclean.models import OperationResult
+    from macmaid.models import OperationResult
 
     executed = []
 
@@ -395,10 +395,10 @@ def test_cleanup_keyboard_flow_returns_to_fresh_scan(monkeypatch) -> None:
             return OperationResult(freed=1024)
 
     monkeypatch.setattr(tui, "Cleaner", FakeCleaner)
-    monkeypatch.setattr(tui.DeepCleanTUI, "_system_snapshot", staticmethod(lambda: {}))
+    monkeypatch.setattr(tui.MacMaidTUI, "_system_snapshot", staticmethod(lambda: {}))
 
     async def exercise() -> None:
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(120, 40)) as pilot:
             app._show_results("clean")
             app._finish_clean(_scan_result("synthetic cleanup"))
@@ -423,7 +423,7 @@ def test_cleanup_keyboard_flow_returns_to_fresh_scan(monkeypatch) -> None:
 
 def test_analyzer_navigation_clears_previous_directory(monkeypatch, tmp_path) -> None:
     async def exercise() -> None:
-        app = tui.DeepCleanTUI()
+        app = tui.MacMaidTUI()
         async with app.run_test(size=(120, 40)):
             monkeypatch.setattr(app, "_analysis_worker", lambda *args: None)
             app._show_results("analyzer")

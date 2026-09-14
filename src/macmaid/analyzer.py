@@ -58,7 +58,7 @@ class IncrementalAnalyzer:
     def __init__(self, max_workers: int = 4) -> None:
         self._lock = threading.RLock()
         self._max_workers = max(1, min(max_workers, 8))
-        self._executor = ThreadPoolExecutor(max_workers=self._max_workers, thread_name_prefix="deepclean-analyzer")
+        self._executor = ThreadPoolExecutor(max_workers=self._max_workers, thread_name_prefix="macmaid-analyzer")
         self._jobs: dict[Path, AnalyzerJob] = {}
         self._generation = 0
         self._active_path: Path | None = None

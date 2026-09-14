@@ -7,14 +7,14 @@ from unittest.mock import Mock
 
 import pytest
 
-from deepclean import cleaner as cleaning, developer, features
-from deepclean.cleaner import Cleaner
-from deepclean.config import Config
-from deepclean.developer import DeveloperInventory, DeveloperItem
-from deepclean.features import ApplicationManager, InstalledApplication, ProjectArtifact, ProjectPurgeManager
-from deepclean.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
-from deepclean.safety import PathSafetyError
-from deepclean.system import CommandResult
+from macmaid import cleaner as cleaning, developer, features
+from macmaid.cleaner import Cleaner
+from macmaid.config import Config
+from macmaid.developer import DeveloperInventory, DeveloperItem
+from macmaid.features import ApplicationManager, InstalledApplication, ProjectArtifact, ProjectPurgeManager
+from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
+from macmaid.safety import PathSafetyError
+from macmaid.system import CommandResult
 
 
 @pytest.fixture

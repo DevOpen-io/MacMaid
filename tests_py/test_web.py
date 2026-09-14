@@ -6,12 +6,12 @@ from http.client import HTTPConnection
 from pathlib import Path
 from urllib.parse import quote
 
-from deepclean.config import Config
-from deepclean.web import DeepCleanHTTPServer, WebState
+from macmaid.config import Config
+from macmaid.web import MacMaidHTTPServer, WebState
 
 
 def test_web_rejects_foreign_host_and_protects_mutations(tmp_path: Path) -> None:
-    server = DeepCleanHTTPServer(("127.0.0.1", 0), WebState(Config(home=tmp_path)))
+    server = MacMaidHTTPServer(("127.0.0.1", 0), WebState(Config(home=tmp_path)))
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
     try:
         connection = HTTPConnection("127.0.0.1", server.server_port)
@@ -33,7 +33,7 @@ def test_web_analyzer_returns_navigation_snapshot_and_reuses_cache(tmp_path: Pat
     child = root / "child"
     child.mkdir(parents=True)
     (child / "payload.bin").write_bytes(b"x" * 1024)
-    server = DeepCleanHTTPServer(("127.0.0.1", 0), WebState(Config(home=tmp_path)))
+    server = MacMaidHTTPServer(("127.0.0.1", 0), WebState(Config(home=tmp_path)))
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
     try:
         connection = HTTPConnection("127.0.0.1", server.server_port)

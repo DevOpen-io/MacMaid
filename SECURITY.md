@@ -1,6 +1,6 @@
-# DeepClean security model
+# MacMaid security model
 
-DeepClean is destructive software. Its core invariant is that a cleanup candidate is never sufficient authorization to delete a path.
+MacMaid is destructive software. Its core invariant is that a cleanup candidate is never sufficient authorization to delete a path.
 
 ## Deletion gate
 
@@ -29,7 +29,7 @@ The interactive disk analyzer has a separate, stricter contract because it can d
 
 ## Privilege policy
 
-DeepClean does not run its normal cleaner through `sudo`, does not elevate application removal, and does not disable/bypass SIP or TCC. Operations that macOS denies are skipped/failed rather than retried with a broader privilege boundary. The separately reviewed Spotlight rebuild is the only fixed maintenance action that may request native macOS authorization.
+MacMaid does not run its normal cleaner through `sudo`, does not elevate application removal, and does not disable/bypass SIP or TCC. Operations that macOS denies are skipped/failed rather than retried with a broader privilege boundary. The separately reviewed Spotlight rebuild is the only fixed maintenance action that may request native macOS authorization.
 
 ## Fail-closed categories
 
@@ -45,14 +45,14 @@ Arbitrary Application Support, Preferences, Containers/Group Containers, credent
 - `--apply` remains accepted for backwards-compatible non-interactive automation; it does not bypass the y/N prompt in an interactive terminal.
 - Installer cleanup moves files to Trash.
 - Time Machine thinning is a separate command with a separate `THIN SNAPSHOTS` confirmation.
-- Operations are logged as JSONL in `~/Library/Logs/deepclean/operations.jsonl`; `deepclean history` presents the same records as a readable timeline.
+- Operations are logged as JSONL in `~/Library/Logs/macmaid/operations.jsonl`; `macmaid history` presents the same records as a readable timeline.
 - Backward-compatible item records distinguish scanned estimate, successfully processed estimate, conservative estimated reclaim and reclaim status. Aggregate `operation_summary` records also contain Trash-moved estimates, unknown manager effects and observed free-space deltas. Failed and skipped targets never contribute to processed/reclaim totals.
-- The compatibility `freed` field is an estimate, not guaranteed physical-disk reclamation. It excludes Trash moves and unknown manager-command effects. Filesystem-wide before/after observations are labeled separately and are not attributed solely to DeepClean because APFS clones, snapshots, sparse files and concurrent disk activity can affect them.
+- The compatibility `freed` field is an estimate, not guaranteed physical-disk reclamation. It excludes Trash moves and unknown manager-command effects. Filesystem-wide before/after observations are labeled separately and are not attributed solely to MacMaid because APFS clones, snapshots, sparse files and concurrent disk activity can affect them.
 - Scan/search/analyze work emits live activity/current-path feedback so long-running filesystem reads do not look frozen.
 - Read-only scans support cooperative cancellation. Filesystem loops stop at checkpoints, size measurement uses a bounded scheduler, and cancellation of a waiting subprocess terminates its owned process group.
 - Completed, partial, cancelled and failed states remain distinct. Permission/TCC limitations are surfaced with affected locations; incomplete bulk-scan results are not cleanup-authorized.
 - Scan cancellation never interrupts a cleanup mutation already in progress. Destructive operations continue through post-condition verification and audit.
-- `~/.config/deepclean/whitelist` can protect custom paths/globs. Missing, unreadable, malformed, non-UTF-8 or symlinked whitelist state blocks mutation rather than being treated as empty.
+- `~/.config/macmaid/whitelist` can protect custom paths/globs. Missing, unreadable, malformed, non-UTF-8 or symlinked whitelist state blocks mutation rather than being treated as empty.
 - Audit and configuration state directories/files must be user-owned regular paths without symlink redirection before destructive execution starts.
 
 ## Local Web mutation boundary
@@ -72,7 +72,7 @@ A cached size is display metadata only: `Cleaner.move_analyzer_item_to_trash` re
 
 ## Developer runtime removal
 
-Developer Tools never treats an executable or large directory merely found on disk as safe to delete. A developer item is removable only when DeepClean can associate it with a supported owning manager, prove active/base/dependency protection state, and invoke that manager without arbitrary shell text. Supported direct manager removals include mise, asdf, pyenv, rbenv/ruby-build, rustup, fnm, nodenv/node-build and selected Homebrew resources. NVM, SDKMAN!, uv-managed CPython and Volta images are currently inventory-only where dependency safety or shell-independent removal cannot be proven. Failed manager safety queries fail closed.
+Developer Tools never treats an executable or large directory merely found on disk as safe to delete. A developer item is removable only when MacMaid can associate it with a supported owning manager, prove active/base/dependency protection state, and invoke that manager without arbitrary shell text. Supported direct manager removals include mise, asdf, pyenv, rbenv/ruby-build, rustup, fnm, nodenv/node-build and selected Homebrew resources. NVM, SDKMAN!, uv-managed CPython and Volta images are currently inventory-only where dependency safety or shell-independent removal cannot be proven. Failed manager safety queries fail closed.
 
 The same ownership rule applies beyond runtimes. Conda/Micromamba non-base environments use their environment-removal commands only after manager-reported base/active identity is known; base and active environments are protected. Homebrew formulae with dependents or active executables remain protected. Poetry environments, Android Virtual Devices/system images and Xcode DeviceSupport are inventory-only because they may contain user data or their usage cannot be proven. Available/booted Xcode Simulator items stay protected; only unavailable, shutdown simulator items with supported identifiers are offered through `simctl`.
 
@@ -80,12 +80,12 @@ Developer discovery and disk sizing follow the same no-silent-work invariant as 
 
 ## Optimize safety boundary
 
-Optimize is intentionally bounded maintenance, not a license to reset arbitrary macOS state. The recommended set may refresh DNS/Quick Look/Finder/Dock/LaunchServices and inspect Spotlight health. Full Spotlight reindex is separate and advanced. DeepClean does not delete Dock databases, purge memory, remove swap, reset Wi-Fi/Bluetooth preferences, or rebuild font caches as general-purpose optimizations.
+Optimize is intentionally bounded maintenance, not a license to reset arbitrary macOS state. The recommended set may refresh DNS/Quick Look/Finder/Dock/LaunchServices and inspect Spotlight health. Full Spotlight reindex is separate and advanced. MacMaid does not delete Dock databases, purge memory, remove swap, reset Wi-Fi/Bluetooth preferences, or rebuild font caches as general-purpose optimizations.
 
 
 ## App uninstall boundary (v0.9.0)
 
-App uninstall is evidence-based. The application bundle path comes from an enumerated `.app`; remnants are derived from the exact `CFBundleIdentifier`, not broad substring recursion. Caches/logs/saved state and exact user LaunchAgents are safe defaults. HTTP storage, Preferences, `Application Support`, Containers and WebKit are visible but opt-in because they may hold user/session state. Homebrew Casks are routed through Homebrew only while exact ownership remains proven; command failure never falls back to raw deletion. Non-cask bundles and selected remnants move to Trash after identity, ownership, parent-root, whitelist, symlink and running-process revalidation. DeepClean does not elevate application removal.
+App uninstall is evidence-based. The application bundle path comes from an enumerated `.app`; remnants are derived from the exact `CFBundleIdentifier`, not broad substring recursion. Caches/logs/saved state and exact user LaunchAgents are safe defaults. HTTP storage, Preferences, `Application Support`, Containers and WebKit are visible but opt-in because they may hold user/session state. Homebrew Casks are routed through Homebrew only while exact ownership remains proven; command failure never falls back to raw deletion. Non-cask bundles and selected remnants move to Trash after identity, ownership, parent-root, whitelist, symlink and running-process revalidation. MacMaid does not elevate application removal.
 
 ## Project Purge boundary (v0.9.0)
 
@@ -93,7 +93,7 @@ Project Purge never treats a directory name alone as proof that deletion is safe
 
 ## Status / completion boundary (v0.9.0)
 
-The live status dashboard is read-only. It uses public/kernel/userland metrics available without installing a privileged helper; when a true temperature/GPU metric cannot be obtained safely, DeepClean does not fabricate one. Shell completion installation only writes DeepClean-owned completion files plus a clearly marked rc-file block that can be removed during `--purge-data` uninstall.
+The live status dashboard is read-only. It uses public/kernel/userland metrics available without installing a privileged helper; when a true temperature/GPU metric cannot be obtained safely, MacMaid does not fabricate one. Shell completion installation only writes MacMaid-owned completion files plus a clearly marked rc-file block that can be removed during `--purge-data` uninstall.
 
 ## Destructive safety hardening (v0.9.2)
 
@@ -101,7 +101,7 @@ A red-team pass added additional fail-closed boundaries: application bundle iden
 
 ## Fallback hierarchy
 
-DeepClean does not treat a failed native command as permission to delete more broadly. The project-wide order is: owning manager/macOS API first; a narrower, explicitly proven fallback only where recoverability and scope are clear; otherwise skip/fail closed. Cache fallbacks are manager-specific and interactive. Manager-owned runtime/environment/SDK state never falls back to raw recursive directory deletion. See `FALLBACK_POLICY.md` for the current matrix.
+MacMaid does not treat a failed native command as permission to delete more broadly. The project-wide order is: owning manager/macOS API first; a narrower, explicitly proven fallback only where recoverability and scope are clear; otherwise skip/fail closed. Cache fallbacks are manager-specific and interactive. Manager-owned runtime/environment/SDK state never falls back to raw recursive directory deletion. See `FALLBACK_POLICY.md` for the current matrix.
 
 
 ## Destructive post-condition verification (v0.9.7)

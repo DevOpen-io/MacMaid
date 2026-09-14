@@ -9,10 +9,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from deepclean import cli, tui, web
-from deepclean.config import Config
-from deepclean.features import AppComponent, InstalledApplication, ProjectArtifact
-from deepclean.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, OperationResult, RiskLevel, ScanResult
+from macmaid import cli, tui, web
+from macmaid.config import Config
+from macmaid.features import AppComponent, InstalledApplication, ProjectArtifact
+from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, OperationResult, RiskLevel, ScanResult
 
 
 def review_state(**values):
@@ -38,7 +38,7 @@ def test_all_application_surfaces_refuse_root(monkeypatch):
     assert exc.value.code == 2
     monkeypatch.setattr(tui.os, "geteuid", lambda: 0)
     with pytest.raises(PermissionError, match="root"):
-        tui.DeepCleanTUI()
+        tui.MacMaidTUI()
     monkeypatch.setattr(web.os, "geteuid", lambda: 0)
     with pytest.raises(PermissionError, match="root"):
         web.serve(0, False)
@@ -70,20 +70,20 @@ def test_web_mutation_session_gates(monkeypatch, tmp_path, fault):
     monkeypatch.setattr(web, "Config", lambda: Config(home=tmp_path))
     state = web.WebState()
     route = Mock(return_value={"success": True})
-    monkeypatch.setattr(web.DeepCleanHandler, "_route_post", route)
-    server = web.DeepCleanHTTPServer(("127.0.0.1", 0), state)
+    monkeypatch.setattr(web.MacMaidHandler, "_route_post", route)
+    server = web.MacMaidHTTPServer(("127.0.0.1", 0), state)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
     try:
         host = f"127.0.0.1:{server.server_port}"
         headers = {"Host": host, "Origin": f"http://{host}", "Content-Type": "application/json",
-                   "Cookie": f"deepclean_session={state.token}"}
+                   "Cookie": f"macmaid_session={state.token}"}
         if fault == "host": headers["Host"] = "attacker.example"
         elif fault == "origin": headers["Origin"] = "https://attacker.example"
         elif fault == "missing-origin": headers.pop("Origin")
         elif fault == "missing-cookie": headers.pop("Cookie")
-        elif fault == "wrong-cookie": headers["Cookie"] = "deepclean_session=wrong"
+        elif fault == "wrong-cookie": headers["Cookie"] = "macmaid_session=wrong"
         elif fault == "content-type": headers["Content-Type"] = "text/plain"
         connection.request("POST", "/api/clean", body="{}", headers=headers)
         response = connection.getresponse()
@@ -98,15 +98,15 @@ def test_web_serializes_mutations(monkeypatch, tmp_path):
     monkeypatch.setattr(web, "Config", lambda: Config(home=tmp_path))
     state = web.WebState()
     route = Mock(return_value={"success": True})
-    monkeypatch.setattr(web.DeepCleanHandler, "_route_post", route)
-    server = web.DeepCleanHTTPServer(("127.0.0.1", 0), state)
+    monkeypatch.setattr(web.MacMaidHandler, "_route_post", route)
+    server = web.MacMaidHTTPServer(("127.0.0.1", 0), state)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
     try:
         host = f"127.0.0.1:{server.server_port}"
         headers = {"Host": host, "Origin": f"http://{host}", "Content-Type": "application/json",
-                   "Cookie": f"deepclean_session={state.token}"}
+                   "Cookie": f"macmaid_session={state.token}"}
         state.mutation_lock.acquire()
         connection.request("POST", "/api/clean", body="{}", headers=headers)
         response = connection.getresponse()
@@ -125,7 +125,7 @@ def test_get_routes_never_mutate(monkeypatch, tmp_path, path):
     purge = Mock()
     monkeypatch.setattr(web.ProjectPurgeManager, "purge", purge)
     state = web.WebState()
-    handler = object.__new__(web.DeepCleanHandler)
+    handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=state)
     try:
         if path == "/api/purge":
@@ -142,7 +142,7 @@ def test_web_cleanup_requires_exact_reviewed_nonmanual_ids(monkeypatch):
     execute = Mock(return_value=OperationResult())
     monkeypatch.setattr(web, "Cleaner", lambda config: SimpleNamespace(execute=execute))
     state = review_state(scan=ScanResult([reviewed]), config=object())
-    handler = object.__new__(web.DeepCleanHandler)
+    handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=state)
     for ids in (["unknown"], [reviewed.id, "unknown"]):
         with pytest.raises(PermissionError): handler._route_post("/api/clean", {"itemIds": ids})
@@ -164,7 +164,7 @@ def test_web_app_and_purge_delegate_to_shared_managers(monkeypatch, tmp_path):
     artifact = ProjectArtifact("project", project, "node_modules", project / "node_modules", 10, 0, True, True)
     config = object()
     state = review_state(apps=[app], projects=[artifact], config=config)
-    handler = object.__new__(web.DeepCleanHandler)
+    handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=state)
     remove, purge = Mock(return_value={"success": True}), Mock(return_value={"success": True})
     app_manager = Mock(return_value=SimpleNamespace(remove=remove, components=lambda app: [component]))

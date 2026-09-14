@@ -5,10 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from deepclean import cleaner as cleaning, web
-from deepclean.config import Config
-from deepclean.duplicates import DuplicateFinder
-from deepclean.safety import PathSafetyError
+from macmaid import cleaner as cleaning, web
+from macmaid.config import Config
+from macmaid.duplicates import DuplicateFinder
+from macmaid.safety import PathSafetyError
 
 
 def test_duplicate_finder_uses_size_partial_and_full_hash_without_hardlinks(tmp_path, monkeypatch):
@@ -74,7 +74,7 @@ def test_web_duplicate_cleanup_requires_latest_scan_and_review(monkeypatch, tmp_
     other.write_text("same")
     state = SimpleNamespace(config=config, duplicates={target}, token="secret", generations={"duplicates": 1},
                             review_tokens={}, lock=__import__("threading").RLock())
-    handler = object.__new__(web.DeepCleanHandler)
+    handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=state)
 
     with pytest.raises(PermissionError):

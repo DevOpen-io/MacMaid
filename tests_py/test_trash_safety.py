@@ -7,11 +7,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from deepclean import cleaner as module
-from deepclean.cleaner import Cleaner
-from deepclean.config import Config
-from deepclean.safety import PathSafety, PathSafetyError
-from deepclean.web import DeepCleanHandler
+from macmaid import cleaner as module
+from macmaid.cleaner import Cleaner
+from macmaid.config import Config
+from macmaid.safety import PathSafety, PathSafetyError
+from macmaid.web import MacMaidHandler
 
 
 @pytest.fixture
@@ -206,7 +206,7 @@ def test_web_analyzer_uses_shared_whitelist_gate(cleaner):
     cleaner.config.whitelist_file.write_text(str(path))
     state = SimpleNamespace(config=cleaner.config, analyzed_paths={path}, analyzer=Mock(), token="secret",
                             generations={"analyzer": 1}, review_tokens={}, lock=__import__("threading").RLock())
-    handler = object.__new__(DeepCleanHandler)
+    handler = object.__new__(MacMaidHandler)
     handler.server = SimpleNamespace(state=state)
     prepared = handler._route_post("/api/analyze/trash", {"path": str(path), "reviewOnly": True})
     with pytest.raises(PermissionError, match="whitelisted"):

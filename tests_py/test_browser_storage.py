@@ -5,9 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from deepclean import browser_storage, cleaner as cleaning, web
-from deepclean.browser_storage import BrowserStorageInspector
-from deepclean.config import Config
+from macmaid import browser_storage, cleaner as cleaning, web
+from macmaid.browser_storage import BrowserStorageInspector
+from macmaid.config import Config
 
 
 def test_browser_storage_separates_safe_cache_from_user_data(tmp_path, monkeypatch):
@@ -66,7 +66,7 @@ def test_web_browser_smart_clean_requires_scan_review_and_safe_ids(monkeypatch, 
     monkeypatch.setattr(browser_storage, "process_running", lambda _: False)
     config = Config(home=home); config.ensure_files()
     state = SimpleNamespace(config=config, token="secret", generations={}, review_tokens={}, lock=__import__("threading").RLock())
-    handler = object.__new__(web.DeepCleanHandler); handler.server = SimpleNamespace(state=state)
+    handler = object.__new__(web.MacMaidHandler); handler.server = SimpleNamespace(state=state)
 
     scan = handler._route_get("/api/browser-storage", {})
     item_id = scan["items"][0]["id"]
@@ -78,7 +78,7 @@ def test_web_browser_smart_clean_requires_scan_review_and_safe_ids(monkeypatch, 
 
 
 def test_web_browser_smart_clean_blocks_without_scan(tmp_path):
-    handler = object.__new__(web.DeepCleanHandler)
+    handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=SimpleNamespace(browser_storage=None))
     with pytest.raises(ValueError):
         handler._route_post("/api/browser-storage/clean", {"itemIds": []})

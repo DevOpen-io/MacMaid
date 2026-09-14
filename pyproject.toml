@@ -1,5 +1,5 @@
 [project]
-name = "deepclean"
+name = "macmaid"
 version = "0.9.22"
 description = "Safe, fast macOS cleanup and system maintenance toolkit"
 authors = [
@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-deepclean = "deepclean.cli:main"
+macmaid = "macmaid.cli:main"
 
 [dependency-groups]
 dev = [

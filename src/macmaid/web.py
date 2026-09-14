@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import json
 import mimetypes
 import os
@@ -48,7 +49,7 @@ def _operation_payload(result) -> dict:
         humanTrashMovedEstimate=human_bytes(result.trash_moved_estimated_bytes),
         humanObservedFreeDelta=None if observed is None else human_bytes(abs(observed)),
         observedFreeDirection=None if observed is None else ("increase" if observed >= 0 else "decrease"),
-        reclaimCaveat="Observed free-space change is filesystem-wide and cannot be attributed solely to DeepClean.",
+        reclaimCaveat="Observed free-space change is filesystem-wide and cannot be attributed solely to MacMaid.",
     )
 
 
@@ -107,14 +108,14 @@ class WebState:
 def _webui_root() -> Path:
     candidates = [
         Path(__file__).resolve().parents[2] / "WebUI",
-        Path.home() / ".config/deepclean/WebUI",
+        Path.home() / ".config/macmaid/WebUI",
         Path(__file__).resolve().parent / "WebUI",
     ]
     return next((path for path in candidates if (path / "index.html").exists()), candidates[0])
 
 
-class DeepCleanHandler(BaseHTTPRequestHandler):
-    server: "DeepCleanHTTPServer"
+class MacMaidHandler(BaseHTTPRequestHandler):
+    server: "MacMaidHTTPServer"
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt: str, *args: object) -> None:
@@ -154,7 +155,7 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
         if origin not in {f"http://127.0.0.1:{self.server.server_port}", f"http://localhost:{self.server.server_port}"}:
             return False
         cookie = SimpleCookie(self.headers.get("Cookie", ""))
-        return cookie.get("deepclean_session") is not None and secrets.compare_digest(cookie["deepclean_session"].value, self.server.state.token)
+        return cookie.get("macmaid_session") is not None and secrets.compare_digest(cookie["macmaid_session"].value, self.server.state.token)
 
     def do_HEAD(self) -> None:
         self._get(head=True)
@@ -212,7 +213,7 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.send_header("X-Content-Type-Options", "nosniff")
         if filename == "index.html":
-            self.send_header("Set-Cookie", f"deepclean_session={self.server.state.token}; Path=/; HttpOnly; SameSite=Strict")
+            self.send_header("Set-Cookie", f"macmaid_session={self.server.state.token}; Path=/; HttpOnly; SameSite=Strict")
         self.end_headers()
         if not head:
             self.wfile.write(data)
@@ -233,7 +234,7 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
             source = app.path / "Contents/Resources" / icon_name
             if not source.is_file():
                 raise FileNotFoundError
-            with tempfile.TemporaryDirectory(prefix="deepclean-icon-") as directory:
+            with tempfile.TemporaryDirectory(prefix="macmaid-icon-") as directory:
                 output = Path(directory) / "icon.png"
                 conversion = run_command("/usr/bin/sips", ["-s", "format", "png", str(source), "--out", str(output)], timeout=15)
                 if not conversion.succeeded or not output.is_file():
@@ -713,13 +714,13 @@ class DeepCleanHandler(BaseHTTPRequestHandler):
         raise FileNotFoundError(path)
 
 
-class DeepCleanHTTPServer(ThreadingHTTPServer):
+class MacMaidHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
     def __init__(self, address: tuple[str, int], state: WebState):
         self.state = state
-        super().__init__(address, DeepCleanHandler)
+        super().__init__(address, MacMaidHandler)
 
     def server_close(self) -> None:
         self.state.analyzer.shutdown()
@@ -728,10 +729,18 @@ class DeepCleanHTTPServer(ThreadingHTTPServer):
 
 def serve(port: int = 8123, open_browser: bool = True) -> None:
     if os.geteuid() == 0:
-        raise PermissionError("DeepClean Web UI must run as your normal user, never with sudo/root")
-    state = WebState(); server = DeepCleanHTTPServer(("127.0.0.1", port), state)
+        raise PermissionError("MacMaid Web UI must run as your normal user, never with sudo/root")
     url = f"http://127.0.0.1:{port}"
-    print(f"DeepClean Web UI: {url}\nCtrl+C ile kapatabilirsin.")
+    try:
+        state = WebState(); server = MacMaidHTTPServer(("127.0.0.1", port), state)
+    except OSError as exc:
+        if exc.errno != errno.EADDRINUSE:
+            raise
+        print(f"MacMaid Web UI zaten çalışıyor: {url}")
+        if open_browser:
+            webbrowser.open(url)
+        return
+    print(f"MacMaid Web UI: {url}\nCtrl+C ile kapatabilirsin.")
     if open_browser:
         threading.Timer(0.25, lambda: webbrowser.open(url)).start()
     try:

@@ -7,7 +7,7 @@ from typing import Iterable
 
 MEASUREMENT_CAVEAT = (
     "Observed free-space change is a filesystem-wide before/after sample, not space proven to be reclaimed "
-    "by DeepClean. APFS clones, snapshots, sparse files and concurrent disk activity can change the value."
+    "by MacMaid. APFS clones, snapshots, sparse files and concurrent disk activity can change the value."
 )
 
 

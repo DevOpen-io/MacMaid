@@ -45,7 +45,7 @@ class Cleaner:
             result.details.append("DRY RUN: no files were changed")
             return result
         if os.geteuid() == 0:
-            raise PermissionError("DeepClean must run as your normal user, never with sudo/root")
+            raise PermissionError("MacMaid must run as your normal user, never with sudo/root")
         self._ensure_audit_safe()
         if not assume_yes:
             answer = input(f"Type CLEAN to execute {len(items)} cleanup action(s): ").strip()
@@ -129,7 +129,7 @@ class Cleaner:
 
     def _remove_manual_children(self, raw: Path) -> None:
         if os.geteuid() == 0:
-            raise PermissionError("DeepClean must never run as root")
+            raise PermissionError("MacMaid must never run as root")
         safety = PathSafety(extra_allowed_roots=[raw]); root = safety.validate_deletion_path(raw)
         self._require_owned_directory(root, "cache root")
         self.config.require_unprotected(root)
@@ -145,7 +145,7 @@ class Cleaner:
 
     def _delete_validated(self, raw: Path, safety: PathSafety) -> None:
         if os.geteuid() == 0:
-            raise PermissionError("DeepClean must never run as root")
+            raise PermissionError("MacMaid must never run as root")
         def authorize() -> None:
             safety.validate_deletion_path(raw)
             self.config.require_unprotected(raw)
@@ -154,7 +154,7 @@ class Cleaner:
 
     def _remove_children(self, raw: Path | None) -> None:
         if os.geteuid() == 0:
-            raise PermissionError("DeepClean must never run as root")
+            raise PermissionError("MacMaid must never run as root")
         if raw is None:
             raise ValueError("missing path")
         root = self.safety.validate_deletion_path(raw)
@@ -185,7 +185,7 @@ class Cleaner:
 
     def _move_validated_to_trash(self, raw: Path, validate: Callable[[Path], Path]) -> Path:
         if os.geteuid() == 0:
-            raise PermissionError("DeepClean must run as your normal user, never with sudo/root")
+            raise PermissionError("MacMaid must run as your normal user, never with sudo/root")
 
         def validate_source() -> Path:
             path = validate(raw)
@@ -229,7 +229,7 @@ class Cleaner:
                                     estimated_bytes: int | None = None) -> Path:
         """Shared mutation/audit layer; callers supply narrow domain revalidation."""
         if os.geteuid() == 0:
-            raise PermissionError("DeepClean must run as your normal user, never with sudo/root")
+            raise PermissionError("MacMaid must run as your normal user, never with sudo/root")
         self._ensure_audit_safe()
         estimate = max(0, size_of(raw) if estimated_bytes is None else estimated_bytes)
         item = CleanupItem(

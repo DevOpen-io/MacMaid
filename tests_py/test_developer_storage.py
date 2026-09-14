@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from deepclean import developer
-from deepclean.config import Config
-from deepclean.developer import DeveloperStorageCenter
+from macmaid import developer
+from macmaid.config import Config
+from macmaid.developer import DeveloperStorageCenter
 
 
 def test_developer_storage_center_groups_known_ecosystems(tmp_path, monkeypatch):

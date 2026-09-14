@@ -1,8 +1,8 @@
-# DeepClean Roadmap
+# MacMaid Roadmap
 
 ## Hedef
 
-DeepClean'i güvenli, şeffaf ve geliştirici odaklı bir macOS storage management aracına dönüştürmek.
+MacMaid'i güvenli, şeffaf ve geliştirici odaklı bir macOS storage management aracına dönüştürmek.
 
 Temel ilkeler: safety first; destructive işlemden önce preview ve confirmation; mümkünse Trash; user data için otomatik silme yok; her işlem history'ye yazılır; dry-run desteklenir; gerçek reclaim mümkün olduğunca ölçülür.
 

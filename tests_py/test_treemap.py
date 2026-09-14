@@ -6,9 +6,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from deepclean import cleaner as cleaning, web
-from deepclean.config import Config
-from deepclean.web import WebState
+from macmaid import cleaner as cleaning, web
+from macmaid.config import Config
+from macmaid.web import WebState
 
 
 def test_treemap_endpoint_returns_nodes_with_percentage_and_file_count(tmp_path, monkeypatch):
@@ -19,7 +19,7 @@ def test_treemap_endpoint_returns_nodes_with_percentage_and_file_count(tmp_path,
     (folder / "b.bin").write_bytes(b"b" * 5)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     state = WebState(Config(home=home))
-    handler = object.__new__(web.DeepCleanHandler)
+    handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=state)
     try:
         payload = handler._route_get("/api/treemap", {"path": str(home), "start": "true"})
@@ -41,7 +41,7 @@ def test_treemap_open_requires_latest_view(monkeypatch, tmp_path):
     path.write_text("x")
     run = Mock(return_value=SimpleNamespace(succeeded=True, stdout="", stderr=""))
     monkeypatch.setattr(web, "run_command", run)
-    handler = object.__new__(web.DeepCleanHandler)
+    handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=SimpleNamespace(treemap_paths={path}))
 
     assert handler._route_post("/api/treemap/open", {"path": str(path)})["success"] is True
@@ -60,7 +60,7 @@ def test_treemap_cleanup_requires_review_and_uses_trash(monkeypatch, tmp_path):
     monkeypatch.setattr(cleaning.os, "geteuid", lambda: 501)
     config = Config(home=home); config.ensure_files()
     state = SimpleNamespace(config=config, treemap_paths={target}, token="secret", generations={"treemap": 1}, review_tokens={}, lock=__import__("threading").RLock())
-    handler = object.__new__(web.DeepCleanHandler); handler.server = SimpleNamespace(state=state)
+    handler = object.__new__(web.MacMaidHandler); handler.server = SimpleNamespace(state=state)
 
     prepared = handler._route_post("/api/treemap/trash", {"paths": [str(target)], "reviewOnly": True})
     with pytest.raises(PermissionError):

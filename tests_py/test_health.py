@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import plistlib
 
-from deepclean import features
-from deepclean.system import CommandResult
+from macmaid import features
+from macmaid.system import CommandResult
 
 
 def _status(**overrides):

@@ -182,7 +182,7 @@ class ApplicationManager:
         progress: Callable[[int, int, Path], None] | None = None,
     ) -> dict[str, Any]:
         if os.geteuid() == 0:
-            raise PermissionError("run DeepClean as your normal user")
+            raise PermissionError("run MacMaid as your normal user")
         try:
             return self._remove_selected(app, set(selected_paths), progress)
         except Exception as exc:
@@ -385,7 +385,7 @@ class ProjectPurgeManager:
         progress: Callable[[int, int, Path], None] | None = None,
     ) -> dict[str, Any]:
         if os.geteuid() == 0:
-            raise PermissionError("run DeepClean as your normal user")
+            raise PermissionError("run MacMaid as your normal user")
         targets = list(artifacts)
         free_space = FreeSpaceProbe.capture(artifact.path for artifact in targets)
         moved, failed, processed = [], [], 0
@@ -862,18 +862,18 @@ def developer_inventory(kind: str) -> list[dict[str, Any]]:
 def completion_script(shell: str) -> str:
     commands = "doctor scan clean leftovers installers smart-downloads browser-storage analyze duplicates large-files apps purge status completion developer-caches developer optimize snapshots history restore whitelist uninstall ui web gui dashboard"
     if shell == "fish":
-        return f"complete -c deepclean -f -a '{commands}'"
+        return f"complete -c macmaid -f -a '{commands}'"
     if shell == "bash":
-        return f"_deepclean() {{ COMPREPLY=( $(compgen -W \"{commands}\" -- \"${{COMP_WORDS[1]}}\") ); }}\ncomplete -F _deepclean deepclean"
+        return f"_macmaid() {{ COMPREPLY=( $(compgen -W \"{commands}\" -- \"${{COMP_WORDS[1]}}\") ); }}\ncomplete -F _macmaid macmaid"
     optimization_ids = " ".join(task["id"] for task in OPTIMIZATIONS)
-    return f'''#compdef deepclean
+    return f'''#compdef macmaid
 
-_deepclean() {{
+_macmaid() {{
   local context state state_descr line
   typeset -A opt_args
   local -a commands
   commands=(
-    'doctor:Check macOS and DeepClean capabilities'
+    'doctor:Check macOS and MacMaid capabilities'
     'scan:Scan cleanup candidates safely'
     'clean:Alias for scan'
     'leftovers:Find application leftovers'
@@ -894,7 +894,7 @@ _deepclean() {{
     'history:Show operation history'
     'restore:Restore a restorable Trash history item'
     'whitelist:Print the whitelist path'
-    'uninstall:Uninstall DeepClean'
+    'uninstall:Uninstall MacMaid'
     'ui:Open the local Web UI'
     'web:Alias for ui'
     'gui:Alias for ui'
@@ -909,7 +909,7 @@ _deepclean() {{
 
   case $state in
     command)
-      _describe -t commands 'DeepClean command' commands
+      _describe -t commands 'MacMaid command' commands
       ;;
     arguments)
       case $words[2] in
@@ -957,7 +957,7 @@ _deepclean() {{
           _arguments '--port[localhost port]:port:' '--no-open[do not open the browser]'
           ;;
         uninstall)
-          _arguments '--purge-data[also remove DeepClean configuration and logs]'
+          _arguments '--purge-data[also remove MacMaid configuration and logs]'
           ;;
         *)
           _arguments '(-h --help)'{{-h,--help}}'[show help]'
@@ -967,28 +967,28 @@ _deepclean() {{
   esac
 }}
 
-_deepclean "$@"'''
+_macmaid "$@"'''
 
 
 def install_completion(shell: str, config: Config | None = None) -> Path:
     config = config or Config(); config.ensure_files()
     home = config.home
-    marker = "# >>> DeepClean completion >>>"
-    end = "# <<< DeepClean completion <<<"
+    marker = "# >>> MacMaid completion >>>"
+    end = "# <<< MacMaid completion <<<"
     if shell == "fish":
-        destination = home / ".config/fish/completions/deepclean.fish"
+        destination = home / ".config/fish/completions/macmaid.fish"
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(completion_script("fish") + "\n", encoding="utf-8")
         return destination
-    destination = config.config_dir / "completions" / ("zsh/_deepclean" if shell == "zsh" else "deepclean.bash")
+    destination = config.config_dir / "completions" / ("zsh/_macmaid" if shell == "zsh" else "macmaid.bash")
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(completion_script(shell) + "\n", encoding="utf-8")
     if shell == "zsh":
         rc = home / ".zshrc"
-        block = f'\n{marker}\nfpath=("$HOME/.config/deepclean/completions/zsh" $fpath)\nautoload -Uz compinit\ncompinit\n{end}\n'
+        block = f'\n{marker}\nfpath=("$HOME/.config/macmaid/completions/zsh" $fpath)\nautoload -Uz compinit\ncompinit\n{end}\n'
     else:
         rc = home / (".bash_profile" if (home / ".bash_profile").exists() else ".bashrc")
-        block = f'\n{marker}\n[ -f "$HOME/.config/deepclean/completions/deepclean.bash" ] && source "$HOME/.config/deepclean/completions/deepclean.bash"\n{end}\n'
+        block = f'\n{marker}\n[ -f "$HOME/.config/macmaid/completions/macmaid.bash" ] && source "$HOME/.config/macmaid/completions/macmaid.bash"\n{end}\n'
     current = rc.read_text(encoding="utf-8") if rc.exists() else ""
     if marker not in current:
         rc.write_text(current + block, encoding="utf-8")
@@ -997,21 +997,27 @@ def install_completion(shell: str, config: Config | None = None) -> Path:
 
 def completion_activation_hint(shell: str) -> str:
     if shell == "zsh":
-        return 'fpath=("$HOME/.config/deepclean/completions/zsh" $fpath); autoload -Uz compinit; compinit'
+        return 'fpath=("$HOME/.config/macmaid/completions/zsh" $fpath); autoload -Uz compinit; compinit'
     if shell == "bash":
-        return 'source "$HOME/.config/deepclean/completions/deepclean.bash"'
-    return 'source "$HOME/.config/fish/completions/deepclean.fish"'
+        return 'source "$HOME/.config/macmaid/completions/macmaid.bash"'
+    return 'source "$HOME/.config/fish/completions/macmaid.fish"'
 
 
 def remove_completion_hooks() -> None:
-    marker = "# >>> DeepClean completion >>>"; end = "# <<< DeepClean completion <<<"
+    legacy_name = "Deep" + "Clean"
+    marker_pairs = (
+        ("# >>> MacMaid completion >>>", "# <<< MacMaid completion <<<"),
+        (f"# >>> {legacy_name} completion >>>", f"# <<< {legacy_name} completion <<<"),
+    )
     for rc in (Path.home() / ".zshrc", Path.home() / ".bashrc", Path.home() / ".bash_profile"):
         try: text = rc.read_text(encoding="utf-8")
         except OSError: continue
-        while marker in text and end in text[text.index(marker):]:
-            start = text.index(marker); finish = text.index(end, start) + len(end)
-            if finish < len(text) and text[finish] == "\n": finish += 1
-            text = text[:start] + text[finish:]
+        for marker, end in marker_pairs:
+            while marker in text and end in text[text.index(marker):]:
+                start = text.index(marker); finish = text.index(end, start) + len(end)
+                if finish < len(text) and text[finish] == "\n": finish += 1
+                text = text[:start] + text[finish:]
         rc.write_text(text, encoding="utf-8")
-    fish = Path.home() / ".config/fish/completions/deepclean.fish"
-    fish.unlink(missing_ok=True)
+    legacy_command = "deep" + "clean"
+    for fish in (Path.home() / ".config/fish/completions/macmaid.fish", Path.home() / f".config/fish/completions/{legacy_command}.fish"):
+        fish.unlink(missing_ok=True)

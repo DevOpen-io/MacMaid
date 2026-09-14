@@ -13,7 +13,7 @@ class Config:
 
     @property
     def config_dir(self) -> Path:
-        return self.home / ".config" / "deepclean"
+        return self.home / ".config" / "macmaid"
 
     @property
     def whitelist_file(self) -> Path:
@@ -21,7 +21,7 @@ class Config:
 
     @property
     def log_dir(self) -> Path:
-        return self.home / "Library" / "Logs" / "DeepClean"
+        return self.home / "Library" / "Logs" / "MacMaid"
 
     @property
     def operation_log(self) -> Path:
@@ -31,7 +31,7 @@ class Config:
         home = self.home.absolute()
         path = path.absolute()
         if path != home and home not in path.parents:
-            raise PermissionError("DeepClean state directory must remain below HOME")
+            raise PermissionError("MacMaid state directory must remain below HOME")
         home_info = home.lstat()
         if stat.S_ISLNK(home_info.st_mode) or not stat.S_ISDIR(home_info.st_mode) or home_info.st_uid != os.getuid():
             raise PermissionError("HOME must be a user-owned directory, not a symlink")
@@ -44,7 +44,7 @@ class Config:
                 pass
             info = current.lstat()
             if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
-                raise PermissionError(f"Unsafe DeepClean state directory: {current}")
+                raise PermissionError(f"Unsafe MacMaid state directory: {current}")
 
     def _require_owned_regular_file(self, path: Path, *, allow_missing: bool = False) -> None:
         self._ensure_owned_directory(path.parent)
@@ -53,9 +53,9 @@ class Config:
         except FileNotFoundError:
             if allow_missing:
                 return
-            raise PermissionError(f"Required DeepClean state file is missing: {path}")
+            raise PermissionError(f"Required MacMaid state file is missing: {path}")
         if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
-            raise PermissionError(f"Unsafe DeepClean state file: {path}")
+            raise PermissionError(f"Unsafe MacMaid state file: {path}")
 
     def ensure_files(self) -> None:
         self._ensure_owned_directory(self.config_dir)

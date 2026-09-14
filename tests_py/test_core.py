@@ -7,16 +7,16 @@ from pathlib import Path
 
 import pytest
 
-from deepclean.cleaner import Cleaner
-from deepclean.config import Config
-from deepclean.features import ApplicationManager, ProjectArtifact, ProjectPurgeManager, completion_activation_hint, completion_script, install_completion, system_status
-from deepclean.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, CleanupProfile, RiskLevel
-from deepclean.safety import PathSafety, PathSafetyError, manual_cache_allowed
-from deepclean.system import human_bytes, run_command, sizes_of
+from macmaid.cleaner import Cleaner
+from macmaid.config import Config
+from macmaid.features import ApplicationManager, ProjectArtifact, ProjectPurgeManager, completion_activation_hint, completion_script, install_completion, system_status
+from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, CleanupProfile, RiskLevel
+from macmaid.safety import PathSafety, PathSafetyError, manual_cache_allowed
+from macmaid.system import human_bytes, run_command, sizes_of
 
 
 def test_cli_refuses_root(monkeypatch: pytest.MonkeyPatch) -> None:
-    from deepclean import cli
+    from macmaid import cli
     monkeypatch.setattr(cli.os, "geteuid", lambda: 0)
     with pytest.raises(SystemExit) as stopped:
         cli.main(["doctor"])
@@ -105,7 +105,7 @@ def test_sandbox_is_bounded_to_cache_directory() -> None:
 def test_temp_root_rejected_but_child_allowed() -> None:
     with pytest.raises(PathSafetyError):
         PathSafety().validate_deletion_path("/private/tmp")
-    assert PathSafety().validate_deletion_path("/private/tmp/deepclean-test") == Path("/private/tmp/deepclean-test")
+    assert PathSafety().validate_deletion_path("/private/tmp/macmaid-test") == Path("/private/tmp/macmaid-test")
 
 
 def test_analyzer_protects_home_anchors() -> None:
@@ -191,20 +191,20 @@ def test_zsh_completion_script_has_valid_syntax() -> None:
 def test_installed_zsh_completion_is_registered(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(os, "getuid", lambda: tmp_path.lstat().st_uid)
     destination = install_completion("zsh", Config(home=tmp_path))
-    assert destination == tmp_path / ".config/deepclean/completions/zsh/_deepclean"
-    assert "DeepClean completion" in (tmp_path / ".zshrc").read_text()
+    assert destination == tmp_path / ".config/macmaid/completions/zsh/_macmaid"
+    assert "MacMaid completion" in (tmp_path / ".zshrc").read_text()
     checked = subprocess.run(
-        ["/bin/zsh", "-fc", 'fpath=("$HOME/.config/deepclean/completions/zsh" $fpath); autoload -Uz compinit; compinit -D; print -r -- ${_comps[deepclean]-missing}'],
+        ["/bin/zsh", "-fc", 'fpath=("$HOME/.config/macmaid/completions/zsh" $fpath); autoload -Uz compinit; compinit -D; print -r -- ${_comps[macmaid]-missing}'],
         text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
         env=dict(os.environ, HOME=str(tmp_path)),
     )
     assert checked.returncode == 0, checked.stderr
-    assert checked.stdout.strip() == "_deepclean"
+    assert checked.stdout.strip() == "_macmaid"
 
 
 def test_completion_activation_hint_initializes_current_zsh() -> None:
     hint = completion_activation_hint("zsh")
-    assert 'fpath=("$HOME/.config/deepclean/completions/zsh" $fpath)' in hint
+    assert 'fpath=("$HOME/.config/macmaid/completions/zsh" $fpath)' in hint
     assert "autoload -Uz compinit" in hint
 
 
@@ -213,7 +213,7 @@ def test_installer_configures_completion_for_active_shell(tmp_path: Path) -> Non
     fake_bin = tmp_path / "bin"
     tool_bin = tmp_path / "tool-bin"
     fake_home = tmp_path / "home"
-    log = tmp_path / "deepclean-arguments"
+    log = tmp_path / "macmaid-arguments"
     for directory in (fake_bin, tool_bin, fake_home):
         directory.mkdir()
 
@@ -221,7 +221,7 @@ def test_installer_configures_completion_for_active_shell(tmp_path: Path) -> Non
         fake_bin / "uname": "#!/bin/sh\nprintf '%s\\n' Darwin\n",
         fake_bin / "id": "#!/bin/sh\nprintf '%s\\n' 501\n",
         fake_bin / "uv": "#!/bin/sh\nif [ \"$*\" = \"tool dir --bin\" ]; then printf '%s\\n' \"$FAKE_TOOL_BIN\"; fi\n",
-        tool_bin / "deepclean": "#!/bin/sh\nprintf '%s\\n' \"$*\" > \"$FAKE_LOG\"\n",
+        tool_bin / "macmaid": "#!/bin/sh\nprintf '%s\\n' \"$*\" > \"$FAKE_LOG\"\n",
     }
     for path, content in scripts.items():
         path.write_text(content)

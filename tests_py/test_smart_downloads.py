@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from deepclean import cleaner as cleaning, web
-from deepclean.config import Config
-from deepclean.smart_downloads import SmartDownloadsScanner
+from macmaid import cleaner as cleaning, web
+from macmaid.config import Config
+from macmaid.smart_downloads import SmartDownloadsScanner
 
 
 def _home(tmp_path, monkeypatch):
@@ -85,7 +85,7 @@ def test_web_smart_download_cleanup_requires_scan_and_review(monkeypatch, tmp_pa
     other.write_bytes(b"x")
     state = SimpleNamespace(config=config, smart_downloads={target}, token="secret", generations={"smart-downloads": 1},
                             review_tokens={}, lock=__import__("threading").RLock())
-    handler = object.__new__(web.DeepCleanHandler)
+    handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=state)
 
     with pytest.raises(PermissionError):

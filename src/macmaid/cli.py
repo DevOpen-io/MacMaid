@@ -26,8 +26,8 @@ from .system import human_bytes, is_interactive
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="deepclean", description="Deep clean your Mac without touching your data.")
-    parser.add_argument("--version", action="version", version=f"deepclean {__version__}")
+    parser = argparse.ArgumentParser(prog="macmaid", description="Deep clean your Mac without touching your data.")
+    parser.add_argument("--version", action="version", version=f"macmaid {__version__}")
     commands = parser.add_subparsers(dest="command")
     commands.add_parser("doctor")
     scan = commands.add_parser("scan", aliases=["clean"])
@@ -114,7 +114,7 @@ def _print_mapping_space_result(result: dict) -> None:
     if observed is None:
         print("Observed filesystem free-space change unavailable")
     else:
-        print(f"Observed filesystem free-space change {human_bytes(abs(int(observed)))} {'increase' if observed >= 0 else 'decrease'} · not attributable solely to DeepClean")
+        print(f"Observed filesystem free-space change {human_bytes(abs(int(observed)))} {'increase' if observed >= 0 else 'decrease'} · not attributable solely to MacMaid")
 
 
 def _print_history_record(record: dict) -> None:
@@ -153,7 +153,7 @@ def _run_clean_result(result, args) -> None:
         print(f"Moved to Trash {human_bytes(outcome.trash_moved_estimated_bytes)} · not counted as freed space")
     if outcome.unknown_reclaim_count:
         print(f"Unknown manager-command reclaim: {outcome.unknown_reclaim_count} action(s)")
-    print(f"Observed filesystem free-space change {observed} · not attributable solely to DeepClean")
+    print(f"Observed filesystem free-space change {observed} · not attributable solely to MacMaid")
     print(f"Failed {outcome.failed} · skipped {outcome.skipped}")
     for detail in outcome.details: print(f"  {detail}")
 
@@ -169,7 +169,7 @@ def _interactive_menu() -> None:
 def main(argv: list[str] | None = None) -> None:
     argv = sys.argv[1:] if argv is None else argv
     if os.geteuid() == 0 and not any(flag in argv for flag in ("-h", "--help", "--version")):
-        print("DeepClean sudo/root ile çalıştırılamaz. Normal kullanıcı hesabınla yeniden başlat.", file=sys.stderr)
+        print("MacMaid sudo/root ile çalıştırılamaz. Normal kullanıcı hesabınla yeniden başlat.", file=sys.stderr)
         raise SystemExit(2)
     if not argv:
         _interactive_menu(); return
@@ -249,7 +249,7 @@ def main(argv: list[str] | None = None) -> None:
         apps = _run_interruptible_scan(lambda: ApplicationManager(config).scan())
         if apps is None: return
         for index, app in enumerate(apps, 1): print(f"{index:3}. {human_bytes(app.bytes):>10}  {app.name} {app.version or ''}\n     {app.path}")
-        print("\nApp removal is available in the reviewed Web UI: deepclean ui")
+        print("\nApp removal is available in the reviewed Web UI: macmaid ui")
     elif command == "purge":
         manager = ProjectPurgeManager(config)
         artifacts = _run_interruptible_scan(lambda: manager.scan([Path(p) for p in args.path] or None))
@@ -307,14 +307,34 @@ def main(argv: list[str] | None = None) -> None:
         serve(args.port, not args.no_open)
     elif command == "uninstall":
         remove_completion_hooks()
-        if args.purge_data and _confirm("Remove DeepClean config and logs?", False):
+        home = Path.home()
+        legacy_command = "deep" + "clean"
+        for prod_binary in (home / ".local/bin/macmaid", home / f".local/bin/{legacy_command}"):
+            if prod_binary.exists() or prod_binary.is_symlink():
+                try:
+                    if prod_binary.parent == home / ".local/bin":
+                        prod_binary.unlink()
+                        print(f"Removed {prod_binary}")
+                except OSError as exc:
+                    print(f"Could not remove {prod_binary}: {exc}")
+        legacy_app = "Deep" + "Clean.app"
+        for prod_app in (home / "Applications/MacMaid.app", home / f"Applications/{legacy_app}"):
+            if prod_app.exists():
+                try:
+                    if prod_app.name in {"MacMaid.app", legacy_app} and prod_app.resolve().is_relative_to((home / "Applications").resolve()):
+                        shutil.rmtree(prod_app)
+                        print(f"Removed {prod_app}")
+                except OSError as exc:
+                    print(f"Could not remove {prod_app}: {exc}")
+        if args.purge_data and _confirm("Remove MacMaid config and logs?", False):
             shutil.rmtree(config.config_dir, ignore_errors=True); shutil.rmtree(config.log_dir, ignore_errors=True)
         uv = shutil.which("uv")
         if uv:
             import subprocess
-            completed = subprocess.run([uv, "tool", "uninstall", "deepclean"], check=False)
-            if completed.returncode != 0: print("uv tool uninstall failed; run it manually.")
-        else: print("uv not found; run `uv tool uninstall deepclean` manually.")
+            completed = subprocess.run([uv, "tool", "uninstall", "macmaid"], check=False)
+            legacy = subprocess.run([uv, "tool", "uninstall", legacy_command], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if completed.returncode != 0 and legacy.returncode != 0: print("uv tool uninstall failed; run it manually.")
+        else: print("uv not found; skipped uv tool uninstall.")
     else:
         _parser().print_help()
 

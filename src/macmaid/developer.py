@@ -475,12 +475,12 @@ class DeveloperInventory:
         for platform in ("iOS", "watchOS", "tvOS"):
             root = Path.home() / f"Library/Developer/Xcode/{platform} DeviceSupport"
             for path in _children(root):
-                items.append(DeveloperItem(f"devicesupport:{path}", "sdk", f"Xcode {platform} DeviceSupport", path.name, "Xcode", path, protected_reason="DeviceSupport is inventory-only; DeepClean does not guess which physical device versions are needed", note="Physical-device debugging support"))
+                items.append(DeveloperItem(f"devicesupport:{path}", "sdk", f"Xcode {platform} DeviceSupport", path.name, "Xcode", path, protected_reason="DeviceSupport is inventory-only; MacMaid does not guess which physical device versions are needed", note="Physical-device debugging support"))
         return items
 
     def remove(self, item_id: str, category: str, reviewed: DeveloperItem | None = None) -> dict[str, Any]:
         if os.geteuid() == 0:
-            raise PermissionError("DeepClean must never run as root")
+            raise PermissionError("MacMaid must never run as root")
         current = next((item for item in self.scan(category) if item.id == item_id), None)
         if current is None:
             raise FileNotFoundError("Developer item is no longer present")

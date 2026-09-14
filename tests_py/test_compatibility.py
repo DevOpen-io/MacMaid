@@ -5,9 +5,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from deepclean import __version__, developer, features, system, web
-from deepclean.config import Config
-from deepclean.developer import DeveloperInventory
+from macmaid import __version__, developer, features, system, web
+from macmaid.config import Config
+from macmaid.developer import DeveloperInventory
 
 
 def test_compatibility_reports_both_supported_mac_architectures(monkeypatch) -> None:
@@ -61,7 +61,7 @@ def test_web_doctor_does_not_present_unknown_or_failed_checks_as_ok(monkeypatch)
         {"name": "Architecture", "value": "unknown", "ok": False},
         {"name": "System Integrity Protection", "value": "Unknown", "ok": None},
     ])
-    handler = object.__new__(web.DeepCleanHandler)
+    handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=object())
     report = handler._route_get("/api/doctor", {})
     assert [probe["ok"] for probe in report["probes"]] == [True, False, False]
@@ -82,6 +82,6 @@ def test_unicode_and_spaces_remain_one_subprocess_argument(monkeypatch) -> None:
 def test_release_version_is_consistent_across_metadata_and_web_ui() -> None:
     root = Path(__file__).resolve().parents[1]
     metadata = tomllib.loads((root / "pyproject.toml").read_text())
-    web_ui = (root / "src/deepclean/WebUI/index.html").read_text()
+    web_ui = (root / "src/macmaid/WebUI/index.html").read_text()
     assert metadata["project"]["version"] == __version__
     assert f"v{__version__} Python" in web_ui

@@ -1,13 +1,13 @@
-# DeepClean Geliştirici ve Mimari Kılavuzu (`developer.md`)
+# MacMaid Geliştirici ve Mimari Kılavuzu (`developer.md`)
 
-Bu doküman; **DeepClean** projesinin mimarisini, tasarım ilkelerini, kod tabanı hiyerarşisini, güvenlik sınırlarını ve çalışma prensiplerini en ince ayrıntısına kadar açıklamak amacıyla hazırlanmıştır. Projeye katkıda bulunacak veya bakımını üstlenecek bir yazılım mühendisinin ihtiyaç duyacağı tüm teknik detayları içerir.
+Bu doküman; **MacMaid** projesinin mimarisini, tasarım ilkelerini, kod tabanı hiyerarşisini, güvenlik sınırlarını ve çalışma prensiplerini en ince ayrıntısına kadar açıklamak amacıyla hazırlanmıştır. Projeye katkıda bulunacak veya bakımını üstlenecek bir yazılım mühendisinin ihtiyaç duyacağı tüm teknik detayları içerir.
 
 ---
 
 ## 1. Giriş ve Proje Özeti
 
 ### 1.1 Projenin Amacı
-**DeepClean**, macOS ekosistemi için tasarlanmış; güvenli, hızlı, modüler ve kullanıcı dostu bir sistem temizleme, uygulama kaldırma, disk analizi ve geliştirici araçları bakım yazılımıdır. 
+**MacMaid**, macOS ekosistemi için tasarlanmış; güvenli, hızlı, modüler ve kullanıcı dostu bir sistem temizleme, uygulama kaldırma, disk analizi ve geliştirici araçları bakım yazılımıdır. 
 
 Proje, geleneksel temizleme yazılımlarının getirdiği körlemesine silme (`rm -rf` çılgınlığı) ve gereksiz `sudo`/root yetkisi isteme alışkanlıklarını reddeder. Sistem bütünlüğünü (macOS SIP, TCC) ve kullanıcı verilerini koruyan katı bir güvenlik sözleşmesi (*Safety Contract*) üzerine inşa edilmiştir.
 
@@ -30,14 +30,14 @@ Proje, geleneksel temizleme yazılımlarının getirdiği körlemesine silme (`r
 * **Web UI Frontend:** Vanilla HTML5, CSS3 (Modern dark glassmorphism), Vanilla JavaScript (ES6+) — *Hiçbir dış derleme adımı (Webpack, Vite vs.) gerektirmez.*
 * **Web UI Backend:** Python `http.server.ThreadingHTTPServer` (Zero external framework - FastAPI veya Flask bağımlılığı yoktur)
 * **Test Çatısı:** `pytest` (>= 8.3.0)
-* **Build Backend:** `uv_build` (Wheel içine `deepclean/WebUI` statik dosyaları gömülür)
+* **Build Backend:** `uv_build` (Wheel içine `macmaid/WebUI` statik dosyaları gömülür)
 
 ---
 
 ## 3. Dizin ve Dosya Yapısı
 
 ```text
-DeepClean-PYTHON/
+MacMaid-PYTHON/
 ├── .gitignore
 ├── .python-version          # Hedef Python sürümü (3.11)
 ├── FALLBACK_POLICY.md       # Fallback matrisi ve katı fallback kuralları
@@ -57,7 +57,7 @@ DeepClean-PYTHON/
 │   ├── test_tui.py          # Textual TUI arayüz testleri
 │   └── test_web.py          # HTTP sunucu ve API güvenlik testleri
 └── src/
-    └── deepclean/           # Çekirdek Python paketi
+    └── macmaid/           # Çekirdek Python paketi
         ├── __init__.py      # Sürüm bilgisi ve CLI giriş yönlendiricisi
         ├── analyzer.py      # Artımlı, non-blocking disk analizörü
         ├── cleaner.py       # Temizleme ve silme motoru (Execution engine)
@@ -119,7 +119,7 @@ Her bir temizleme adayını temsil eden zengin nesne:
 
 ## 5. Güvenlik Çekirdeği ve Whitelist Sistemi
 
-DeepClean'in en kritik modülleri `safety.py` ve `config.py`'dir. Kod tabanına dokunan her geliştiricinin bu iki modüldeki güvenlik kapılarını tam olarak anlaması şarttır.
+MacMaid'in en kritik modülleri `safety.py` ve `config.py`'dir. Kod tabanına dokunan her geliştiricinin bu iki modüldeki güvenlik kapılarını tam olarak anlaması şarttır.
 
 ### 5.1 Sabit Engelli Sistem Kökleri (`PathSafety.HARD_BLOCKED`)
 Aşağıdaki kökler ve doğrudan bu köklerin kendisi asla hedef alınamaz:
@@ -150,9 +150,9 @@ Kullanıcı disk analizöründen bir dosyayı Trash'e göndermek istediğinde no
 - Hedef dosyanın dosya sistemi sahipliği (`st_uid`) mevcut kullanıcının UID'si (`os.getuid()`) ile eşleşmelidir.
 
 ### 5.4 Yapılandırma ve Whitelist (`config.py`)
-- **Konfigürasyon Dizini:** `~/.config/deepclean/`
-- **Whitelist Dosyası:** `~/.config/deepclean/whitelist`
-- **Log Dizini:** `~/Library/Logs/DeepClean/` (`operations.jsonl`)
+- **Konfigürasyon Dizini:** `~/.config/macmaid/`
+- **Whitelist Dosyası:** `~/.config/macmaid/whitelist`
+- **Log Dizini:** `~/Library/Logs/MacMaid/` (`operations.jsonl`)
 - **Dinamik Kontrol:** `Config.is_whitelisted(path)` metodu, whitelist dosyasını her işlem anında baştan okur. Böylece tarama yapıldıktan sonra bile kullanıcı whitelist dosyasına bir kural eklediyse, temizleme anında o yol korunur. Hem tam yol öneki (`prefix`) hem de Unix glob desenleri (`fnmatch.fnmatch`) desteklenir.
 
 ---
@@ -181,7 +181,7 @@ Kullanıcı disk analizöründen bir dosyayı Trash'e göndermek istediğinde no
 2. `Browser caches`: Chrome, Brave, Edge, Chromium ve Firefox profil dizinleri altındaki `Cache`, `Code Cache`, `GPUCache` vb. taranır. Kullanıcı veritabanları, geçmiş ve çerezler asla dahil edilmez.
 3. `Application caches`: VS Code, Cursor, Slack, Discord, Spotify gibi popüler uygulamaların önbellek yaprakları taranır.
 4. `Sandbox caches`: `~/Library/Containers/*/Data/Library/Caches` taranır.
-5. `Logs & diagnostics`: `~/Library/Logs` ve `DiagnosticReports` altındaki eski loglar (Safe profilde >7 gün, diğerlerinde >1 gün) taranır. DeepClean'in kendi log dizini korunur.
+5. `Logs & diagnostics`: `~/Library/Logs` ve `DiagnosticReports` altındaki eski loglar (Safe profilde >7 gün, diğerlerinde >1 gün) taranır. MacMaid'in kendi log dizini korunur.
 6. `Developer tools` (Developer profili aktifse): `Xcode/DerivedData`, `CoreSimulator/Caches`, CocoaPods, SwiftPM, Carthage önbellekleri taranır.
 7. `Package-manager caches`: `PackageManagerCacheScanner` tetiklenir.
 8. `Saved application state` (Deep ve Aggressive profilde): `~/Library/Saved Application State` taranır.
@@ -241,7 +241,7 @@ flowchart TD
    - `REMOVE_PATH`: Yolun silindiği (`path.exists() == False`) doğrulanır.
    - `REMOVE_CHILDREN`: Dizindeki whitelist dışındaki tüm çocukların silindiği doğrulanır.
    - `MOVE_TO_TRASH`: Kaynak dosyanın yok olduğu ve hedef çöp kutusu dosyasının var olduğu teyit edilir.
-5. **Denetim İzi (Audit Log):** Her operasyon sonucu `~/Library/Logs/DeepClean/operations.jsonl` dosyasına JSON satırı olarak yazılır.
+5. **Denetim İzi (Audit Log):** Her operasyon sonucu `~/Library/Logs/MacMaid/operations.jsonl` dosyasına JSON satırı olarak yazılır.
 
 ---
 
@@ -313,10 +313,10 @@ Sisteme zarar vermeyecek güvenli bakım komutları:
 
 ## 12. Arayüz Mimarileri
 
-DeepClean üç farklı arayüz modalitesi sunar:
+MacMaid üç farklı arayüz modalitesi sunar:
 
 ### 12.1 Komut Satırı Arayüzü (CLI - `cli.py`)
-`deepclean` komutu ile çalışır.
+`macmaid` komutu ile çalışır.
 * Argümansız çalıştırıldığında TUI arayüzünü başlatır.
 * Destructive komutlar (`scan`, `purge`, `developer-caches`, `optimize` vb.) `--apply` parametresi verilmedikçe salt-okunur tarama (`dry-run`) yapar.
 * İnteraktif terminalde `--apply` verilse dahi ek bir `[y/N]` doğrulaması ister; script otomasyonları için `--yes` bayrağı mevcuttur.
@@ -339,7 +339,7 @@ Python'ın modern `textual` kütüphanesi üzerine kurulmuştur.
 * **Worker Mimarisi:** `@work(thread=True, exclusive=True)` dekoratörü ile tüm tarama, analiz ve temizleme işlemleri ayrı iş parçacıklarında çalışır, UI donmaz.
 
 ### 12.3 Web Arayüzü ve REST API (`web.py` & `WebUI/`)
-`deepclean ui` komutu ile `127.0.0.1:8123` adresinde başlar.
+`macmaid ui` komutu ile `127.0.0.1:8123` adresinde başlar.
 
 #### Web Güvenlik Modeli
 * **Yalnızca Localhost:** Yalnızca `127.0.0.1` ve `localhost` Host başlığına izin verilir. Dış ağdan erişilemez.
@@ -380,7 +380,7 @@ Sisteminizde `uv` kurulu olmalıdır:
 uv sync --all-groups
 
 # CLI yardım menüsünü test et
-uv run deepclean --help
+uv run macmaid --help
 ```
 
 ### 13.2 Testlerin Koşulması
@@ -395,7 +395,7 @@ uv run pytest tests_py/test_core.py -vv
 ### 13.3 Kod Derleme ve Statik Kontrol
 ```sh
 # Sözdizimi ve derleme kontrolü
-uv run python -m compileall -q src/deepclean
+uv run python -m compileall -q src/macmaid
 
 # Dağıtım paketini (wheel & sdist) oluştur
 uv build
@@ -436,4 +436,4 @@ Projeye yeni bir özellik, temizleme hedefi veya geliştirici aracı ekleyecek m
    - Eklenen her güvenlik kontrolü için `tests_py/test_core.py` veya ilgili test dosyasına negatif ve pozitif test senaryoları ekleyin (Örn: geçersiz yol verildiğinde `PathSafetyError` fırlatıldığını teyit edin).
 
 ---
-*DeepClean, macOS geliştiricileri ve ileri düzey kullanıcılar için güvenliği tavizsiz bir standart olarak benimser.*
+*MacMaid, macOS geliştiricileri ve ileri düzey kullanıcılar için güvenliği tavizsiz bir standart olarak benimser.*

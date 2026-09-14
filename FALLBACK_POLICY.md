@@ -1,9 +1,9 @@
-# DeepClean fallback policy
+# MacMaid fallback policy
 
 Fallbacks are not a license to delete more aggressively. Every long-running/destructive subsystem follows the same order:
 
 1. **Manager/native operation** — preferred whenever the owning tool or macOS API exposes a supported operation.
-2. **Bounded DeepClean fallback** — only when DeepClean can prove the fallback target/operation is narrower than the original request and does not contain user or manager state.
+2. **Bounded MacMaid fallback** — only when MacMaid can prove the fallback target/operation is narrower than the original request and does not contain user or manager state.
 3. **Skip / fail closed** — if ownership, layout, recoverability, or state consistency is uncertain.
 
 A failed native command never turns an arbitrary path into an `rm -rf` target.
@@ -36,14 +36,14 @@ A failed native command never turns an arbitrary path into an `rm -rf` target.
 | Global developer CLI tools | owning package manager | None | **No raw fallback**. Raw file removal can leave package-manager metadata and command shims behind. |
 | Android SDK/NDK/AVD | `sdkmanager` / `avdmanager` | None | **No raw fallback**. SDK package registries and AVD metadata remain manager-owned. |
 | Xcode Simulator | `xcrun simctl` | None | **No raw fallback**. CoreSimulator metadata must remain consistent. |
-| Project Purge | DeepClean validation | Move artifact to Trash | **Primary operation is already reversible**; no permanent-delete fallback. |
-| Disk Analyzer deletion | DeepClean validation | Move selected item to Trash | **Primary operation is already reversible**; protected Library/app/photo roots stay blocked. |
-| Installer cleanup | DeepClean validation | Move installer to Trash | **Primary operation is already reversible**. |
+| Project Purge | MacMaid validation | Move artifact to Trash | **Primary operation is already reversible**; no permanent-delete fallback. |
+| Disk Analyzer deletion | MacMaid validation | Move selected item to Trash | **Primary operation is already reversible**; protected Library/app/photo roots stay blocked. |
+| Installer cleanup | MacMaid validation | Move installer to Trash | **Primary operation is already reversible**. |
 | DNS optimization | `dscacheutil -flushcache` | `killall -HUP mDNSResponder` | **Automatic bounded fallback**. No network preferences are changed. |
 | Quick Look / Finder / Dock / LaunchServices | macOS command | None | **Fail closed** rather than deleting preferences/databases. |
-| Spotlight | `mdutil` | None | **No database deletion fallback** and DeepClean never force-enables indexing. |
+| Spotlight | `mdutil` | None | **No database deletion fallback** and MacMaid never force-enables indexing. |
 | Time Machine snapshots | `tmutil` | None | **No APFS/private filesystem fallback**. |
-| DeepClean uninstall | remove fixed DeepClean-owned paths | None | Scope is already fixed and minimal. |
+| MacMaid uninstall | remove fixed MacMaid-owned paths | None | Scope is already fixed and minimal. |
 
 ## Recursive fallback rules
 
@@ -52,10 +52,10 @@ Even an approved cache fallback must satisfy all of the following immediately be
 - path is a manager-specific allowlisted cache root;
 - path is under the current user's home directory;
 - the target/root is not a symbolic link and no ancestor escape is present;
-- readable, valid DeepClean whitelist state proves that neither the path nor any child may be protected;
+- readable, valid MacMaid whitelist state proves that neither the path nor any child may be protected;
 - `PathSafety` accepts the exact root/child;
 - when the manager has a meaningful process signature, no conflicting install/build/cleanup process is active;
 - fallback is interactive and receives a separate `y/N` confirmation;
 - `--yes`, CI, cron and other non-interactive execution do not enable the fallback.
 
-DeepClean describes these operations as the risk class of `rm -rf <cache>/*` so users understand the consequence, but the implementation does not shell out to an arbitrary `rm -rf`. The Python cleaner iterates and revalidates every child before using bounded filesystem operations.
+MacMaid describes these operations as the risk class of `rm -rf <cache>/*` so users understand the consequence, but the implementation does not shell out to an arbitrary `rm -rf`. The Python cleaner iterates and revalidates every child before using bounded filesystem operations.

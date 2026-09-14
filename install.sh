@@ -4,8 +4,8 @@ set -eu
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 info() { printf '%s\n' "$*"; }
 
-[ "$(uname -s)" = "Darwin" ] || fail "DeepClean supports macOS only."
-[ "$(id -u)" -ne 0 ] || fail "Do not install DeepClean with sudo/root. Run sh install.sh as your normal user."
+[ "$(uname -s)" = "Darwin" ] || fail "MacMaid supports macOS only."
+[ "$(id -u)" -ne 0 ] || fail "Do not install MacMaid with sudo/root. Run sh install.sh as your normal user."
 
 SCRIPT_DIR=$(dirname "$0")
 ROOT=$(CDPATH= cd "$SCRIPT_DIR" 2>/dev/null && pwd -P) || fail "Could not resolve project directory."
@@ -17,7 +17,7 @@ if command -v xattr >/dev/null 2>&1; then
   xattr -dr com.apple.quarantine "$ROOT" >/dev/null 2>&1 || true
 fi
 
-# DeepClean is installed user-locally through uv.  To make the project usable on
+# MacMaid is installed user-locally through uv.  To make the project usable on
 # a fresh Mac, bootstrap uv into the current user's home directory when it is not
 # already present.  This keeps installation rootless and avoids /usr/local writes.
 UV=$(command -v uv 2>/dev/null || true)
@@ -39,7 +39,7 @@ if [ -z "$UV" ]; then
   [ -n "$UV" ] || fail "uv was installed but is not on PATH. Open a new terminal or add ~/.local/bin to PATH, then rerun: sh install.sh"
 fi
 
-info "Installing DeepClean into your user-owned uv tool directory..."
+info "Installing MacMaid into your user-owned uv tool directory..."
 
 TOOL_BIN=$($UV tool dir --bin 2>/dev/null) || fail "Could not determine uv tool bin directory."
 if [ ! -d "$TOOL_BIN" ]; then
@@ -58,15 +58,19 @@ if [ ! -w "$TOOL_BIN" ]; then
   fail "uv tool directory is not writable: $TOOL_BIN (permissions: $DIR_PERMS). Use a user-owned uv installation or set UV_TOOL_BIN_DIR to a writable directory."
 fi
 
-"$UV" tool install --python 3.11 --force "$ROOT" || fail "DeepClean installation failed. If macOS reported 'Operation not permitted', move this folder under your home directory and run: sh install.sh"
+OLD_COMMAND=$(printf '%s%s' deep clean)
+"$UV" tool uninstall "$OLD_COMMAND" >/dev/null 2>&1 || true
+rm -f "$TOOL_BIN/$OLD_COMMAND" 2>/dev/null || true
+
+"$UV" tool install --python 3.11 --force "$ROOT" || fail "MacMaid installation failed. If macOS reported 'Operation not permitted', move this folder under your home directory and run: sh install.sh"
 
 ACTIVE_SHELL=${SHELL##*/}
 case "$ACTIVE_SHELL" in
   zsh|bash|fish)
-    if "$TOOL_BIN/deepclean" completion "$ACTIVE_SHELL" --install >/dev/null 2>&1; then
+    if "$TOOL_BIN/macmaid" completion "$ACTIVE_SHELL" --install >/dev/null 2>&1; then
       info "Shell completion installed automatically for $ACTIVE_SHELL."
     else
-      info "DeepClean was installed; shell completion was skipped because the shell config is not writable."
+      info "MacMaid was installed; shell completion was skipped because the shell config is not writable."
     fi
     ;;
   *) info "Shell completion was not changed for unsupported shell: ${ACTIVE_SHELL:-unknown}" ;;
@@ -77,4 +81,4 @@ case ":${PATH:-}:" in
   *) info "Add $TOOL_BIN to PATH, or run: $UV tool update-shell" ;;
 esac
 
-info "Installed without sudo. Start with: $TOOL_BIN/deepclean"
+info "Installed without sudo. Start with: $TOOL_BIN/macmaid"
