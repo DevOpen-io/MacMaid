@@ -138,9 +138,9 @@ Disk Analyzer lists a directory immediately and measures each visible child in a
 GitHub Actions workflows are included under `.github/workflows`:
 
 - `CI` runs on pushes and pull requests to `main`; it syncs dependencies, checks the lockfile, compiles Python, validates Web UI JavaScript and runs the Python test suite.
-- `macOS DMG` runs on pushes to `main`, version tags such as `v0.9.22`, and manual dispatch. It runs the same verification, builds standalone macOS app bundles for Intel and Apple Silicon runners, creates `.dmg` artifacts, and uploads them to the workflow run.
-- On version tags (`v*`), the DMG workflow also publishes the DMGs to a GitHub Release.
-- On version tags, the workflow can update a Homebrew tap cask at `DevOpen-io/homebrew-tap` when the repository secret `HOMEBREW_TAP_TOKEN` is configured with write access to that tap.
+- `macOS DMG` runs on pushes to `main` and manual dispatch. It runs the same verification, builds standalone macOS app bundles for Intel and Apple Silicon runners, creates `.dmg` artifacts, and uploads them to the workflow run.
+- After a successful `main` push, the DMG workflow reads the project version from `pyproject.toml`, creates/updates the matching release tag such as `v0.9.22`, and publishes or updates the GitHub Release with the generated DMGs.
+- After the release is updated, the workflow can update a Homebrew tap cask at `DevOpen-io/homebrew-tap` when the repository secret `HOMEBREW_TAP_TOKEN` is configured with write access to that tap.
 
 Homebrew users will install from the tap with:
 
