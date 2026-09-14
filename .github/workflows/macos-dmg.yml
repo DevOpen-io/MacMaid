@@ -151,13 +151,16 @@ jobs:
           echo "HOMEBREW_TAP_TOKEN is not configured; skipping tap update."
           exit 0
 
-      - name: Checkout tap
+      - name: Prepare tap checkout
         if: env.TAP_TOKEN != ''
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.TAP_REPOSITORY }}
-          token: ${{ env.TAP_TOKEN }}
-          path: tap
+        run: |
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPOSITORY}.git" tap || true
+          if [ ! -d tap/.git ]; then
+            mkdir -p tap
+            git -C tap init -b main
+            git -C tap remote add origin "https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPOSITORY}.git"
+          fi
+          git -C tap checkout main 2>/dev/null || git -C tap checkout -b main
 
       - name: Update Cask
         if: env.TAP_TOKEN != ''
@@ -195,4 +198,4 @@ jobs:
             exit 0
           fi
           git commit -m "Update MacMaid to $VERSION_TAG"
-          git push
+          git push origin HEAD:main
