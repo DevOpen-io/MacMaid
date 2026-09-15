@@ -43,8 +43,1043 @@ const state = {
   theme: ['dark', 'midnight', 'cyber', 'light'].includes(localStorage.getItem('macmaid_theme'))
     ? localStorage.getItem('macmaid_theme')
     : 'dark',
+  lang: ['en', 'tr'].includes(localStorage.getItem('macmaid_lang'))
+    ? localStorage.getItem('macmaid_lang')
+    : 'en',
   modalReturnFocus: null,
 };
+
+const I18N = {
+  en: {
+    "skip_link": "Skip to main content",
+    "nav.aria_tools": "MacMaid tools",
+    "nav.section_title": "MACMAID (MAIN MENU)",
+    "nav.clean_sub": "Smart Clean",
+    "nav.apps_sub": "App Uninstaller",
+    "nav.optimize_sub": "Mac Optimization",
+    "nav.analyzer_sub": "Disk Space Analyzer",
+    "nav.purge_sub": "Developer Projects",
+    "nav.developer_sub": "Runtimes, SDKs & Caches",
+    "nav.more_sub": "Leftovers, Diagnostics & History",
+    "nav.status_sub": "System & Metrics",
+    "nav.more_whitelist": "Whitelist & Settings",
+    "nav.clean": "Clean",
+    "nav.apps": "Uninstall Apps",
+    "nav.optimize": "Optimize",
+    "nav.analyzer": "Analyze",
+    "nav.purge": "Project Purge",
+    "nav.developer": "Developer Tools",
+    "nav.status": "Status",
+    "nav.more": "More Tools",
+    "sidebar.theme_tip": "Appearance Theme",
+    "sidebar.sound_tip": "UI Sound Effects",
+    "sidebar.settings_tip": "Settings",
+    "sidebar.cpu_tip": "Live CPU Usage",
+    "sidebar.ram_tip": "Live RAM Usage",
+    "sidebar.disk_tip": "Disk Usage",
+    "sidebar.free": "free",
+    "sidebar.sip_safe": "SIP Safe",
+    "settings.title": "Settings",
+    "settings.subtitle": "Configure application preferences, interface language, and system parameters.",
+    "settings.save_btn": "Save Settings",
+    "settings.language_title": "Language / Dil",
+    "settings.language_desc": "Select the primary interface language. (Default: English)",
+    "settings.language_label": "Interface Language",
+    "settings.language_sub": "Choose between English and Türkçe.",
+    "settings.appearance_title": "Appearance & Sound",
+    "settings.appearance_desc": "Customize color themes and audio feedback.",
+    "settings.theme_label": "Color Theme",
+    "settings.theme_sub": "Select your preferred macOS aesthetic palette.",
+    "settings.sound_label": "UI Sound Effects",
+    "settings.sound_sub": "Audio cues on scan completion and button clicks.",
+    "settings.about_title": "About MacMaid",
+    "settings.about_desc": "System maintenance, disk optimization and developer environment cleaner built exclusively for macOS.",
+    "settings.version_label": "Version",
+    "settings.safety_label": "Safety Model",
+    "settings.arch_label": "Architecture",
+    "status.title": "Mac Health",
+    "status.subtitle": "Tangible disk, memory pressure, thermal and battery metrics. No arbitrary scores or automated interference.",
+    "status.btn_goto_clean": "Go to Clean Screen",
+    "status.cpu_title": "Processor (CPU)",
+    "status.badge_live": "Live",
+    "status.gauge_load": "Load",
+    "status.lbl_thermal": "Thermal State:",
+    "status.lbl_load_avg": "Load Average:",
+    "status.ram_title": "Memory (RAM)",
+    "status.gauge_usage": "Usage",
+    "status.lbl_used": "Used:",
+    "status.lbl_total": "Total:",
+    "status.lbl_free_reserved": "Free / Reserved:",
+    "status.disk_title": "Storage (SSD/Disk)",
+    "status.gauge_full": "Used",
+    "status.lbl_free_space": "Free Space:",
+    "status.lbl_capacity": "Capacity:",
+    "status.reading_health": "Reading health indicators...",
+    "status.net_batt_title": "Network & Battery Status",
+    "status.lbl_download": "Download",
+    "status.lbl_upload": "Upload",
+    "status.battery_title": "Battery Health",
+    "status.batt_unknown": "Unknown State",
+    "status.batt_cycles": "-- Cycles",
+    "status.top_proc_title": "Top Resource Intensive Processes",
+    "status.active_apps": "Active Applications",
+    "status.th_process": "Process / Application",
+    "status.loading": "Loading...",
+    "clean.title": "Clean — Smart System Maintenance",
+    "clean.subtitle": "Scan safely, choose a profile, then reclaim space.",
+    "clean.action_scanning": "Scanning System...",
+    "clean.phase_working": "WORKING",
+    "clean.path_preparing": "Preparing...",
+    "clean.path_preparing2": "Preparing...",
+    "clean.preparing": "Preparing",
+    "clean.logs_btn": "▸ Live Log Stream",
+    "clean.logs_hide_btn": "▾ Hide Log Stream",
+    "clean.profile_label": "Cleaning Profile:",
+    "clean.profile_safe": "Safe",
+    "clean.badge_low_risk": "Low Risk",
+    "clean.profile_deep": "Deep",
+    "clean.badge_med_risk": "Medium Risk",
+    "clean.profile_dev": "Developer",
+    "clean.badge_extensive": "Extensive",
+    "clean.chk_trash": "Trash Can (~/.Trash)",
+    "clean.tip_trash": "Also empty Trash Can",
+    "clean.chk_temp": "Temporary Files (/private/tmp)",
+    "clean.tip_temp": "Scan old temporary system files",
+    "clean.chk_dryrun": "Simulation Mode (Dry Run)",
+    "clean.tip_dryrun": "Simulate without deleting files",
+    "clean.btn_scan": "Scan System",
+    "clean.stat_reclaimable": "Reclaimable Space:",
+    "clean.stat_detected": "Detected Items:",
+    "clean.stat_selected": "Selected Space:",
+    "clean.btn_select_all": "Select All",
+    "clean.btn_deselect_all": "Deselect All",
+    "clean.btn_execute": "Start Cleaning",
+    "clean.table_title": "Found Cleanup Items",
+    "clean.search_placeholder": "Search item...",
+    "clean.tip_master_chk": "Select all safe cleanup items",
+    "clean.th_cat_title": "Category & Title",
+    "clean.th_location": "Location / Path",
+    "clean.th_reason": "Reason",
+    "clean.th_size": "Size",
+    "apps.title": "Uninstall Apps — Application Cleaner",
+    "apps.subtitle": "Remove applications plus exact, reviewable leftovers.",
+    "apps.btn_scan": "Scan Applications",
+    "apps.action_scanning": "Scanning Applications...",
+    "apps.search_placeholder": "Search apps (e.g. Slack, Chrome)...",
+    "apps.sort_size": "By Size (Largest first)",
+    "apps.sort_name": "By Name (A-Z)",
+    "apps.empty_list": "Click <strong>\"Scan Applications\"</strong> above to list installed applications and analyze their leftovers.",
+    "apps.empty_detail": "Select an application from the left to view details and remaining leftovers.",
+    "apps.detail_app_name": "Application Name",
+    "apps.leftovers_title": "Detected Leftovers & Associated Files",
+    "apps.zero_items": "0 items",
+    "apps.include_user_data": "Include Application Data Folders (Application Support/Containers)",
+    "apps.btn_uninstall": "Uninstall Application & Leftovers",
+    "optimize.title": "Optimize — macOS Tuning",
+    "optimize.subtitle": "Maintenance tasks are temporarily paused pending stability review.",
+    "optimize.action_running": "Running Optimizations...",
+    "analyzer.title": "Analyze — Disk Space Analyzer",
+    "analyzer.subtitle": "Browse disk usage, search, multi-select and move items to Trash.",
+    "analyzer.action_analyzing": "Analyzing Directory...",
+    "analyzer.tip_parent": "Return to parent directory",
+    "analyzer.btn_parent": "Parent Directory",
+    "analyzer.lbl_dir": "Directory:",
+    "analyzer.quick_home": "Home (~)",
+    "analyzer.quick_downloads": "Downloads",
+    "analyzer.btn_analyze": "Analyze",
+    "analyzer.idle_desc": "Select or type the directory you want to inspect above, then click <strong>\"Analyze\"</strong>.",
+    "analyzer.lbl_active_path": "Active Location: ",
+    "analyzer.cached_badge": "⚡ Cached",
+    "analyzer.lbl_total_size": "Total Analyzed Size: ",
+    "analyzer.largest_files_title": "Largest Files in This Location",
+    "analyzer.th_filename": "File Name",
+    "analyzer.th_fullpath": "Full Path",
+    "analyzer.th_action": "Action",
+    "purge.title": "Project Purge — Developer Projects",
+    "purge.subtitle": "Find old rebuildable project artifacts and dependency folders (node_modules, target, .build, Pods).",
+    "purge.btn_scan": "Scan Projects",
+    "purge.action_scanning": "Scanning Projects...",
+    "purge.lbl_reclaimable": "Reclaimable Space: ",
+    "purge.zero_dirs": "(0 directories detected)",
+    "purge.btn_execute": "Move Selected Folders to Trash",
+    "purge.tip_master_chk": "Select all project artifacts",
+    "purge.th_project_name": "Project Name",
+    "purge.th_artifact_type": "Artifact Type",
+    "purge.th_last_modified": "Last Modified",
+    "purge.th_reclaimable": "Reclaimable",
+    "purge.empty_table": "Click the button above to scan your developer projects.",
+    "dev.title": "Developer Tools — Environments & SDKs",
+    "dev.subtitle": "Inspect runtimes, SDKs, global tools and package caches.",
+    "dev.storage_desc": "Displays Xcode, Node.js, Python, Rust, Android and Docker storage read-only.",
+    "dev.btn_scan_storage": "Scan Storage",
+    "dev.th_ecosystem": "Ecosystem",
+    "dev.th_items": "Items",
+    "dev.th_note": "Note",
+    "dev.empty_storage": "Click above to scan Developer Storage Center.",
+    "dev.caches_title": "Package Manager Caches",
+    "dev.caches_desc": "Xcode, Homebrew, Conda, npm, cargo, pip and other package caches.",
+    "dev.btn_scan_caches": "Scan Caches",
+    "dev.action_scanning_caches": "Scanning Caches...",
+    "dev.lbl_reclaimable_cache": "Reclaimable Cache: ",
+    "dev.zero_cache_items": "(0 cache items)",
+    "dev.btn_clean_caches": "Clean Caches",
+    "dev.tip_master_cache_chk": "Select all safe developer caches",
+    "dev.th_tool_manager": "Tool / Package Manager",
+    "dev.th_cache_path": "Cache Path",
+    "dev.empty_caches": "Click above to scan developer caches.",
+    "dev.runtimes_title": "Runtimes & Programming Languages",
+    "dev.runtimes_desc": "Python (pyenv), Ruby (rbenv), Rust (rustup), Node (nvm), Go, Java installations.",
+    "dev.btn_scan_runtimes": "Scan Runtimes",
+    "dev.action_scanning_runtimes": "Scanning Runtimes...",
+    "dev.th_lang_runtime": "Language / Runtime",
+    "dev.th_manager": "Manager",
+    "dev.th_version": "Version",
+    "dev.th_install_path": "Install Path",
+    "dev.th_location_simple": "Location",
+    "dev.th_status": "Status",
+    "dev.zero_runtimes": "(0 runtimes detected)",
+    "dev.empty_runtimes": "Click \"Scan Runtimes\" above to list installed runtimes.",
+    "dev.venv_title": "Virtual Environments & Storage",
+    "dev.venv_desc": "Conda, Micromamba and Poetry virtualenv directories.",
+    "dev.environments_title": "Virtual Environments",
+    "dev.environments_desc": "Conda, venv, poetry, pipenv and other isolated development environments.",
+    "dev.btn_scan_env": "Scan Environments",
+    "dev.action_scanning_env": "Scanning Environments...",
+    "dev.th_env_name": "Environment Name",
+    "dev.th_type": "Type",
+    "dev.zero_env": "(0 environments detected)",
+    "dev.empty_env": "Click \"Scan Environments\" above to list virtual environments.",
+    "dev.tools_title": "Global CLI Tools",
+    "dev.tools_desc": "Homebrew leaves, pipx, uv, npm global, pnpm, Cargo and Pixi tools.",
+    "dev.btn_scan_tools": "Scan Global Tools",
+    "dev.action_scanning_tools": "Scanning Global Tools...",
+    "dev.th_tool_name": "Tool Name",
+    "dev.zero_tools": "(0 tools detected)",
+    "dev.empty_tools": "Click \"Scan Global Tools\" above to list global CLI tools.",
+    "dev.sdks_title": "SDKs & Simulators",
+    "dev.sdks_subdesc": "Android SDK/NDK/AVDs, Xcode platform runtimes, devices and DeviceSupport.",
+    "dev.sdks_desc": "Xcode Simulators, Android SDKs, CommandLineTools components.",
+    "dev.btn_scan_sdks": "Scan SDKs & Simulators",
+    "dev.action_scanning_sdks": "Scanning SDKs & Simulators...",
+    "dev.th_sdk_sim": "SDK / Simulator",
+    "dev.th_platform_manager": "Platform / Manager",
+    "dev.zero_sdks": "(0 SDKs/Simulators detected)",
+    "dev.empty_sdks": "Click \"Scan SDKs & Simulators\" above to list SDKs and simulators.",
+    "more.title": "Tool Center",
+    "more.subtitle": "Tools are grouped by purpose: Cleanup, Storage & Data, and System & History.",
+    "more.leftovers_title": "Application Leftovers",
+    "more.leftovers_desc": "Orphaned leftovers and configuration files left behind by uninstalled applications.",
+    "more.btn_scan_leftovers": "Scan Leftovers",
+    "more.action_scanning_leftovers": "Scanning Leftovers...",
+    "more.lbl_leftover_age": "Leftover Age:",
+    "more.filter_all": "All",
+    "more.filter_7days": "> 7 days old",
+    "more.filter_14days": "> 14 days old",
+    "more.filter_30days": "> 30 days old",
+    "more.lbl_target_reclaim": "Target Reclaim Space:",
+    "more.zero_leftovers": "(0 leftovers detected)",
+    "more.btn_clean_leftovers": "Delete Selected Leftovers",
+    "more.tip_master_leftovers_chk": "Select all safe application leftovers",
+    "more.th_rel_app": "Associated Application",
+    "more.th_bundle_id": "Bundle ID",
+    "more.th_leftover_type": "Leftover Type",
+    "more.th_age": "Age",
+    "more.empty_leftovers": "Click the button above to scan orphaned leftovers.",
+    "more.installers_title": "Old Installers (DMG, PKG, ISO, IPSW)",
+    "more.installers_desc": "Old disk images and installation packages in Downloads and Desktop.",
+    "more.btn_scan_installers": "Scan Installers",
+    "more.action_scanning_installers": "Scanning Installers...",
+    "more.lbl_min_age": "Minimum Age:",
+    "more.filter_all_images": "All (All Images)",
+    "more.filter_30d": "30 days",
+    "more.filter_90d": "90 days",
+    "more.filter_180d": "180 days",
+    "more.filter_1yr": "1 year",
+    "more.zero_files": "(0 files)",
+    "more.zero_installers": "(0 installers found)",
+    "more.btn_clean_installers": "Move Selected to Trash",
+    "more.tip_master_installers_chk": "Select all installers",
+    "more.th_installer_name": "Installer Name",
+    "more.empty_installers": "Click the button above to scan installers.",
+    "more.treemap_title": "Disk Space Treemap",
+    "more.treemap_desc": "Displays folder sizes, percentages and file counts with drill-down and Open in Finder support.",
+    "more.btn_scan_treemap": "Scan Treemap",
+    "more.action_scanning_treemap": "Scanning treemap…",
+    "more.empty_treemap": "Click above to generate treemap.",
+    "more.browsers_title": "Browser Storage & Cache Management",
+    "more.browsers_desc": "Displays Safari, Chrome, Brave, Edge, Firefox and Arc storage. Smart Clean selects only safe cache areas.",
+    "more.btn_scan_browsers": "Scan Browser Storage",
+    "more.btn_clean_browsers": "Clean Browser Caches",
+    "more.empty_browsers": "Click above to scan browser storage.",
+    "more.th_browser": "Browser",
+    "more.th_profile": "Profile",
+    "more.th_area": "Area",
+    "more.th_risk": "Risk",
+    "more.downloads_title": "Smart Downloads Analysis",
+    "more.downloads_desc": "Categorizes Installers, Archives, Old Downloads, and Incomplete Downloads. Documents and source code are never classified as junk.",
+    "more.btn_scan_downloads": "↓ Scan Smart Downloads",
+    "more.lbl_old_downloads": "Old Downloads:",
+    "more.empty_downloads": "Click above to scan downloads.",
+    "more.duplicates_title": "Duplicate File Finder",
+    "more.duplicates_desc": "Verifies byte-for-byte matches via size, partial hash, and full SHA256. No files are auto-selected.",
+    "more.btn_scan_duplicates": "⧉ Scan Duplicates",
+    "more.empty_duplicates": "Click above to scan duplicate files.",
+    "more.large_files_title": "Large & Old Files",
+    "more.large_files_desc": "Filters by size (500MB - 10GB) and age (30 - 365 days). Personal files are never auto-selected.",
+    "more.btn_scan_large": "◫ Scan Large/Old",
+    "more.lbl_min_size": "Min size:",
+    "more.lbl_age": "Age:",
+    "more.empty_large": "Click above to scan large and old files.",
+    "more.snapshots_title": "Time Machine Snapshots (APFS Snapshots)",
+    "more.snapshots_desc": "Local APFS snapshots and disk space thinning.",
+    "more.btn_list_snapshots": "List Snapshots",
+    "more.action_checking_snapshots": "Checking Snapshots...",
+    "more.detected_snapshots_title": "Detected APFS Snapshots",
+    "more.thinning_title": "Snapshot Thinning",
+    "more.thinning_desc": "Apple manages snapshots automatically. When immediate disk recovery is required, a safe thinning routine can be executed.",
+    "more.btn_reclaim_10gb": "Reclaim 10 GB",
+    "more.btn_reclaim_20gb": "Reclaim 20 GB",
+    "more.btn_reclaim_50gb": "Reclaim 50 GB",
+    "more.btn_thin_snapshots": "Thin Snapshots (Free Space)",
+    "more.th_snapshot_name": "Snapshot Name",
+    "more.th_created_at": "Created Date",
+    "more.empty_snapshots": "Click \"List Snapshots\" above to view APFS snapshots.",
+    "more.sys_doctor_title": "System Doctor (macOS Health Diagnostics)",
+    "more.doctor_title": "System Doctor & Health Diagnostic",
+    "more.doctor_desc": "SIP status, APFS health, permissions and hardware diagnostic checks.",
+    "more.btn_run_doctor": "Run Diagnostic",
+    "more.action_running_doctor": "Checking System Health...",
+    "more.hw_title": "Hardware & macOS Information",
+    "more.lbl_arch": "Processor Architecture:",
+    "more.lbl_macos_ver": "macOS Version:",
+    "more.lbl_sip_status": "SIP Status:",
+    "more.lbl_disk_mount": "Disk Mount:",
+    "more.security_note": "MacMaid never accesses protected mail or safari folders without authorization and never alters SIP status.",
+    "more.security_check_title": "Security & Permission Audit",
+    "more.history_title": "Cleanup History & Audit Log",
+    "more.history_desc": "Audit history of completed cleanups and recovered disk space.",
+    "more.history_total_cleaned": "Total Cleaned Items",
+    "more.history_total_reclaimed": "Total Reclaimed Space",
+    "more.lbl_last_cleanup": "Last Cleanup",
+    "more.hist_never": "Never",
+    "more.history_log_title": "Audit Log",
+    "more.th_date_time": "Date / Time",
+    "more.th_time": "Time",
+    "more.th_op_type": "Operation Type",
+    "more.th_item_category": "Item / Category",
+    "more.th_clean_method": "Clean Method",
+    "more.th_est_reclaim": "Estimated Reclaim",
+    "more.th_result": "Result",
+    "more.empty_history": "No history records found.",
+    "more.whitelist_title": "Settings & Directory Whitelist",
+    "more.whitelist_desc": "Configure directories and paths that MacMaid must never touch.",
+    "more.btn_save_whitelist": "Save Settings",
+    "more.whitelist_card_title": "Directory Whitelist (~/.config/macmaid/whitelist)",
+    "more.whitelist_card_desc": "Enter one path or glob pattern per line. Files in these directories will never be deleted.",
+    "more.ui_prefs_title": "Interface & Sound Preferences",
+    "more.lbl_ui_theme": "Interface Theme",
+    "more.desc_ui_theme": "Choose your preferred macOS color palette.",
+    "more.lbl_sound": "UI Sound Effects",
+    "more.desc_sound": "Audio cues on scan completion and button clicks.",
+    "common.total_space": "Total Space: ",
+    "common.th_dir_path": "Directory Path",
+    "common.th_location_path": "Location Path",
+    "common.th_risk_level": "Risk Level",
+    "common.th_category": "Category",
+    "common.th_file": "File",
+    "common.th_action": "Action",
+    "common.th_group": "Group",
+    "common.cancel": "Cancel",
+    "common.discard": "Cancel",
+    "common.delete": "Delete",
+    "common.move_to_trash": "Move to Trash",
+    "modal.title": "Confirm Action",
+    "modal.aria_close": "Close dialog",
+    "hud.starting": "Starting operation…",
+    "hud.cancel_scan": "Stop scan",
+    "toast.lang_tr": "Dil Türkçe olarak ayarlandı.",
+    "toast.lang_en": "Language switched to English.",
+    "toast.settings_saved": "Settings saved successfully.",
+    "toast.close_tip": "Click to dismiss",
+    "toast.scan_cancelling": "Scan is cancelling safely.",
+    "toast.no_active_scan": "No active scan found.",
+    "toast.scan_cancel_failed": "Failed to stop scan: ",
+    "toast.scan_completed": "Scan completed: ",
+    "toast.items_found": "items found",
+    "toast.results_incomplete": "results incomplete, cleanup prevented.",
+    "toast.scan_error": "Scan error: ",
+    "toast.partial_scan_warn": "Partial or cancelled scans cannot be cleaned. Please run a fresh, full scan.",
+    "toast.select_at_least_one": "Select at least one item to clean.",
+    "toast.review_failed": "Failed to prepare review: ",
+    "toast.select_installer_warn": "Select at least one installer to delete.",
+    "toast.select_leftover_warn": "Select at least one leftover to delete.",
+    "toast.select_project_warn": "Select at least one project folder to delete.",
+    "toast.select_cache_warn": "Select at least one cache to clean.",
+    "toast.no_safe_cache_warn": "No safe cache area selected for Smart Clean.",
+    "toast.already_root": "Already at root directory (/)...",
+    "toast.no_cli_changes": "No changes in global CLI tools.",
+    "toast.snapshot_thinned": "Snapshot thinning request completed · actual manager impact unknown · ",
+    "toast.task_completed": "Task completed: ",
+    "toast.doctor_failed": "Failed to obtain doctor report: ",
+    "toast.whitelist_saved": "Whitelist settings saved.",
+    "toast.save_error": "Save error: ",
+    "toast.extra_opt_in_warn": "Please check the extra confirmation box for USER DATA / MANUAL selections.",
+    "toast.tasks_completed_count": "maintenance tasks completed.",
+    "toast.error_prefix": "Error: ",
+    "toast.uninstall_error": "Uninstall error: ",
+    "toast.uninstall_failed": "Uninstall failed: ",
+    "toast.uninstalled": "uninstalled",
+    "hud.waiting_server": "Waiting for server response",
+    "hud.completed": "Completed",
+    "hud.failed": "Operation failed",
+    "hud.success": "Operation completed",
+    "hud.unknown_error": "Unknown error",
+    "hud.ok": "Successful",
+    "hud.in_progress": "Operation in progress…",
+    "hud.items_examined": "items examined",
+    "hud.scanning": "Scanning...",
+    "hud.executing": "Executing operation...",
+    "clean.empty_clean": "No items to clean. Your system is pristine! ✨",
+    "apps.empty_search": "No matching applications found.",
+    "apps.no_version": "No version info",
+    "apps.searching_leftovers": "Searching for leftovers...",
+    "apps.no_extra_leftovers": "No extra leftovers found. Only application bundle will be removed.",
+    "apps.leftovers_scan_failed": "Failed to scan leftovers: ",
+    "more.action_scanning_installers_sub": "Scanning installer files...",
+    "more.empty_installers_found": "No old installer files found.",
+    "more.action_scanning_leftovers_sub": "Scanning orphaned application leftovers...",
+    "more.empty_leftovers_found": "No orphaned leftover files found.",
+    "analyzer.measured": "measured",
+    "analyzer.empty_dir": "No visible items in this directory.",
+    "analyzer.unreadable": "Unreadable",
+    "analyzer.measuring": "Measuring…",
+    "analyzer.queued": "Queued",
+    "analyzer.enter_dir": "Enter this directory",
+    "analyzer.no_large_files": "No files above threshold in this directory.",
+    "analyzer.files_pending": "Files will appear here as they are processed…",
+    "analyzer.move_trash_tip": "Move to Trash",
+    "analyzer.trash_btn": "Trash",
+    "analyzer.action_trashing": "Moving file to Trash…",
+    "analyzer.reading_folders": "Reading folder names…",
+    "analyzer.searching_large": "Searching large files...",
+    "analyzer.listing_folders": "Listing folders…",
+    "purge.action_scanning_sub": "Scanning developer projects...",
+    "purge.empty_projects": "No project build artifacts found to clean.",
+    "dev.action_scanning_storage_sub": "Scanning developer storage…",
+    "dev.empty_storage_found": "No developer storage items found.",
+    "dev.action_scanning_caches_sub": "Scanning developer caches...",
+    "dev.empty_caches_found": "No developer caches found.",
+    "dev.generic_component": "Developer Component",
+    "dev.badge_active": "ACTIVE",
+    "dev.badge_removable": "Removable",
+    "dev.badge_protected": "Protected",
+    "dev.desc_active": "Currently used as default by shell or system.",
+    "dev.desc_removable": "Can be safely removed via package manager.",
+    "dev.desc_protected": "Protected by system.",
+    "dev.btn_uninstall_item": "Uninstall This Item",
+    "dev.btn_uninstall_manager": "Uninstall with Manager",
+    "dev.modal_comp_detail": "Component Details: ",
+    "dev.empty_runtimes_found": "No installed runtimes found.",
+    "dev.row_tip_detail": "Click to view details and remove",
+    "dev.empty_venvs_found": "No virtual environments found.",
+    "dev.empty_tools_found": "No global CLI tools found.",
+    "dev.empty_sdks_found": "No SDKs or simulators found.",
+    "more.action_getting_snapshots": "Retrieving snapshot list...",
+    "more.empty_snapshots_found": "No snapshots found.",
+    "more.btn_start_thinning": "Start Thinning",
+    "more.observed_diff_unmeasured": "observed difference unmeasured",
+    "more.observed_free_space": "observed free space ",
+    "common.increased": "increased",
+    "common.decreased": "decreased",
+    "optimize.empty_tasks": "No available optimization tasks found.",
+    "optimize.btn_run": "Run",
+    "optimize.btn_run_task": "Run Task",
+    "optimize.btn_run_all": "Run All",
+    "more.empty_treemap_folder": "No items to show in this folder.",
+    "more.treemap_initial_measuring": "Measuring initial results…",
+    "more.items_mapped": "items mapped",
+    "more.total_visible_space": "Total visible space: ",
+    "more.treemap_hint": "Tile size scales with disk usage. Click a box to drill into the folder.",
+    "more.treemap_measuring": "Measuring treemap…",
+    "more.treemap_done": "Treemap scan completed",
+    "more.treemap_failed": "Treemap failed: ",
+    "more.action_scanning_browsers_sub": "Scanning browser storage…",
+    "more.empty_browsers_found": "No browser storage found.",
+    "more.action_scanning_downloads_sub": "Scanning smart downloads…",
+    "more.empty_downloads_found": "No smart download candidates found.",
+    "more.action_scanning_large_sub": "Scanning large and old files…",
+    "more.empty_large_found": "No large or old files matching filters found.",
+    "more.action_scanning_duplicates_sub": "Scanning duplicates…",
+    "more.empty_duplicates_found": "No byte-for-byte duplicates found.",
+    "more.empty_history_found": "No recorded history operations found.",
+    "more.op_summary": "Operation Summary",
+    "modal.close_first": "Close first: ",
+    "modal.user_data_badge": "USER DATA / EXPLICIT OPT-IN",
+    "modal.user_data_confirm": "I understand the impact of USER DATA / MANUAL and explicitly confirm this selection.",
+    "modal.actions_scan_est": "actions · scan estimate",
+    "modal.pre_exec_checks": "Whitelist, path, ownership, symlink, and running app checks are re-evaluated immediately before execution.",
+    "outcome.scan_est": "Scan estimate ",
+    "outcome.no_changes": " · no changes made",
+    "outcome.processed_est": "Processed target estimate ",
+    "outcome.est_reclaim": "estimated reclaim ",
+    "outcome.trash_moved": "Moved to Trash ",
+    "outcome.no_freed": " (space not reclaimed)",
+    "outcome.manager_unknown": " manager impact unknown",
+    "outcome.diff_unmeasured": "observed free space difference unmeasured",
+    "outcome.not_strictly_macmaid": " (not strictly attributable to MacMaid)",
+    "status.charging": "Charging ⚡",
+    "status.on_battery": "On Battery",
+    "status.cycles": "Cycles",
+    "status.desktop_ac": "Desktop / AC",
+    "status.batt_unavailable": "Battery data unavailable",
+    "status.recommendation": "Recommendation: ",
+    "status.measured_at": "Measured: ",
+    "status.state_normal": "NORMAL",
+    "status.state_warning": "WARNING",
+    "status.state_critical": "CRITICAL",
+    "status.state_unknown": "UNKNOWN",
+    "status.state_na": "N/A",
+    "clean.btn_run_sim": "Run Simulation",
+    "clean.btn_clean_reclaim": "Clean & Reclaim Space",
+    "clean.action_simulating": "Simulating cleanup…",
+    "clean.action_cleaning_items": "Cleaning selected items…"
+},
+  tr: {
+    "skip_link": "Ana içeriğe geç",
+    "nav.aria_tools": "MacMaid araçları",
+    "nav.section_title": "MACMAID (ANA MENÜ)",
+    "nav.clean_sub": "Akıllı Temizlik",
+    "nav.apps_sub": "Uygulama Kaldırıcı",
+    "nav.optimize_sub": "Mac İyileştirme",
+    "nav.analyzer_sub": "Disk Alanı Analizörü",
+    "nav.purge_sub": "Geliştirici Projeleri",
+    "nav.developer_sub": "Runtimes, SDKs & Caches",
+    "nav.more_sub": "Artıklar, Teşhis & Geçmiş",
+    "nav.status_sub": "Sistem & Metrikler",
+    "nav.more_whitelist": "Whitelist & Ayarlar",
+    "nav.clean": "Clean",
+    "nav.apps": "Uninstall Apps",
+    "nav.optimize": "Optimize",
+    "nav.analyzer": "Analyze",
+    "nav.purge": "Project Purge",
+    "nav.developer": "Developer Tools",
+    "nav.status": "Status",
+    "nav.more": "More Tools",
+    "sidebar.theme_tip": "Görünüm Teması",
+    "sidebar.sound_tip": "Ses Efektleri",
+    "sidebar.settings_tip": "Ayarlar",
+    "sidebar.cpu_tip": "Canlı CPU Kullanımı",
+    "sidebar.ram_tip": "Canlı RAM Kullanımı",
+    "sidebar.disk_tip": "Disk Doluluğu",
+    "sidebar.free": "boş",
+    "sidebar.sip_safe": "SIP Safe",
+    "settings.title": "Ayarlar",
+    "settings.subtitle": "Uygulama tercihleri, arayüz dili ve sistem parametrelerini yapılandırın.",
+    "settings.save_btn": "Ayarları Kaydet",
+    "settings.language_title": "Language / Dil",
+    "settings.language_desc": "Tercih ettiğiniz arayüz dilini belirleyin. (Varsayılan: İngilizce)",
+    "settings.language_label": "Arayüz Dili",
+    "settings.language_sub": "İngilizce veya Türkçe arasında seçim yapın.",
+    "settings.appearance_title": "Görünüm & Ses",
+    "settings.appearance_desc": "Renk temasını ve ses efektlerini özelleştirin.",
+    "settings.theme_label": "Arayüz Teması",
+    "settings.theme_sub": "Favori macOS renk paletinizi belirleyin.",
+    "settings.sound_label": "UI Ses Efektleri",
+    "settings.sound_sub": "Temizlik tamamlama sesi ve buton tıklama tınıları.",
+    "settings.about_title": "MacMaid Hakkında",
+    "settings.about_desc": "macOS için güvenli sistem bakımı ve disk optimizasyonu paketi.",
+    "settings.version_label": "Sürüm",
+    "settings.safety_label": "Güvenlik Modeli",
+    "settings.arch_label": "Mimari",
+    "status.title": "Mac Sağlığı",
+    "status.subtitle": "Somut disk, bellek baskısı, termal ve pil ölçümleri. Keyfî puan veya otomatik müdahale yoktur.",
+    "status.btn_goto_clean": "Clean Ekranına Git",
+    "status.cpu_title": "İşlemci (CPU)",
+    "status.badge_live": "Canlı",
+    "status.gauge_load": "Yük",
+    "status.lbl_thermal": "Termal Durum:",
+    "status.lbl_load_avg": "Yük Ortalaması:",
+    "status.ram_title": "Bellek (RAM)",
+    "status.gauge_usage": "Kullanım",
+    "status.lbl_used": "Kullanılan:",
+    "status.lbl_total": "Toplam:",
+    "status.lbl_free_reserved": "Boş / Rezerve:",
+    "status.disk_title": "Depolama (SSD/Disk)",
+    "status.gauge_full": "Dolu",
+    "status.lbl_free_space": "Boş Alan:",
+    "status.lbl_capacity": "Kapasite:",
+    "status.reading_health": "Sağlık göstergeleri okunuyor…",
+    "status.net_batt_title": "Ağ & Batarya Durumu",
+    "status.lbl_download": "İndirme (Download)",
+    "status.lbl_upload": "Yükleme (Upload)",
+    "status.battery_title": "Pil Sağlığı",
+    "status.batt_unknown": "Durum Bilinmiyor",
+    "status.batt_cycles": "-- Döngü",
+    "status.top_proc_title": "En Çok Kaynak Tüketen Süreçler",
+    "status.active_apps": "Aktif Uygulamalar",
+    "status.th_process": "Süreç / Uygulama",
+    "status.loading": "Yükleniyor...",
+    "clean.title": "Clean — Akıllı Sistem Temizliği",
+    "clean.subtitle": "Scan safely, choose a profile, then reclaim space. (Güvenli önbellek, log ve kırıntı temizliği)",
+    "clean.action_scanning": "Sistem Taranıyor...",
+    "clean.phase_working": "ÇALIŞIYOR",
+    "clean.path_preparing": "Hazırlanıyor...",
+    "clean.path_preparing2": "Hazırlanıyor…",
+    "clean.preparing": "Hazırlanıyor",
+    "clean.logs_btn": "▸ Canlı Log Akışı",
+    "clean.logs_hide_btn": "▾ Günlüğü Gizle",
+    "clean.profile_label": "Temizlik Profili:",
+    "clean.profile_safe": "Safe (Güvenli)",
+    "clean.badge_low_risk": "Düşük Risk",
+    "clean.profile_deep": "Deep (Derin)",
+    "clean.badge_med_risk": "Orta Risk",
+    "clean.profile_dev": "Geliştirici",
+    "clean.badge_extensive": "Kapsamlı",
+    "clean.chk_trash": "Çöp Sepeti (~/.Trash)",
+    "clean.tip_trash": "Çöp Sepetini de boşalt",
+    "clean.chk_temp": "Geçici Dosyalar (/private/tmp)",
+    "clean.tip_temp": "Eski geçici sistem dosyalarını tara",
+    "clean.chk_dryrun": "Simülasyon Modu (Dry Run)",
+    "clean.tip_dryrun": "Dosyaları silmeden yalnızca simülasyon yap",
+    "clean.btn_scan": "Sistemi Tara",
+    "clean.stat_reclaimable": "Kazanılabilir Alan:",
+    "clean.stat_detected": "Tespit Edilen Öğe:",
+    "clean.stat_selected": "Seçilen Alan:",
+    "clean.btn_select_all": "Tümünü Seç",
+    "clean.btn_deselect_all": "Seçimi Kaldır",
+    "clean.btn_execute": "Temizliği Başlat",
+    "clean.table_title": "Bulunan Temizlik Öğeleri",
+    "clean.search_placeholder": "Öğe ara...",
+    "clean.tip_master_chk": "Tüm güvenli temizlik öğelerini seç",
+    "clean.th_cat_title": "Kategori & Başlık",
+    "clean.th_location": "Konum / Yol",
+    "clean.th_reason": "Gerekçe",
+    "clean.th_size": "Boyut",
+    "apps.title": "Uninstall Apps — Uygulama Kaldırıcı",
+    "apps.subtitle": "Remove applications plus exact, reviewable leftovers. (Uygulamalar ve arkalarındaki artıklar)",
+    "apps.btn_scan": "Uygulamaları Tara",
+    "apps.action_scanning": "Uygulamalar Taranıyor...",
+    "apps.search_placeholder": "Uygulama ara (örn. Slack, Chrome)...",
+    "apps.sort_size": "Boyuta Göre (Büyükten Küçüğe)",
+    "apps.sort_name": "İsme Göre (A-Z)",
+    "apps.empty_list": "Yüklü uygulamaları listelemek ve artıklarını analiz etmek için yukarıdaki <strong>\"Uygulamaları Tara\"</strong> butonuna tıklayın.",
+    "apps.empty_detail": "Detayları ve geriye kalan artıkları görüntülemek için soldan bir uygulama seçin.",
+    "apps.detail_app_name": "Uygulama Adı",
+    "apps.leftovers_title": "Tespit Edilen Artıklar & Bağlantılı Dosyalar",
+    "apps.zero_items": "0 öğe",
+    "apps.include_user_data": "Uygulama Veri Klasörlerini Dahil Et (Application Support/Containers)",
+    "apps.btn_uninstall": "Uygulamayı ve Artıkları Kaldır",
+    "optimize.title": "Optimize — Mac İyileştirme",
+    "optimize.subtitle": "Bakım görevleri, kararlılık incelemesi tamamlanana kadar geçici olarak devre dışı.",
+    "optimize.action_running": "Optimizasyon Çalıştırılıyor...",
+    "analyzer.title": "Analyze — Disk Alanı Analizörü",
+    "analyzer.subtitle": "Browse disk usage, search, multi-select and move items to Trash. (Görsel disk kullanım oranları)",
+    "analyzer.action_analyzing": "Dizin Analiz Ediliyor...",
+    "analyzer.tip_parent": "Bir üst dizine dön",
+    "analyzer.btn_parent": "Üst Dizin",
+    "analyzer.lbl_dir": "Dizin:",
+    "analyzer.quick_home": "Ev Dizinim (~)",
+    "analyzer.quick_downloads": "İndirilenler",
+    "analyzer.btn_analyze": "Analiz Et",
+    "analyzer.idle_desc": "İncelemek istediğiniz dizini yukarıdan seçin veya yazın, ardından <strong>\"Analiz Et\"</strong> butonuna tıklayın.",
+    "analyzer.lbl_active_path": "Aktif Konum: ",
+    "analyzer.cached_badge": "⚡ Önbellekten",
+    "analyzer.lbl_total_size": "Toplam İncelenen Boyut: ",
+    "analyzer.largest_files_title": "Bu Konumdaki En Büyük Dosyalar",
+    "analyzer.th_filename": "Dosya Adı",
+    "analyzer.th_fullpath": "Tam Yol",
+    "analyzer.th_action": "İşlem",
+    "purge.title": "Project Purge — Geliştirici Projeleri",
+    "purge.subtitle": "Find old rebuildable project artifacts and dependency folders. (node_modules, target, .build, Pods)",
+    "purge.btn_scan": "Projeleri Tara",
+    "purge.action_scanning": "Projeler Taranıyor...",
+    "purge.lbl_reclaimable": "Kurtarılabilir Alan: ",
+    "purge.zero_dirs": "(0 dizin tespit edildi)",
+    "purge.btn_execute": "Seçili Dizinleri Çöpe Taşı",
+    "purge.tip_master_chk": "Tüm proje artıklarını seç",
+    "purge.th_project_name": "Proje Adı",
+    "purge.th_artifact_type": "Artık Türü",
+    "purge.th_last_modified": "Son Değişiklik",
+    "purge.th_reclaimable": "Kurtarılabilir",
+    "purge.empty_table": "Projelerinizi taramak için yukarıdaki butona tıklayın.",
+    "dev.title": "Developer Tools — Geliştirici Alanı",
+    "dev.subtitle": "Inspect runtimes, SDKs, global tools and package caches. (Çalışma zamanları, ortamlar, araçlar ve önbellekler)",
+    "dev.storage_desc": "Xcode, Node.js, Python, Rust, Android ve Docker depolamasını read-only gösterir.",
+    "dev.btn_scan_storage": "Storage Tara",
+    "dev.th_ecosystem": "Ekosistem",
+    "dev.th_items": "Öğeler",
+    "dev.th_note": "Not",
+    "dev.empty_storage": "Developer Storage Center için tara.",
+    "dev.caches_title": "Paket Yöneticisi Önbellekleri",
+    "dev.caches_desc": "Xcode, Homebrew, Conda, npm, cargo, pip ve diğer paket önbellekleri.",
+    "dev.btn_scan_caches": "Önbellekleri Tara",
+    "dev.action_scanning_caches": "Önbellekler Taranıyor...",
+    "dev.lbl_reclaimable_cache": "Kurtarılabilir Önbellek: ",
+    "dev.zero_cache_items": "(0 önbellek öğesi)",
+    "dev.btn_clean_caches": "Önbellekleri Temizle",
+    "dev.tip_master_cache_chk": "Tüm güvenli geliştirici önbelleklerini seç",
+    "dev.th_tool_manager": "Araç / Paket Yöneticisi",
+    "dev.th_cache_path": "Önbellek Yolu",
+    "dev.empty_caches": "Geliştirici önbelleklerini listelemek için yukarıdaki butona tıklayın.",
+    "dev.runtimes_title": "Çalışma Zamanları & Programlama Dilleri",
+    "dev.runtimes_desc": "Python (pyenv), Ruby (rbenv), Rust (rustup), Node (nvm), Go, Java kurulumları.",
+    "dev.btn_scan_runtimes": "Çalışma Zamanlarını Tara",
+    "dev.action_scanning_runtimes": "Çalışma Zamanları Taranıyor...",
+    "dev.th_lang_runtime": "Dil / Runtime",
+    "dev.th_manager": "Yönetici",
+    "dev.th_version": "Sürüm",
+    "dev.th_install_path": "Kurulum Yolu",
+    "dev.th_location_simple": "Konum",
+    "dev.th_status": "Durum",
+    "dev.zero_runtimes": "(0 çalışma zamanı tespit edildi)",
+    "dev.empty_runtimes": "Çalışma zamanlarını listelemek için yukarıdaki \"Çalışma Zamanlarını Tara\" butonuna tıklayın.",
+    "dev.venv_title": "Sanal Ortamlar & Depolama",
+    "dev.venv_desc": "Conda, Micromamba ve Poetry sanal ortam (virtualenv) dizinleri.",
+    "dev.environments_title": "Sanal Ortamlar (Virtual Environments)",
+    "dev.environments_desc": "Conda, venv, poetry, pipenv ve diğer izole geliştirme ortamları.",
+    "dev.btn_scan_env": "Ortamları Tara",
+    "dev.action_scanning_env": "Ortamlar Taranıyor...",
+    "dev.th_env_name": "Ortam Adı",
+    "dev.th_type": "Tür",
+    "dev.zero_env": "(0 ortam tespit edildi)",
+    "dev.empty_env": "Sanal ortamları listelemek için yukarıdaki \"Ortamları Tara\" butonuna tıklayın.",
+    "dev.tools_title": "Global CLI Araçları",
+    "dev.tools_desc": "Homebrew leaves, pipx, uv, npm global, pnpm, Cargo ve Pixi araçları.",
+    "dev.btn_scan_tools": "Global Araçları Tara",
+    "dev.action_scanning_tools": "Global Araçlar Taranıyor...",
+    "dev.th_tool_name": "Araç Adı",
+    "dev.zero_tools": "(0 araç tespit edildi)",
+    "dev.empty_tools": "Global araçları listelemek için yukarıdaki \"Global Araçları Tara\" butonuna tıklayın.",
+    "dev.sdks_title": "SDK & Simülatörler",
+    "dev.sdks_subdesc": "Android SDK/NDK/AVDs, Xcode platform runtimes, devices ve DeviceSupport.",
+    "dev.sdks_desc": "Xcode Simulators, Android SDKs, CommandLineTools bileşenleri.",
+    "dev.btn_scan_sdks": "SDK & Simülatörleri Tara",
+    "dev.action_scanning_sdks": "SDK & Simülatörler Taranıyor...",
+    "dev.th_sdk_sim": "SDK / Simülatör",
+    "dev.th_platform_manager": "Platform / Yönetici",
+    "dev.zero_sdks": "(0 SDK/Simülatör tespit edildi)",
+    "dev.empty_sdks": "SDK ve simülatörleri listelemek için yukarıdaki \"SDK & Simülatörleri Tara\" butonuna tıklayın.",
+    "more.title": "Tool Center",
+    "more.subtitle": "Araçlar kullanım amacına göre Cleanup, Storage & Data ve System & History olarak gruplandırılmıştır.",
+    "more.leftovers_title": "Uygulama Artıkları (Leftovers)",
+    "more.leftovers_desc": "Kaldırılmış uygulamalardan geriye kalan öksüz artıklar ve konfigürasyon dosyaları.",
+    "more.btn_scan_leftovers": "Artıkları Tara",
+    "more.action_scanning_leftovers": "Artıklar Taranıyor...",
+    "more.lbl_leftover_age": "Artık Yaşı:",
+    "more.filter_all": "Tümü",
+    "more.filter_7days": "7 günden eski",
+    "more.filter_14days": "14 günden eski",
+    "more.filter_30days": "30 günden eski",
+    "more.lbl_target_reclaim": "Kurtarılmak İstenen Alan: ",
+    "more.zero_leftovers": "(0 artık tespit edildi)",
+    "more.btn_clean_leftovers": "Seçili Artıkları Sil",
+    "more.tip_master_leftovers_chk": "Tüm güvenli uygulama artıklarını seç",
+    "more.th_rel_app": "İlişkili Uygulama",
+    "more.th_bundle_id": "Uygulama Kimliği (Bundle ID)",
+    "more.th_leftover_type": "Artık Türü",
+    "more.th_age": "Yaş",
+    "more.empty_leftovers": "Öksüz artıkları taramak için yukarıdaki butona tıklayın.",
+    "more.installers_title": "Eski Yükleyiciler (DMG, PKG, ISO, IPSW)",
+    "more.installers_desc": "İndirilenler ve Masaüstündeki eski imaj ve kurulum paketleri.",
+    "more.btn_scan_installers": "Yükleyicileri Tara",
+    "more.action_scanning_installers": "Yükleyiciler Taranıyor...",
+    "more.lbl_min_age": "Minimum Yaş:",
+    "more.filter_all_images": "Tümü (Tüm İmajlar)",
+    "more.filter_30d": "30 gün",
+    "more.filter_90d": "90 gün",
+    "more.filter_180d": "180 gün",
+    "more.filter_1yr": "1 yıl",
+    "more.zero_files": "(0 dosya)",
+    "more.zero_installers": "(0 yükleyici bulundu)",
+    "more.btn_clean_installers": "Seçilenleri Çöpe Taşı",
+    "more.tip_master_installers_chk": "Tüm yükleyicileri seç",
+    "more.th_installer_name": "Yükleyici Adı",
+    "more.empty_installers": "Yükleyicileri taramak için yukarıdaki butona tıklayın.",
+    "more.treemap_title": "Disk Alanı Haritası (Treemap)",
+    "more.treemap_desc": "Disk Analyzer backend ile folder size, percentage ve file count gösterir; drill-down/back/Open in Finder destekler.",
+    "more.btn_scan_treemap": "Treemap Tara",
+    "more.action_scanning_treemap": "Treemap taranıyor…",
+    "more.empty_treemap": "Treemap için tara.",
+    "more.browsers_title": "Tarayıcı Veri ve Depolama Yönetimi",
+    "more.browsers_desc": "Safari, Chrome, Chromium, Brave, Edge, Firefox ve Arc alanlarını ayrı gösterir. Smart Clean yalnız güvenli cache alanlarını seçer.",
+    "more.btn_scan_browsers": "Browser Storage Tara",
+    "more.btn_clean_browsers": "Tarayıcı Önbelleklerini Temizle",
+    "more.empty_browsers": "Browser storage için tara.",
+    "more.th_browser": "Tarayıcı",
+    "more.th_profile": "Profil",
+    "more.th_area": "Alan",
+    "more.th_risk": "Risk",
+    "more.downloads_title": "Akıllı İndirilenler Analizi",
+    "more.downloads_desc": "Installers, Archives, Old Downloads, Incomplete Downloads ve Duplicates olarak sınıflandırır. Documents/photos/source code otomatik junk değildir.",
+    "more.btn_scan_downloads": "↓ Smart Downloads Tara",
+    "more.lbl_old_downloads": "Eski İndirilenler:",
+    "more.empty_downloads": "Smart Downloads taraması için yukarıdaki butona tıklayın.",
+    "more.duplicates_title": "Yinelenen Dosya Taraması",
+    "more.duplicates_desc": "Byte-for-byte eşleşmeleri size → partial hash → full hash ile doğrular. Hiçbir dosya otomatik seçilmez.",
+    "more.btn_scan_duplicates": "⧉ Duplicate Tara",
+    "more.empty_duplicates": "Duplicate taraması için yukarıdaki butona tıklayın.",
+    "more.large_files_title": "Büyük ve Eski Dosyalar",
+    "more.large_files_desc": "500 MB, 1 GB, 5 GB, 10 GB ve 30/90/180/365 gün filtreleri. User dosyaları otomatik seçilmez.",
+    "more.btn_scan_large": "◫ Large/Old Tara",
+    "more.lbl_min_size": "Min boyut:",
+    "more.lbl_age": "Yaş:",
+    "more.empty_large": "Large/old file taraması için yukarıdaki butona tıklayın.",
+    "more.snapshots_title": "Time Machine Anlık Görüntüleri (APFS Snapshots)",
+    "more.snapshots_desc": "Yerel APFS anlık görüntüleri ve depolama daraltma.",
+    "more.btn_list_snapshots": "Snapshot'ları Listele",
+    "more.action_checking_snapshots": "Snapshot'lar Denetleniyor...",
+    "more.detected_snapshots_title": "Tespit Edilen APFS Snapshot'lar",
+    "more.thinning_title": "Snapshot Alanı Daraltma (Thinning)",
+    "more.thinning_desc": "Apple normalde snapshot'ları otomatik siler. Ancak acil depolama alanı gerektiğinde güvenli daraltma komutu çalıştırabilirsiniz.",
+    "more.btn_reclaim_10gb": "10 GB Geri Kazan",
+    "more.btn_reclaim_20gb": "20 GB Geri Kazan",
+    "more.btn_reclaim_50gb": "50 GB Geri Kazan",
+    "more.btn_thin_snapshots": "Snapshot'ları Daralt (Alan Aç)",
+    "more.th_snapshot_name": "Snapshot Adı",
+    "more.th_created_at": "Oluşturulma Tarihi",
+    "more.empty_snapshots": "Yerel APFS anlık görüntülerini listelemek için yukarıdaki \"Snapshot'ları Listele\" butonuna tıklayın.",
+    "more.sys_doctor_title": "Sistem Doktoru (macOS Health Diagnostics)",
+    "more.doctor_title": "Sistem Doktoru & Güvenlik Raporu",
+    "more.doctor_desc": "SIP durumu, APFS, izinler ve donanım sağlık kontrolleri.",
+    "more.btn_run_doctor": "Teşhisi Başlat",
+    "more.action_running_doctor": "Sistem Sağlığı Denetleniyor...",
+    "more.hw_title": "Donanım & macOS Bilgileri",
+    "more.lbl_arch": "İşlemci Mimarisi:",
+    "more.lbl_macos_ver": "macOS Sürümü:",
+    "more.lbl_sip_status": "SIP Durumu:",
+    "more.lbl_disk_mount": "Disk Mount:",
+    "more.security_note": "MacMaid hassas kullanıcı dizinlerini (Mail, Safari) asla izinsiz silmez ve SIP durumunu asla değiştirmez.",
+    "more.security_check_title": "Güvenlik & İzin Taraması",
+    "more.history_title": "Temizlik Geçmişi & Tasarruf Analizi",
+    "more.history_desc": "İşlenen hedef tahminleri; Trash ve ölçülemeyen manager etkileri kazanım sayılmaz.",
+    "more.history_total_cleaned": "Toplam Temizlenen Öğe",
+    "more.history_total_reclaimed": "Toplam Tahmini Geri Kazanım",
+    "more.lbl_last_cleanup": "Son Temizlik",
+    "more.hist_never": "Hiç yapılmadı",
+    "more.history_log_title": "İşlem Günlüğü",
+    "more.th_date_time": "Tarih / Saat",
+    "more.th_time": "Zaman",
+    "more.th_op_type": "İşlem Türü",
+    "more.th_item_category": "Öğe / Kategori",
+    "more.th_clean_method": "Temizlik Yöntemi",
+    "more.th_est_reclaim": "Tahmini Geri Kazanım",
+    "more.th_result": "Sonuç",
+    "more.empty_history": "Geçmiş işlem bulunamadı.",
+    "more.whitelist_title": "Ayarlar ve Beyaz Liste (Whitelist)",
+    "more.whitelist_desc": "MacMaid'in kesinlikle dokunmasını istemediğiniz dizinleri ve tercihlerinizi yapılandırın.",
+    "more.btn_save_whitelist": "Ayarları Kaydet",
+    "more.whitelist_card_title": "Dizin Beyaz Listesi (~/.config/macmaid/whitelist)",
+    "more.whitelist_card_desc": "Her satıra bir dosya yolu veya glob deseni girin. Bu konumlardaki dosyalar taramalarda asla silinmeyecektir.",
+    "more.ui_prefs_title": "Arayüz & Ses Tercihleri",
+    "more.lbl_ui_theme": "Arayüz Teması",
+    "more.desc_ui_theme": "Favori macOS renk paletinizi belirleyin.",
+    "more.lbl_sound": "UI Ses Efektleri",
+    "more.desc_sound": "Temizlik tamamlama sesi ve buton tıklama tınıları.",
+    "common.total_space": "Toplam Alan: ",
+    "common.th_dir_path": "Dizin Yolu",
+    "common.th_location_path": "Konum Yolu",
+    "common.th_risk_level": "Risk Seviyesi",
+    "common.th_category": "Kategori",
+    "common.th_file": "Dosya",
+    "common.th_action": "Aksiyon",
+    "common.th_group": "Grup",
+    "common.cancel": "İptal",
+    "common.discard": "Vazgeç",
+    "common.delete": "Sil",
+    "common.move_to_trash": "Çöpe Taşı",
+    "modal.title": "İşlem Onayı",
+    "modal.aria_close": "Pencereyi kapat",
+    "hud.starting": "İşlem başlatılıyor…",
+    "hud.cancel_scan": "Taramayı durdur",
+    "toast.lang_tr": "Dil Türkçe olarak ayarlandı.",
+    "toast.lang_en": "Language switched to English.",
+    "toast.settings_saved": "Ayarlar başarıyla kaydedildi.",
+    "toast.close_tip": "Kapatmak için tıklayın",
+    "toast.scan_cancelling": "Tarama güvenli durma noktasında iptal ediliyor.",
+    "toast.no_active_scan": "Aktif tarama bulunamadı.",
+    "toast.scan_cancel_failed": "Tarama durdurulamadı: ",
+    "toast.scan_completed": "Tarama tamamlandı: ",
+    "toast.items_found": "öğe bulundu",
+    "toast.results_incomplete": "sonuçlar eksik, temizlik engellendi.",
+    "toast.scan_error": "Tarama hatası: ",
+    "toast.partial_scan_warn": "Kısmi veya iptal edilmiş tarama temizlenemez. Yeni ve tam bir tarama çalıştırın.",
+    "toast.select_at_least_one": "Temizlemek için en az bir öğe seçin.",
+    "toast.review_failed": "İnceleme hazırlanamadı: ",
+    "toast.select_installer_warn": "Silmek için en az bir yükleyici seçin.",
+    "toast.select_leftover_warn": "Silmek için en az bir artık seçin.",
+    "toast.select_project_warn": "Silinecek en az bir proje dizini seçin.",
+    "toast.select_cache_warn": "Temizlenecek en az bir önbellek seçin.",
+    "toast.no_safe_cache_warn": "Smart Clean için güvenli cache alanı seçilmedi.",
+    "toast.already_root": "Zaten kök dizindesiniz (/)...",
+    "toast.no_cli_changes": "Global CLI araçlarında değişiklik yok.",
+    "toast.snapshot_thinned": "Snapshot daraltma isteği tamamlandı · gerçek manager etkisi bilinmiyor · ",
+    "toast.task_completed": "Görev tamamlandı: ",
+    "toast.doctor_failed": "Doktor raporu alınamadı: ",
+    "toast.whitelist_saved": "Beyaz liste ayarları kaydedildi.",
+    "toast.save_error": "Kayıt hatası: ",
+    "toast.extra_opt_in_warn": "USER DATA / MANUAL seçimi için ek onay kutusunu işaretleyin.",
+    "toast.tasks_completed_count": "bakım görevi tamamlandı.",
+    "toast.error_prefix": "Hata: ",
+    "toast.uninstall_error": "Kaldırma hatası: ",
+    "toast.uninstall_failed": "Kaldırma başarısız: ",
+    "toast.uninstalled": "kaldırıldı",
+    "hud.waiting_server": "Sunucu yanıtı bekleniyor",
+    "hud.completed": "Tamamlandı",
+    "hud.failed": "İşlem başarısız",
+    "hud.success": "İşlem tamamlandı",
+    "hud.unknown_error": "Bilinmeyen hata",
+    "hud.ok": "Başarılı",
+    "hud.in_progress": "İşlem sürüyor…",
+    "hud.items_examined": "öğe incelendi",
+    "hud.scanning": "Taranıyor...",
+    "hud.executing": "İşlem yürütülüyor...",
+    "clean.empty_clean": "Temizlenecek öğe bulunamadı. Sisteminiz tertemiz! ✨",
+    "apps.empty_search": "Eşleşen uygulama bulunamadı.",
+    "apps.no_version": "Sürüm bilgisi yok",
+    "apps.searching_leftovers": "Artık dosyalar araştırılıyor...",
+    "apps.no_extra_leftovers": "Ekstra artık klasör bulunamadı. Sadece uygulama paketi kaldırılacak.",
+    "apps.leftovers_scan_failed": "Artıklar taranamadı: ",
+    "more.action_scanning_installers_sub": "Yükleyici dosyaları taranıyor...",
+    "more.empty_installers_found": "Eski yükleyici dosyası bulunamadı.",
+    "more.action_scanning_leftovers_sub": "Kaldırılmış uygulama artıkları taranıyor...",
+    "more.empty_leftovers_found": "Öksüz artık dosya bulunamadı.",
+    "analyzer.measured": "ölçüldü",
+    "analyzer.empty_dir": "Bu dizinde görünür öğe bulunamadı.",
+    "analyzer.unreadable": "Okunamadı",
+    "analyzer.measuring": "Ölçülüyor…",
+    "analyzer.queued": "Sırada",
+    "analyzer.enter_dir": "Bu dizinin içine gir",
+    "analyzer.no_large_files": "Bu dizinde eşik üstü dosya yok.",
+    "analyzer.files_pending": "Dosyalar hazır oldukça burada gösterilecek…",
+    "analyzer.move_trash_tip": "Çöp Sepetine Taşı",
+    "analyzer.trash_btn": "Çöp",
+    "analyzer.action_trashing": "Dosya Çöp Sepetine taşınıyor…",
+    "analyzer.reading_folders": "Klasör adları okunuyor…",
+    "analyzer.searching_large": "Büyük dosyalar aranıyor...",
+    "analyzer.listing_folders": "Klasörler listeleniyor…",
+    "purge.action_scanning_sub": "Geliştirici projeleri taranıyor...",
+    "purge.empty_projects": "Temizlenecek proje artığı bulunamadı.",
+    "dev.action_scanning_storage_sub": "Developer storage taranıyor…",
+    "dev.empty_storage_found": "Developer storage öğesi bulunamadı.",
+    "dev.action_scanning_caches_sub": "Geliştirici önbellekleri taranıyor...",
+    "dev.empty_caches_found": "Geliştirici önbelleği bulunamadı.",
+    "dev.generic_component": "Geliştirici Bileşeni",
+    "dev.badge_active": "AKTİF",
+    "dev.badge_removable": "Kaldırılabilir",
+    "dev.badge_protected": "Korumalı",
+    "dev.desc_active": "Şu anda sistem veya kabuk tarafından varsayılan olarak kullanılıyor.",
+    "dev.desc_removable": "Paket yöneticisi üzerinden güvenle kaldırılabilir.",
+    "dev.desc_protected": "Sistem tarafından korunuyor",
+    "dev.btn_uninstall_item": "Bu Öğeyi Kaldır (Uninstall)",
+    "dev.btn_uninstall_manager": "Manager ile Kaldır",
+    "dev.modal_comp_detail": "Bileşen Detayı: ",
+    "dev.empty_runtimes_found": "Yüklü çalışma zamanı bulunamadı.",
+    "dev.row_tip_detail": "Detayları görüntülemek ve kaldırmak için tıklayın",
+    "dev.empty_venvs_found": "Sanal ortam bulunamadı.",
+    "dev.empty_tools_found": "Global CLI aracı bulunamadı.",
+    "dev.empty_sdks_found": "SDK veya simülatör bulunamadı.",
+    "more.action_getting_snapshots": "Snapshot listesi alınıyor...",
+    "more.empty_snapshots_found": "Hiç anlık görüntü bulunamadı.",
+    "more.btn_start_thinning": "Daraltmayı Başlat",
+    "more.observed_diff_unmeasured": "gözlenen fark ölçülemedi",
+    "more.observed_free_space": "gözlenen boş alan ",
+    "common.increased": "arttı",
+    "common.decreased": "azaldı",
+    "optimize.empty_tasks": "Kullanılabilir optimizasyon görevi bulunamadı.",
+    "optimize.btn_run": "Çalıştır",
+    "optimize.btn_run_task": "Görevi Çalıştır",
+    "optimize.btn_run_all": "Tümünü Çalıştır",
+    "more.empty_treemap_folder": "Bu klasörde gösterilecek öğe yok.",
+    "more.treemap_initial_measuring": "İlk sonuçlar ölçülüyor…",
+    "more.items_mapped": "öğe haritalandı",
+    "more.total_visible_space": "Toplam görünür alan: ",
+    "more.treemap_hint": "Kare büyüklüğü disk kullanımına göre ölçeklenir. Klasöre girmek için kutuya tıkla.",
+    "more.treemap_measuring": "Treemap ölçülüyor…",
+    "more.treemap_done": "Treemap taraması tamamlandı",
+    "more.treemap_failed": "Treemap başarısız: ",
+    "more.action_scanning_browsers_sub": "Browser storage taranıyor…",
+    "more.empty_browsers_found": "Browser storage bulunamadı.",
+    "more.action_scanning_downloads_sub": "Smart Downloads taranıyor…",
+    "more.empty_downloads_found": "Smart Downloads adayı bulunamadı.",
+    "more.action_scanning_large_sub": "Large/old files taranıyor…",
+    "more.empty_large_found": "Filtrelere uyan large/old file bulunamadı.",
+    "more.action_scanning_duplicates_sub": "Duplicate taranıyor…",
+    "more.empty_duplicates_found": "Byte-for-byte duplicate bulunamadı.",
+    "more.empty_history_found": "Kayıtlı geçmiş işlem bulunamadı.",
+    "more.op_summary": "İşlem özeti",
+    "modal.close_first": "Önce kapat: ",
+    "modal.user_data_badge": "USER DATA / AÇIK OPT-IN",
+    "modal.user_data_confirm": "USER DATA / MANUAL etkisini anladım ve bu exact seçimi ayrıca onaylıyorum.",
+    "modal.actions_scan_est": "işlem · tarama tahmini",
+    "modal.pre_exec_checks": "Whitelist, path, ownership, symlink ve çalışan uygulama kontrolleri yürütmeden hemen önce tekrar yapılır.",
+    "outcome.scan_est": "Tarama tahmini ",
+    "outcome.no_changes": " · değişiklik yapılmadı",
+    "outcome.processed_est": "İşlenen hedef tahmini ",
+    "outcome.est_reclaim": "tahmini geri kazanım ",
+    "outcome.trash_moved": "Trash'e taşınan ",
+    "outcome.no_freed": " (alan boşalmadı)",
+    "outcome.manager_unknown": " manager etkisi bilinmiyor",
+    "outcome.diff_unmeasured": "gözlenen boş alan farkı ölçülemedi",
+    "outcome.not_strictly_macmaid": " (MacMaid’e kesin atfedilemez)",
+    "status.charging": "Şarj Ediliyor ⚡",
+    "status.on_battery": "Pilde Çalışıyor",
+    "status.cycles": "Döngü",
+    "status.desktop_ac": "Masaüstü / AC",
+    "status.batt_unavailable": "Pil verisi okunamadı",
+    "status.recommendation": "Öneri: ",
+    "status.measured_at": "Ölçüm: ",
+    "status.state_normal": "NORMAL",
+    "status.state_warning": "UYARI",
+    "status.state_critical": "KRİTİK",
+    "status.state_unknown": "BİLİNMİYOR",
+    "status.state_na": "UYGULANAMAZ",
+    "clean.btn_run_sim": "Simülasyonu Çalıştır",
+    "clean.btn_clean_reclaim": "Temizle ve Alan Kazan",
+    "clean.action_simulating": "Temizlik simüle ediliyor…",
+    "clean.action_cleaning_items": "Seçilen öğeler temizleniyor…"
+}
+};
+
+function t(key, fallback = '') {
+  const lang = state.lang || state.language || 'en';
+  const dict = I18N[lang] || I18N.en;
+  if (dict && dict[key] !== undefined) return dict[key];
+  if (I18N.en && I18N.en[key] !== undefined) return I18N.en[key];
+  return fallback || key;
+}
+
+function applyLanguage(lang) {
+  state.lang = lang;
+  state.language = lang;
+  try { localStorage.setItem('macmaid_lang', lang); } catch (_) {}
+  const dict = I18N[lang] || I18N.en;
+  document.documentElement.setAttribute('lang', lang);
+
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (dict[key] !== undefined) el.textContent = dict[key];
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    const key = el.dataset.i18nHtml;
+    if (dict[key] !== undefined) el.innerHTML = dict[key];
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.dataset.i18nTitle;
+    if (dict[key] !== undefined) {
+      el.title = dict[key];
+      el.setAttribute('aria-label', dict[key]);
+    }
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.dataset.i18nPlaceholder;
+    if (dict[key] !== undefined) el.placeholder = dict[key];
+  });
+
+  const langSelect = document.getElementById('setting-lang-select');
+  if (langSelect && langSelect.value !== lang) {
+    langSelect.value = lang;
+  }
+}
 
 async function readAPIResponse(response) {
   let payload = {};
@@ -199,7 +1234,7 @@ function showToast(message, type = 'info') {
   toast.setAttribute('role', 'button');
   toast.setAttribute('tabindex', '0');
   toast.setAttribute('aria-label', `${message}. Bildirimi kapat`);
-  toast.title = 'Kapatmak için tıklayın';
+  toast.title = t('toast.close_tip', 'Click to dismiss');
   toast.innerHTML = `
     <span class="toast-icon">⚡</span>
     <span class="toast-msg">${escapeHtml(message)}</span>
@@ -265,7 +1300,7 @@ function highlightCollectionDiff(tbody, previousItems, nextItems, colspan) {
     const row = document.createElement('tr');
     row.className = 'row-removed';
     row.innerHTML = `<td colspan="${colspan}"></td>`;
-    row.firstElementChild.textContent = `Kaldırıldı: ${item.title || item.name || item.label || item.path}`;
+    row.firstElementChild.textContent = `${t('toast.uninstalled', 'Removed')}: ${item.title || item.name || item.label || item.path}`;
     tbody.prepend(row);
   });
   setTimeout(() => {
@@ -295,7 +1330,7 @@ function setGauge(circleId, percent) {
 // CONTINUOUS IN-PAGE LIVE PROGRESS FEEDBACK ENGINE
 // =========================================================
 
-function startLiveProgressPolling(label = 'İşlem başlatılıyor…') {
+function startLiveProgressPolling(label = t('hud.starting', 'Starting operation…')) {
   state.isOperationRunning = true;
   state.operationObservedActive = false;
   const hud = document.getElementById('global-operation-hud');
@@ -305,7 +1340,7 @@ function startLiveProgressPolling(label = 'İşlem başlatılıyor…') {
   const detail = document.getElementById('global-operation-detail');
   const percent = document.getElementById('global-operation-percent');
   if (title) title.textContent = label;
-  if (detail) detail.textContent = 'Sunucu yanıtı bekleniyor';
+  if (detail) detail.textContent = t('hud.waiting_server', 'Waiting for server response');
   if (percent) percent.textContent = '…';
   if (state.progressTimer) clearInterval(state.progressTimer);
   state.progressTimer = setInterval(pollLiveProgress, 200);
@@ -320,7 +1355,7 @@ function stopLiveProgressPolling() {
       pollLiveProgress().finally(() => {
         const hud = document.getElementById('global-operation-hud');
         if (hud && !hud.classList.contains('hidden') && !hud.classList.contains('is-error') && !hud.classList.contains('is-success')) {
-          showOperationOutcome('success', 'Tamamlandı');
+          showOperationOutcome('success', t('hud.completed', 'Completed'));
         }
       });
     }
@@ -336,8 +1371,8 @@ function showOperationOutcome(type, message) {
   const title = document.getElementById('global-operation-title');
   const detail = document.getElementById('global-operation-detail');
   const percent = document.getElementById('global-operation-percent');
-  if (title) title.textContent = type === 'error' ? 'İşlem başarısız' : 'İşlem tamamlandı';
-  if (detail) detail.textContent = message || (type === 'error' ? 'Bilinmeyen hata' : 'Başarılı');
+  if (title) title.textContent = type === 'error' ? t('hud.failed', 'Operation failed') : t('hud.success', 'Operation completed');
+  if (detail) detail.textContent = message || (type === 'error' ? t('hud.unknown_error', 'Unknown error') : t('hud.ok', 'Successful'));
   if (percent) percent.textContent = type === 'error' ? '!' : '✓';
   setTimeout(() => {
     if (!state.isOperationRunning) hud.classList.add('hidden');
@@ -354,9 +1389,9 @@ async function cancelActiveScan(event) {
       body: JSON.stringify({ service })
     });
     const result = await readAPIResponse(response);
-    showToast(result.cancelled ? 'Tarama güvenli durma noktasında iptal ediliyor.' : 'Aktif tarama bulunamadı.', result.cancelled ? 'warning' : 'info');
+    showToast(result.cancelled ? t('toast.scan_cancelling', 'Scan is cancelling safely.') : t('toast.no_active_scan', 'No active scan found.'), result.cancelled ? 'warning' : 'info');
   } catch (error) {
-    showToast(`Tarama durdurulamadı: ${error.message}`, 'error');
+    showToast(`${t('toast.scan_cancel_failed', 'Failed to stop scan: ')}${error.message}`, 'error');
   } finally {
     if (button) button.disabled = false;
   }
@@ -388,12 +1423,12 @@ function renderInPageProgress(p) {
       cancelButton.dataset.service = service === 'analyzer' ? 'analyzer' : 'clean';
       cancelButton.onclick = cancelActiveScan;
     }
-    if (hudTitle) hudTitle.textContent = p.action || 'İşlem sürüyor…';
-    if (hudDetail) hudDetail.textContent = p.phase || p.path || 'Çalışıyor';
+    if (hudTitle) hudTitle.textContent = p.action || t('hud.in_progress', 'Operation in progress…');
+    if (hudDetail) hudDetail.textContent = p.phase || p.path || t('clean.phase_working', 'WORKING');
     if (hudPercent) hudPercent.textContent = p.percent >= 0 ? `${p.percent}%` : '…';
   } else if (state.isOperationRunning && state.operationObservedActive) {
     document.getElementById('global-scan-cancel')?.classList.add('hidden');
-    showOperationOutcome('success', p.phase || 'Tamamlandı');
+    showOperationOutcome('success', p.phase || t('hud.completed', 'Completed'));
   }
 
   // Map sub-services to their top-level tab dot
@@ -445,17 +1480,17 @@ function renderInPageProgress(p) {
     card.classList.remove('hidden');
 
     const actEl = document.getElementById(`${activePrefix}-action-label`) || document.getElementById(`${service}-action-label`);
-    if (actEl) actEl.textContent = p.action || 'İşlem Sürüyor...';
+    if (actEl) actEl.textContent = p.action || t('hud.in_progress', 'Operation in progress…');
 
     const phaseEl = document.getElementById(`${activePrefix}-phase-badge`) || document.getElementById(`${service}-phase-badge`);
-    if (phaseEl) phaseEl.textContent = p.phase || 'ÇALIŞIYOR';
+    if (phaseEl) phaseEl.textContent = p.phase || t('clean.phase_working', 'WORKING');
 
     const countEl = document.getElementById(`${activePrefix}-progress-count`) || document.getElementById(`${service}-progress-count`);
     if (countEl) {
       if (p.total > 0 && p.completed !== undefined) {
         countEl.textContent = `${p.completed} / ${p.total}`;
       } else if (p.completed !== undefined && p.completed > 0) {
-        countEl.textContent = `${p.completed.toLocaleString()} öğe incelendi`;
+        countEl.textContent = `${p.completed.toLocaleString()} ${t('hud.items_examined', 'items examined')}`;
       } else {
         countEl.textContent = '';
       }
@@ -467,7 +1502,7 @@ function renderInPageProgress(p) {
 
     const pctEl = document.getElementById(`${activePrefix}-progress-percent`) || document.getElementById(`${service}-progress-percent`);
     if (pctEl) {
-      pctEl.textContent = pct >= 0 ? `${pct}%` : 'Taranıyor...';
+      pctEl.textContent = pct >= 0 ? `${pct}%` : t('hud.scanning', 'Scanning...');
     }
 
     const barEl = document.getElementById(`${activePrefix}-progress-bar`) || document.getElementById(`${service}-progress-bar`);
@@ -482,14 +1517,14 @@ function renderInPageProgress(p) {
     }
 
     const pathEl = document.getElementById(`${activePrefix}-path-text`) || document.getElementById(`${service}-path-text`);
-    if (pathEl) pathEl.textContent = p.path || p.activity || p.detail || 'İşlem yürütülüyor...';
+    if (pathEl) pathEl.textContent = p.path || p.activity || p.detail || t('hud.executing', 'Executing operation...');
 
     const logsContainer = document.getElementById(`${activePrefix}-logs-container`) || document.getElementById(`${service}-logs-container`);
     if (logsContainer && p.logs && p.logs.length) {
       logsContainer.innerHTML = p.logs.map(log => {
         let cls = 'inpage-log-line';
-        if (log.includes('✓') || log.includes('başarıyla') || log.includes('tamamlandı')) cls += ' success';
-        else if (log.includes('Uyarı') || log.includes('hata')) cls += ' warn';
+        if (log.includes('✓') || log.includes('başarıyla') || log.includes('tamamlandı') || /success|completed|done/i.test(log)) cls += ' success';
+        else if (log.includes('Uyarı') || log.includes('hata') || /warn|error|fail/i.test(log)) cls += ' warn';
         return `<div class="${cls}">${escapeHtml(log)}</div>`;
       }).join('');
       logsContainer.scrollTop = logsContainer.scrollHeight;
@@ -520,7 +1555,7 @@ window.toggleInPageLogs = function(service) {
   if (!container) return;
   const isHidden = container.classList.toggle('hidden');
   if (btnText) {
-    btnText.textContent = isHidden ? '▸ Canlı Log Akışı' : '▾ Günlüğü Gizle';
+    btnText.textContent = isHidden ? t('clean.logs_btn', '▸ Live Log Stream') : t('clean.logs_hide_btn', '▾ Hide Log Stream');
   }
 };
 
@@ -542,17 +1577,17 @@ function renderStatus(data) {
 
   const healthGrid = document.getElementById('health-indicators');
   if (healthGrid && Array.isArray(health)) {
-    const stateLabels = { normal: 'NORMAL', warning: 'UYARI', critical: 'KRİTİK', unknown: 'BİLİNMİYOR', not_applicable: 'UYGULANAMAZ' };
+    const stateLabels = { normal: t('status.state_normal', 'NORMAL'), warning: t('status.state_warning', 'WARNING'), critical: t('status.state_critical', 'CRITICAL'), unknown: t('status.state_unknown', 'UNKNOWN'), not_applicable: t('status.state_na', 'N/A') };
     healthGrid.innerHTML = health.map(item => `
       <article class="health-indicator health-${escapeHtml(item.state)}">
         <div class="health-indicator-head">
           <strong>${escapeHtml(item.label)}</strong>
-          <span class="health-state">${escapeHtml(stateLabels[item.state] || 'BİLİNMİYOR')}</span>
+          <span class="health-state">${escapeHtml(stateLabels[item.state] || t('status.state_unknown', 'UNKNOWN'))}</span>
         </div>
         <div class="health-value">${escapeHtml(item.value)}</div>
         <p>${escapeHtml(item.detail)}</p>
-        ${item.recommendation ? `<p class="health-recommendation">Öneri: ${escapeHtml(item.recommendation)}</p>` : ''}
-        <small>Ölçüm: ${escapeHtml(item.measuredAt)}</small>
+        ${item.recommendation ? `<p class="health-recommendation">${t('status.recommendation', 'Recommendation: ')}${escapeHtml(item.recommendation)}</p>` : ''}
+        <small>${t('status.measured_at', 'Measured: ')}${escapeHtml(item.measuredAt)}</small>
       </article>`).join('');
   }
 
@@ -577,7 +1612,7 @@ function renderStatus(data) {
     const diskTotalGB = (metrics.diskTotal / (1024 ** 3)).toFixed(1);
     const diskFreeGB = Math.max(0, Number(metrics.diskFree ?? (metrics.diskTotal - metrics.diskUsed)) / (1024 ** 3)).toFixed(1);
     const diskPct = Number(metrics.diskPercent ?? ((metrics.diskUsed / metrics.diskTotal) * 100)) || 0;
-    document.getElementById('header-disk-val').textContent = `${diskFreeGB} GB boş`;
+    document.getElementById('header-disk-val').textContent = `${diskFreeGB} GB ${t('sidebar.free', 'free')}`;
     document.getElementById('dash-disk-percent-val').textContent = `${diskPct.toFixed(0)}%`;
     document.getElementById('dash-disk-free-val').textContent = `${diskFreeGB} GB`;
     document.getElementById('dash-disk-used-val').textContent = `${diskUsedGB} GB`;
@@ -601,14 +1636,14 @@ function renderStatus(data) {
   if (battery && battery.percent !== null && battery.percent !== undefined) {
     document.getElementById('dash-batt-pct').textContent = `${battery.percent}%`;
     document.getElementById('dash-batt-bar').style.width = `${battery.percent}%`;
-    document.getElementById('dash-batt-state').textContent = battery.charging ? 'Şarj Ediliyor ⚡' : 'Pilde Çalışıyor';
-    document.getElementById('dash-batt-cycles').textContent = battery.cycleCount ? `${battery.cycleCount} Döngü` : 'Normal';
+    document.getElementById('dash-batt-state').textContent = battery.charging ? t('status.charging', 'Charging ⚡') : t('status.on_battery', 'On Battery');
+    document.getElementById('dash-batt-cycles').textContent = battery.cycleCount ? `${battery.cycleCount} ${t('status.cycles', 'Cycles')}` : t('status.state_normal', 'Normal');
   } else {
     const batteryHealth = Array.isArray(health) ? health.find(item => item.id === 'battery') : null;
     const absent = batteryHealth?.state === 'not_applicable';
     document.getElementById('dash-batt-pct').textContent = absent ? 'Pil Yok' : 'Bilinmiyor';
     document.getElementById('dash-batt-bar').style.width = '0%';
-    document.getElementById('dash-batt-state').textContent = absent ? 'Masaüstü / AC' : 'Pil verisi okunamadı';
+    document.getElementById('dash-batt-state').textContent = absent ? t('status.desktop_ac', 'Desktop / AC') : t('status.batt_unavailable', 'Battery data unavailable');
     document.getElementById('dash-batt-cycles').textContent = absent ? 'Uygulanamaz' : 'Bilinmiyor';
   }
 
@@ -657,12 +1692,12 @@ async function runSmartScan() {
     renderScanResults(data);
     if (data.isComplete) {
       SoundEffects.playSuccess();
-      showToast(`Tarama tamamlandı: ${data.items.length} öğe bulundu (${data.humanTotal})`, 'success');
+      showToast(`${t('toast.scan_completed', 'Scan completed: ')}${data.items.length} ${t('toast.items_found', 'items found')} (${data.humanTotal})`, 'success');
     } else {
-      showToast(`Tarama ${data.status}: sonuçlar eksik, temizlik engellendi. ${(data.notes || []).join(' ')}`, 'warning');
+      showToast(`${t('clean.title', 'Scan')} ${data.status}: ${t('toast.results_incomplete', 'results incomplete, cleanup prevented.')} ${(data.notes || []).join(' ')}`, 'warning');
     }
   } catch (err) {
-    showToast(`Tarama hatası: ${err.message}`, 'error');
+    showToast(`${t('toast.scan_error', 'Scan error: ')}${err.message}`, 'error');
   } finally {
     stopLiveProgressPolling();
     btnScan.disabled = false;
@@ -679,7 +1714,7 @@ function renderScanResults(scanData) {
 
   const tbody = document.getElementById('tbody-clean-items');
   if (!scanData.items || scanData.items.length === 0) {
-    const message = scanData.isComplete ? 'Temizlenecek öğe bulunamadı. Sisteminiz tertemiz! ✨' : `Tarama ${escapeHtml(scanData.status || 'eksik')} · sonuçlar temizleme için kullanılamaz.`;
+    const message = scanData.isComplete ? t('clean.empty_clean', 'No items to clean. Your system is pristine! ✨') : `${t('clean.title', 'Scan')} ${escapeHtml(scanData.status || '')} · ${t('toast.results_incomplete', 'results incomplete')}`;
     tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${message}</td></tr>`;
     return;
   }
@@ -725,11 +1760,11 @@ function updateSelectedCleanStats() {
 
 async function executeClean() {
   if (state.currentScan && !state.currentScan.isComplete) {
-    showToast('Kısmi veya iptal edilmiş tarama temizlenemez. Yeni ve tam bir tarama çalıştırın.', 'warning');
+    showToast(t('toast.partial_scan_warn', 'Partial or cancelled scans cannot be cleaned. Please run a fresh, full scan.'), 'warning');
     return;
   }
   if (!state.currentScan || state.selectedCleanItems.size === 0) {
-    showToast('Temizlemek için en az bir öğe seçin.', 'warning');
+    showToast(t('toast.select_at_least_one', 'Select at least one item to clean.'), 'warning');
     return;
   }
 
@@ -740,7 +1775,7 @@ async function executeClean() {
   try {
     reviewResponse = await requestOperationReview('/api/clean', payload);
   } catch (err) {
-    showToast(`İnceleme hazırlanamadı: ${err.message}`, 'error');
+    showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error');
     return;
   }
 
@@ -748,15 +1783,15 @@ async function executeClean() {
     reviewResponse.review.title,
     operationReviewHtml(reviewResponse.review),
     [
-      { text: 'Vazgeç', class: 'btn-secondary', onClick: hideModal },
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
       {
-        text: isDryRun ? 'Simülasyonu Çalıştır' : 'Temizle ve Alan Kazan',
+        text: isDryRun ? t('clean.btn_run_sim', 'Run Simulation') : t('clean.btn_clean_reclaim', 'Clean & Reclaim Space'),
         class: 'btn-danger',
         onClick: async () => {
           const authorized = reviewedPayload(payload, reviewResponse);
           if (!authorized) return;
           hideModal();
-          startLiveProgressPolling(isDryRun ? 'Temizlik simüle ediliyor…' : 'Seçilen öğeler temizleniyor…');
+          startLiveProgressPolling(isDryRun ? t('clean.action_simulating', 'Simulating cleanup…') : t('clean.action_cleaning_items', 'Cleaning selected items…'));
           const btn = document.getElementById('btn-execute-clean');
           btn.disabled = true;
           btn.innerHTML = `<span>Temizleniyor...</span>`;
@@ -779,7 +1814,7 @@ async function executeClean() {
           } finally {
             stopLiveProgressPolling();
             btn.disabled = false;
-            btn.innerHTML = `<span>Temizliği Başlat</span>`;
+            btn.innerHTML = `<span>${t('clean.btn_execute', 'Start Cleaning')}</span>`;
           }
         }
       }
@@ -796,8 +1831,8 @@ async function fetchApplications() {
   const previousApps = state.apps || [];
   container.classList.add('is-refreshing');
   container.setAttribute('aria-busy', 'true');
-  if (!previousApps.length) container.innerHTML = `<div class="loading-state">Yüklü uygulamalar taranıyor...</div>`;
-  startLiveProgressPolling('Yüklü uygulamalar taranıyor…');
+  if (!previousApps.length) container.innerHTML = `<div class="loading-state">${t('apps.action_scanning', 'Scanning Applications...')}</div>`;
+  startLiveProgressPolling(t('apps.action_scanning', 'Scanning Applications…'));
 
   try {
     const res = await fetch('/api/apps');
@@ -815,7 +1850,7 @@ async function fetchApplications() {
       previousApps.filter(app => !nextApps.some(next => next.path === app.path)).forEach(app => {
         const removed = document.createElement('div');
         removed.className = 'app-item-card row-removed';
-        removed.textContent = `Kaldırıldı: ${app.name}`;
+        removed.textContent = `${t('toast.uninstalled', 'Removed')}: ${app.name}`;
         container.prepend(removed);
       });
       setTimeout(() => {
@@ -824,7 +1859,7 @@ async function fetchApplications() {
       }, 4500);
     }
   } catch (err) {
-    if (!previousApps.length) container.innerHTML = `<div class="empty-state">Uygulamalar alınamadı: ${escapeHtml(err.message)}</div>`;
+    if (!previousApps.length) container.innerHTML = `<div class="empty-state">${t('apps.load_failed', 'Failed to load applications: ')}${escapeHtml(err.message)}</div>`;
     showOperationOutcome('error', err.message);
   } finally {
     container.classList.remove('is-refreshing');
@@ -844,7 +1879,7 @@ function renderAppsList() {
   else filtered.sort((a, b) => a.name.localeCompare(b.name));
 
   if (filtered.length === 0) {
-    container.innerHTML = `<div class="empty-state">Eşleşen uygulama bulunamadı.</div>`;
+    container.innerHTML = `<div class="empty-state">${t('apps.empty_search', 'No matching applications found.')}</div>`;
     return;
   }
 
@@ -899,11 +1934,11 @@ async function selectApp(app) {
   }, { once: true });
   document.getElementById('detail-app-name').textContent = app.name;
   document.getElementById('detail-app-bundle').textContent = app.bundleId || app.path;
-  document.getElementById('detail-app-version').textContent = app.version ? `Sürüm ${app.version}` : 'Sürüm bilgisi yok';
+  document.getElementById('detail-app-version').textContent = app.version ? `${t('settings.version_label', 'Version')} ${app.version}` : t('apps.no_version', 'No version info');
   document.getElementById('detail-app-size').textContent = formatBytes(app.bytes);
 
   const leftoversList = document.getElementById('detail-leftovers-list');
-  leftoversList.innerHTML = `<div style="padding: 10px; color: var(--text-dim);">Artık dosyalar araştırılıyor...</div>`;
+  leftoversList.innerHTML = `<div style="padding: 10px; color: var(--text-dim);">${t('apps.searching_leftovers', 'Searching for leftovers...')}</div>`;
 
   try {
     const res = await fetch(`/api/apps/leftovers?path=${encodeURIComponent(app.path)}&bundleId=${encodeURIComponent(app.bundleId || '')}`);
@@ -912,7 +1947,7 @@ async function selectApp(app) {
     document.getElementById('detail-leftovers-count').textContent = `${state.appLeftovers.length} konum`;
 
     if (state.appLeftovers.length === 0) {
-      leftoversList.innerHTML = `<div class="empty-state" style="padding: 15px;">Ekstra artık klasör bulunamadı. Sadece uygulama paketi kaldırılacak.</div>`;
+      leftoversList.innerHTML = `<div class="empty-state" style="padding: 15px;">${t('apps.no_extra_leftovers', 'No extra leftovers found. Only application bundle will be removed.')}</div>`;
     } else {
       leftoversList.innerHTML = state.appLeftovers.map(item => `
         <div class="leftover-row">
@@ -925,7 +1960,7 @@ async function selectApp(app) {
       `).join('');
     }
   } catch (err) {
-    leftoversList.innerHTML = `<div class="empty-state">Artıklar taranamadı: ${escapeHtml(err.message)}</div>`;
+    leftoversList.innerHTML = `<div class="empty-state">${t('apps.leftovers_scan_failed', 'Failed to scan leftovers: ')}${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -937,7 +1972,7 @@ async function uninstallSelectedApp() {
   try {
     reviewResponse = await requestOperationReview('/api/apps/uninstall', payload);
   } catch (err) {
-    showToast(`İnceleme hazırlanamadı: ${err.message}`, 'error');
+    showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error');
     return;
   }
 
@@ -945,9 +1980,9 @@ async function uninstallSelectedApp() {
     reviewResponse.review.title,
     operationReviewHtml(reviewResponse.review),
     [
-      { text: 'İptal', class: 'btn-secondary', onClick: hideModal },
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
       {
-        text: 'Kaldır',
+        text: t('apps.btn_uninstall', 'Uninstall'),
         class: 'btn-danger',
         onClick: async () => {
           const authorized = reviewedPayload(payload, reviewResponse);
@@ -963,14 +1998,14 @@ async function uninstallSelectedApp() {
             const data = await readAPIResponse(res);
             Confetti.launch();
             SoundEffects.playSuccess();
-            showToast(`${app.name} kaldırıldı · ${operationOutcomeText(data)}`, 'success');
+            showToast(`${app.name} ${t('toast.uninstalled', 'uninstalled')} · ${operationOutcomeText(data)}`, 'success');
             state.selectedApp = null;
             document.getElementById('app-detail-view').classList.add('hidden');
             document.getElementById('app-detail-empty').classList.remove('hidden');
             await fetchApplications();
           } catch (e) {
             showOperationOutcome('error', e.message);
-            showToast(`Kaldırma hatası: ${e.message}`, 'error');
+            showToast(`${t('toast.uninstall_error', 'Uninstall error: ')}${e.message}`, 'error');
           } finally {
             stopLiveProgressPolling();
           }
@@ -990,7 +2025,7 @@ async function scanInstallers() {
   const days = daysPill ? daysPill.dataset.days : '30';
 
   const tbody = document.getElementById('tbody-installers');
-  tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Yükleyici dosyaları taranıyor...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.action_scanning_installers_sub', 'Scanning installer files...')}</td></tr>`;
   startLiveProgressPolling();
 
   try {
@@ -1005,7 +2040,7 @@ async function scanInstallers() {
     syncMasterCheckbox('master-installers-chk', state.installers.length, state.selectedInstallers.size);
 
     if (state.installers.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Eski yükleyici dosyası bulunamadı.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.empty_installers_found', 'No old installer files found.')}</td></tr>`;
       return;
     }
 
@@ -1037,7 +2072,7 @@ async function scanInstallers() {
 
 async function executeInstallersClean() {
   if (state.selectedInstallers.size === 0) {
-    showToast('Silmek için en az bir yükleyici seçin.', 'warning');
+    showToast(t('toast.select_installer_warn', 'Select at least one installer to delete.'), 'warning');
     return;
   }
 
@@ -1045,14 +2080,14 @@ async function executeInstallersClean() {
   const payload = { paths };
   let reviewResponse;
   try { reviewResponse = await requestOperationReview('/api/installers/clean', payload); }
-  catch (err) { showToast(`İnceleme hazırlanamadı: ${err.message}`, 'error'); return; }
+  catch (err) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error'); return; }
   showModal(
     reviewResponse.review.title,
     operationReviewHtml(reviewResponse.review),
     [
-      { text: 'İptal', class: 'btn-secondary', onClick: hideModal },
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
       {
-        text: 'Çöpe Taşı',
+        text: t('common.move_to_trash', 'Move to Trash'),
         class: 'btn-danger',
         onClick: async () => {
           const authorized = reviewedPayload(payload, reviewResponse);
@@ -1092,7 +2127,7 @@ async function scanLeftovers() {
   const includeData = document.getElementById('chk-leftovers-data').checked;
 
   const tbody = document.getElementById('tbody-leftovers');
-  tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Kaldırılmış uygulama artıkları taranıyor...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.action_scanning_leftovers_sub', 'Scanning orphaned application leftovers...')}</td></tr>`;
   startLiveProgressPolling();
 
   try {
@@ -1103,12 +2138,12 @@ async function scanLeftovers() {
     state.selectedLeftovers = new Set(state.leftovers.filter(l => l.risk !== 'MANUAL').map(l => l.id));
 
     document.getElementById('leftovers-total-size').textContent = data.humanTotal || formatBytes(data.totalBytes);
-    document.getElementById('leftovers-count').textContent = `(${state.leftovers.length} artık)`;
+    document.getElementById('leftovers-count').textContent = `(${state.leftovers.length} ${t('more.leftovers_title', 'leftovers')})`;
     const actionableCount = state.leftovers.filter(item => item.risk !== 'MANUAL').length;
     syncMasterCheckbox('master-leftovers-chk', actionableCount, state.selectedLeftovers.size);
 
     if (state.leftovers.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Öksüz artık dosya bulunamadı.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.empty_leftovers_found', 'No orphaned leftover files found.')}</td></tr>`;
       return;
     }
 
@@ -1140,7 +2175,7 @@ async function scanLeftovers() {
 
 async function executeLeftoversClean() {
   if (state.selectedLeftovers.size === 0) {
-    showToast('Silmek için en az bir artık seçin.', 'warning');
+    showToast(t('toast.select_leftover_warn', 'Select at least one leftover to delete.'), 'warning');
     return;
   }
 
@@ -1148,12 +2183,12 @@ async function executeLeftoversClean() {
   const payload = { itemIds };
   let reviewResponse;
   try { reviewResponse = await requestOperationReview('/api/leftovers/clean', payload); }
-  catch (err) { showToast(`İnceleme hazırlanamadı: ${err.message}`, 'error'); return; }
+  catch (err) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error'); return; }
   showModal(
     reviewResponse.review.title,
     operationReviewHtml(reviewResponse.review),
     [
-      { text: 'İptal', class: 'btn-secondary', onClick: hideModal },
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
       {
         text: 'Sil',
         class: 'btn-danger',
@@ -1200,23 +2235,23 @@ function renderAnalyzerSnapshot(data, requestId) {
   document.getElementById('analyzer-current-path').textContent = data.path;
   document.getElementById('analyzer-total-size').textContent = data.isComplete
     ? (data.humanTotal || formatBytes(data.totalBytes))
-    : `${data.humanTotal || formatBytes(data.totalBytes)} ölçüldü`;
+    : `${data.humanTotal || formatBytes(data.totalBytes)} ${t('analyzer.measured', 'measured')}`;
   cachedBadge?.classList.toggle('hidden', !data.cached);
 
   if (entries.length === 0) {
-    folderBars.innerHTML = `<div class="empty-state">Bu dizinde görünür öğe bulunamadı.</div>`;
+    folderBars.innerHTML = `<div class="empty-state">${t('analyzer.empty_dir', 'No visible items in this directory.')}</div>`;
   } else {
     folderBars.innerHTML = entries.map(entry => {
       const ready = entry.state === 'ready';
       const scanning = entry.state === 'scanning';
       const failed = entry.state === 'failed';
-      const sizeLabel = ready ? (entry.humanBytes || formatBytes(entry.bytes)) : (failed ? 'Okunamadı' : (scanning ? 'Ölçülüyor…' : 'Sırada'));
+      const sizeLabel = ready ? (entry.humanBytes || formatBytes(entry.bytes)) : (failed ? t('analyzer.unreadable', 'Unreadable') : (scanning ? t('analyzer.measuring', 'Measuring…') : t('analyzer.queued', 'Queued')));
       const percentLabel = ready ? `${entry.percent || 0}%` : '';
       const rowClass = ready ? 'is-ready' : (failed ? 'is-failed' : 'is-measuring');
       const barClass = ready ? '' : 'indeterminate';
       const width = ready ? Math.max(2, entry.percent || 0) : 100;
       return `
-        <div class="folder-bar-item ${rowClass}" data-path="${escapeHtml(entry.path)}" data-directory="${entry.isDirectory}" tabindex="${entry.isDirectory ? '0' : '-1'}" ${entry.isDirectory ? 'role="button"' : ''} title="${entry.isDirectory ? 'Bu dizinin içine gir' : 'Dosya'}">
+        <div class="folder-bar-item ${rowClass}" data-path="${escapeHtml(entry.path)}" data-directory="${entry.isDirectory}" tabindex="${entry.isDirectory ? '0' : '-1'}" ${entry.isDirectory ? 'role="button"' : ''} title="${entry.isDirectory ? t('analyzer.enter_dir', 'Enter this directory') : t('common.th_file', 'File')}">
           <div class="folder-bar-header">
             <span class="folder-name">
               <span class="folder-icon">${entry.isDirectory ? '📁' : '📄'}</span>
@@ -1246,14 +2281,14 @@ function renderAnalyzerSnapshot(data, requestId) {
   }
 
   if (!data.largestFiles || data.largestFiles.length === 0) {
-    tbodyFiles.innerHTML = `<tr><td colspan="4" class="empty-state">${data.isComplete ? 'Bu dizinde eşik üstü dosya yok.' : 'Dosyalar hazır oldukça burada gösterilecek…'}</td></tr>`;
+    tbodyFiles.innerHTML = `<tr><td colspan="4" class="empty-state">${data.isComplete ? t('analyzer.no_large_files', 'No files above threshold in this directory.') : t('analyzer.files_pending', 'Files will appear here as they are processed…')}</td></tr>`;
   } else {
     tbodyFiles.innerHTML = data.largestFiles.map(file => `
       <tr>
         <td><strong>${escapeHtml(file.name)}</strong></td>
         <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(file.path)}</span></td>
         <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(file.humanBytes)}</td>
-        <td><button class="btn btn-secondary btn-sm btn-trash-file" data-path="${escapeHtml(file.path)}" title="Çöp Sepetine Taşı">Çöp</button></td>
+        <td><button class="btn btn-secondary btn-sm btn-trash-file" data-path="${escapeHtml(file.path)}" title="${t('analyzer.move_trash_tip', 'Move to Trash')}">${t('analyzer.trash_btn', 'Trash')}</button></td>
       </tr>`).join('');
 
     tbodyFiles.querySelectorAll('.btn-trash-file').forEach(btn => {
@@ -1262,14 +2297,14 @@ function renderAnalyzerSnapshot(data, requestId) {
         const payload = { path };
         let reviewResponse;
         try { reviewResponse = await requestOperationReview('/api/analyze/trash', payload); }
-        catch (error) { showToast(`İnceleme hazırlanamadı: ${error.message}`, 'error'); return; }
+        catch (error) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${error.message}`, 'error'); return; }
         showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-          { text: 'İptal', class: 'btn-secondary', onClick: hideModal },
-          { text: 'Çöpe Taşı', class: 'btn-danger', onClick: async () => {
+          { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
+          { text: t('common.move_to_trash', 'Move to Trash'), class: 'btn-danger', onClick: async () => {
             const authorized = reviewedPayload(payload, reviewResponse);
             if (!authorized) return;
             hideModal();
-            startLiveProgressPolling('Dosya Çöp Sepetine taşınıyor…');
+            startLiveProgressPolling(t('analyzer.action_trashing', 'Moving file to Trash…'));
             try {
               const response = await fetch('/api/analyze/trash', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized)
@@ -1305,7 +2340,7 @@ async function fetchAnalyzerSnapshot(path, requestId, { start = false, force = f
   state.analyzerPollTimer = setTimeout(() => {
     fetchAnalyzerSnapshot(data.path, requestId).catch(error => {
       if (requestId !== state.analyzerRequestId) return;
-      showToast(`Analiz hatası: ${error.message}`, 'error');
+      showToast(`${t('clean.title', 'Analyze')} error: ${error.message}`, 'error');
       showOperationOutcome('error', error.message);
       stopLiveProgressPolling();
     });
@@ -1333,11 +2368,11 @@ async function runDiskAnalyzer(targetPath = null, options = {}) {
   } else {
     document.getElementById('analyzer-total-size').textContent = '--';
     document.getElementById('analyzer-cached-badge')?.classList.add('hidden');
-    folderBars.innerHTML = `<div class="loading-state">Klasör adları okunuyor…</div>`;
-    tbodyFiles.innerHTML = `<tr><td colspan="4" class="empty-state">Büyük dosyalar aranıyor...</td></tr>`;
+    folderBars.innerHTML = `<div class="loading-state">${t('analyzer.reading_folders', 'Reading folder names…')}</div>`;
+    tbodyFiles.innerHTML = `<tr><td colspan="4" class="empty-state">${t('analyzer.searching_large', 'Searching large files...')}</td></tr>`;
   }
 
-  startLiveProgressPolling('Klasörler listeleniyor…');
+  startLiveProgressPolling(t('analyzer.listing_folders', 'Listing folders…'));
 
   try {
     await fetchAnalyzerSnapshot(path, requestId, { start: true, force: options.force === true });
@@ -1353,7 +2388,7 @@ function navigateAnalyzerToParent() {
   const current = state.currentAnalyzePath || document.getElementById('analyzer-path-input')?.value || '~';
   const trimmed = current.trim();
   if (trimmed === '/' || trimmed === '') {
-    showToast('Zaten kök dizindesiniz (/)...', 'info');
+    showToast(t('toast.already_root', 'Already at root directory (/)...'), 'info');
     return;
   }
   if (trimmed === '~') {
@@ -1386,7 +2421,7 @@ function navigateAnalyzerToParent() {
 async function scanProjectArtifacts() {
   SoundEffects.playClick();
   const tbody = document.getElementById('tbody-purge-items');
-  tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Geliştirici projeleri taranıyor...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${t('purge.action_scanning_sub', 'Scanning developer projects...')}</td></tr>`;
   startLiveProgressPolling();
 
   try {
@@ -1414,7 +2449,7 @@ function renderPurgeArtifacts() {
   syncMasterCheckbox('master-purge-chk', state.purgeArtifacts.length, state.selectedPurgeArtifacts.size);
 
   if (state.purgeArtifacts.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Temizlenecek proje artığı bulunamadı.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${t('purge.empty_projects', 'No project build artifacts found to clean.')}</td></tr>`;
     return;
   }
 
@@ -1444,7 +2479,7 @@ function renderPurgeArtifacts() {
 
 async function executePurge() {
   if (state.selectedPurgeArtifacts.size === 0) {
-    showToast('Silinecek en az bir proje dizini seçin.', 'warning');
+    showToast(t('toast.select_project_warn', 'Select at least one project folder to delete.'), 'warning');
     return;
   }
 
@@ -1452,15 +2487,15 @@ async function executePurge() {
   const payload = { paths: selected.map(s => s.path) };
   let reviewResponse;
   try { reviewResponse = await requestOperationReview('/api/purge', payload); }
-  catch (err) { showToast(`İnceleme hazırlanamadı: ${err.message}`, 'error'); return; }
+  catch (err) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error'); return; }
 
   showModal(
     reviewResponse.review.title,
     operationReviewHtml(reviewResponse.review),
     [
-      { text: 'İptal', class: 'btn-secondary', onClick: hideModal },
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
       {
-        text: 'Çöpe Taşı',
+        text: t('common.move_to_trash', 'Move to Trash'),
         class: 'btn-danger',
         onClick: async () => {
           const authorized = reviewedPayload(payload, reviewResponse);
@@ -1496,15 +2531,15 @@ async function executePurge() {
 async function scanDeveloperStorage() {
   const tbody = document.getElementById('tbody-devstorage');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="4" class="empty-state">Developer storage taranıyor…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="4" class="empty-state">${t('dev.action_scanning_storage_sub', 'Scanning developer storage…')}</td></tr>`;
   try {
     const data = await readAPIResponse(await fetch('/api/developer/storage'));
     tbody.innerHTML = (data.sections || []).map(section => {
       const items = (section.items || []).slice(0, 8).map(item => `${escapeHtml(item.label)} (${escapeHtml(item.humanBytes || formatBytes(item.bytes || 0))})`).join('<br>');
       return `<tr><td><strong>${escapeHtml(section.title)}</strong></td><td>${escapeHtml(section.humanBytes || formatBytes(section.bytes || 0))}</td><td>${items || '<span class="text-muted">Inventory only</span>'}</td><td>${escapeHtml(section.note || '')}</td></tr>`;
-    }).join('') || `<tr><td colspan="4" class="empty-state">Developer storage öğesi bulunamadı.</td></tr>`;
+    }).join('') || `<tr><td colspan="4" class="empty-state">${t('dev.empty_storage_found', 'No developer storage items found.')}</td></tr>`;
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="4" class="empty-state">Storage scan başarısız: ${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-state">${t('dev.scan_failed', 'Storage scan failed: ')}${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -1514,7 +2549,7 @@ async function scanDeveloperStorage() {
 async function scanDeveloperCaches() {
   SoundEffects.playClick();
   const tbody = document.getElementById('tbody-devcaches');
-  tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Geliştirici önbellekleri taranıyor...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${t('dev.action_scanning_caches_sub', 'Scanning developer caches...')}</td></tr>`;
   startLiveProgressPolling();
 
   try {
@@ -1525,12 +2560,12 @@ async function scanDeveloperCaches() {
     state.selectedDevCaches = new Set(state.devCaches.filter(i => i.risk !== 'MANUAL').map(i => i.id));
 
     document.getElementById('devcaches-total-size').textContent = data.humanTotal || formatBytes(data.totalBytes);
-    document.getElementById('devcaches-count').textContent = `(${state.devCaches.length} önbellek)`;
+    document.getElementById('devcaches-count').textContent = `(${state.devCaches.length} ${t('dev.caches_title', 'caches')})`;
     const actionableCount = state.devCaches.filter(item => item.risk !== 'MANUAL').length;
     syncMasterCheckbox('master-devcaches-chk', actionableCount, state.selectedDevCaches.size);
 
     if (state.devCaches.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Geliştirici önbelleği bulunamadı.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${t('dev.empty_caches_found', 'No developer caches found.')}</td></tr>`;
       return;
     }
 
@@ -1563,7 +2598,7 @@ async function scanDeveloperCaches() {
 
 async function executeDeveloperCachesClean() {
   if (state.selectedDevCaches.size === 0) {
-    showToast('Temizlenecek en az bir önbellek seçin.', 'warning');
+    showToast(t('toast.select_cache_warn', 'Select at least one cache to clean.'), 'warning');
     return;
   }
 
@@ -1571,12 +2606,12 @@ async function executeDeveloperCachesClean() {
   const payload = { itemIds };
   let reviewResponse;
   try { reviewResponse = await requestOperationReview('/api/developer/caches/clean', payload); }
-  catch (err) { showToast(`İnceleme hazırlanamadı: ${err.message}`, 'error'); return; }
+  catch (err) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error'); return; }
   showModal(
     reviewResponse.review.title,
     operationReviewHtml(reviewResponse.review),
     [
-      { text: 'İptal', class: 'btn-secondary', onClick: hideModal },
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
       {
         text: 'Temizle',
         class: 'btn-danger',
@@ -1610,15 +2645,15 @@ async function executeDeveloperCachesClean() {
 // Developer Item Details & Removal Modal
 function showDeveloperItemModal(item, onRefresh) {
   SoundEffects.playClick();
-  const title = item.title || `${item.language || ''} ${item.version || ''}`.trim() || 'Geliştirici Bileşeni';
+  const title = item.title || `${item.language || ''} ${item.version || ''}`.trim() || t('dev.generic_component', 'Developer Component');
 
   let statusHtml = '';
   if (item.isActive) {
-    statusHtml = `<span class="badge-status badge-green">AKTİF</span> <span style="font-size: 12px; color: var(--text-dim); margin-left: 6px;">Şu anda sistem veya kabuk tarafından varsayılan olarak kullanılıyor.</span>`;
+    statusHtml = `<span class="badge-status badge-green">${t('dev.badge_active', 'ACTIVE')}</span> <span style="font-size: 12px; color: var(--text-dim); margin-left: 6px;">${t('dev.desc_active', 'Currently used as default by shell or system.')}</span>`;
   } else if (item.removable) {
-    statusHtml = `<span class="badge-status badge-yellow">Kaldırılabilir</span> <span style="font-size: 12px; color: var(--text-dim); margin-left: 6px;">Paket yöneticisi (${escapeHtml(item.manager)}) üzerinden güvenle kaldırılabilir.</span>`;
+    statusHtml = `<span class="badge-status badge-yellow">${t('dev.badge_removable', 'Removable')}</span> <span style="font-size: 12px; color: var(--text-dim); margin-left: 6px;">${t('dev.desc_removable', 'Can be safely removed via package manager.')} (${escapeHtml(item.manager)})</span>`;
   } else {
-    statusHtml = `<span class="badge-status">Korumalı</span> <span style="font-size: 12px; color: var(--text-dim); margin-left: 6px;">${escapeHtml(item.protectedReason || 'Sistem tarafından korunuyor')}</span>`;
+    statusHtml = `<span class="badge-status">${t('dev.badge_protected', 'Protected')}</span> <span style="font-size: 12px; color: var(--text-dim); margin-left: 6px;">${escapeHtml(item.protectedReason || t('dev.desc_protected', 'Protected by system.'))}</span>`;
   }
 
   const html = `
@@ -1630,17 +2665,17 @@ function showDeveloperItemModal(item, onRefresh) {
 
       <div style="display: grid; grid-template-columns: 120px 1fr; gap: 9px 14px; align-items: baseline;">
         <span class="text-muted">Kategori:</span>
-        <span><strong>${escapeHtml((item.category || 'GELİŞTİRİCİ').toUpperCase())}</strong></span>
+        <span><strong>${escapeHtml((item.category || t('dev.title', 'DEVELOPER')).toUpperCase())}</strong></span>
 
         ${item.version ? `
-          <span class="text-muted">Sürüm:</span>
+          <span class="text-muted">${t('settings.version_label', 'Version')}:</span>
           <span style="font-family: var(--font-mono); font-weight: 600;">${escapeHtml(item.version)}</span>
         ` : ''}
 
-        <span class="text-muted">Paket Yöneticisi:</span>
+        <span class="text-muted">${t('dev.th_manager', 'Manager')}:</span>
         <span>${escapeHtml(item.manager)}</span>
 
-        <span class="text-muted">Kapladığı Alan:</span>
+        <span class="text-muted">${t('dev.occupied_space', 'Occupied Space')}:</span>
         <strong class="highlight-cyan" style="font-family: var(--font-mono);">${escapeHtml(item.humanBytes || formatBytes(item.bytes || 0))}</strong>
 
         <span class="text-muted">Kurulum Yolu:</span>
@@ -1652,7 +2687,7 @@ function showDeveloperItemModal(item, onRefresh) {
         <div>${statusHtml}</div>
 
         ${item.note ? `
-          <span class="text-muted">Açıklama:</span>
+          <span class="text-muted">${t('dev.description', 'Description')}:</span>
           <span style="color: var(--text-dim);">${escapeHtml(item.note)}</span>
         ` : ''}
       </div>
@@ -1665,30 +2700,30 @@ function showDeveloperItemModal(item, onRefresh) {
 
   if (item.removable && !item.isActive) {
     buttons.push({
-      text: 'Bu Öğeyi Kaldır (Uninstall)',
+      text: t('dev.btn_uninstall_item', 'Uninstall This Item'),
       class: 'btn-danger',
       onClick: async () => {
         const payload = { category: item.category, id: item.id };
         let reviewResponse;
         try { reviewResponse = await requestOperationReview('/api/developer/remove', payload); }
-        catch (e) { showToast(`İnceleme hazırlanamadı: ${e.message}`, 'error'); return; }
+        catch (e) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${e.message}`, 'error'); return; }
         showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-          { text: 'İptal', class: 'btn-secondary', onClick: hideModal },
-          { text: 'Manager ile Kaldır', class: 'btn-danger', onClick: async () => {
+          { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
+          { text: t('dev.btn_uninstall_manager', 'Uninstall with Manager'), class: 'btn-danger', onClick: async () => {
             const authorized = reviewedPayload(payload, reviewResponse);
             if (!authorized) return;
             hideModal();
-            startLiveProgressPolling(`${title} kaldırılıyor…`);
+            startLiveProgressPolling(`${title} ${t('hud.in_progress', 'removing…')}`);
             try {
               const res = await fetch('/api/developer/remove', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized)
               });
               const resData = await readAPIResponse(res);
               Confetti.launch(); SoundEffects.playSuccess();
-              showToast(`${title} kaldırıldı · ${operationOutcomeText(resData)}`, 'success');
+              showToast(`${title} ${t('toast.uninstalled', 'uninstalled')} · ${operationOutcomeText(resData)}`, 'success');
               if (typeof onRefresh === 'function') await onRefresh();
             } catch (e) {
-              showToast(`Kaldırma başarısız: ${e.message}`, 'error'); showOperationOutcome('error', e.message);
+              showToast(`${t('toast.uninstall_failed', 'Uninstall failed: ')}${e.message}`, 'error'); showOperationOutcome('error', e.message);
             } finally { stopLiveProgressPolling(); }
           }}
         ]);
@@ -1696,7 +2731,7 @@ function showDeveloperItemModal(item, onRefresh) {
     });
   }
 
-  showModal(`Bileşen Detayı: ${title}`, html, buttons);
+  showModal(`${t('dev.modal_comp_detail', 'Component Details: ')}${title}`, html, buttons);
 }
 
 // Developer Runtimes & Languages
@@ -1704,8 +2739,8 @@ async function scanDeveloperRuntimes() {
   SoundEffects.playClick();
   const tbody = document.getElementById('tbody-devruntimes');
   const previousItems = state.developerRuntimes || [];
-  beginCollectionRefresh(tbody, previousItems, 6, 'Çalışma zamanları taranıyor...');
-  startLiveProgressPolling('Çalışma zamanları taranıyor…');
+  beginCollectionRefresh(tbody, previousItems, 6, t('dev.action_scanning_runtimes', 'Scanning runtimes...'));
+  startLiveProgressPolling(t('dev.action_scanning_runtimes', 'Scanning runtimes…'));
 
   try {
     const res = await fetch('/api/developer/runtimes');
@@ -1715,21 +2750,21 @@ async function scanDeveloperRuntimes() {
     const changed = collectionFingerprint(previousItems) !== collectionFingerprint(items);
     state.developerRuntimes = items;
     document.getElementById('devruntimes-total-size').textContent = data.humanTotal || formatBytes(data.totalBytes);
-    document.getElementById('devruntimes-count').textContent = `(${items.length} çalışma zamanı tespit edildi)`;
+    document.getElementById('devruntimes-count').textContent = `(${items.length} ${t('dev.zero_runtimes', 'runtimes detected')})`;
 
     if (items.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Yüklü çalışma zamanı bulunamadı.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${t('dev.empty_runtimes_found', 'No installed runtimes found.')}</td></tr>`;
       return;
     }
 
     if (!changed && previousItems.length) return;
     tbody.innerHTML = items.map((item, idx) => `
-      <tr class="clickable-row" data-idx="${idx}" data-item-id="${escapeHtml(item.id || item.path)}" title="Detayları görüntülemek ve kaldırmak için tıklayın">
+      <tr class="clickable-row" data-idx="${idx}" data-item-id="${escapeHtml(item.id || item.path)}" title="${t('dev.row_tip_detail', 'Click to view details and remove')}">
         <td><strong>${escapeHtml(item.language)}</strong></td>
         <td><span style="font-family: var(--font-mono); font-weight: 600;">${escapeHtml(item.version)}</span></td>
         <td><span class="badge-status">${escapeHtml(item.manager)}</span></td>
         <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
-        <td><span class="badge-status ${item.isActive ? 'badge-green' : (item.removable ? 'badge-yellow' : '')}">${item.isActive ? 'AKTİF' : (item.removable ? 'Kaldırılabilir' : 'Korumalı')}</span></td>
+        <td><span class="badge-status ${item.isActive ? 'badge-green' : (item.removable ? 'badge-yellow' : '')}">${item.isActive ? t('dev.badge_active', 'ACTIVE') : (item.removable ? t('dev.badge_removable', 'Removable') : t('dev.badge_protected', 'Protected'))}</span></td>
         <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes)}</td>
       </tr>
     `).join('');
@@ -1756,8 +2791,8 @@ async function scanDeveloperEnvironments() {
   SoundEffects.playClick();
   const tbody = document.getElementById('tbody-devenvironments');
   const previousItems = state.developerEnvironments || [];
-  beginCollectionRefresh(tbody, previousItems, 5, 'Sanal ortamlar taranıyor...');
-  startLiveProgressPolling('Sanal ortamlar taranıyor…');
+  beginCollectionRefresh(tbody, previousItems, 5, t('dev.action_scanning_env', 'Scanning virtual environments...'));
+  startLiveProgressPolling(t('dev.action_scanning_env', 'Scanning virtual environments…'));
 
   try {
     const res = await fetch('/api/developer/environments');
@@ -1770,13 +2805,13 @@ async function scanDeveloperEnvironments() {
     document.getElementById('devenvironments-count').textContent = `(${items.length} ortam tespit edildi)`;
 
     if (items.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Sanal ortam bulunamadı.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('dev.empty_venvs_found', 'No virtual environments found.')}</td></tr>`;
       return;
     }
 
     if (!changed && previousItems.length) return;
     tbody.innerHTML = items.map((item, idx) => `
-      <tr class="clickable-row" data-idx="${idx}" data-item-id="${escapeHtml(item.id || item.path)}" title="Detayları görüntülemek ve kaldırmak için tıklayın">
+      <tr class="clickable-row" data-idx="${idx}" data-item-id="${escapeHtml(item.id || item.path)}" title="${t('dev.row_tip_detail', 'Click to view details and remove')}">
         <td><strong>${escapeHtml(item.title)}</strong></td>
         <td><span class="badge-status">${escapeHtml(item.manager)}</span></td>
         <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
@@ -1807,8 +2842,8 @@ async function scanDeveloperTools() {
   SoundEffects.playClick();
   const tbody = document.getElementById('tbody-devtools');
   const previousItems = state.developerTools || [];
-  beginCollectionRefresh(tbody, previousItems, 5, 'Global CLI araçları taranıyor...');
-  startLiveProgressPolling('Global CLI araçları taranıyor…');
+  beginCollectionRefresh(tbody, previousItems, 5, t('dev.action_scanning_tools', 'Scanning global tools...'));
+  startLiveProgressPolling(t('dev.action_scanning_tools', 'Scanning global tools…'));
 
   try {
     const res = await fetch('/api/developer/tools');
@@ -1818,20 +2853,20 @@ async function scanDeveloperTools() {
     const changed = collectionFingerprint(previousItems) !== collectionFingerprint(items);
     state.developerTools = items;
     document.getElementById('devtools-total-size').textContent = data.humanTotal || formatBytes(data.totalBytes);
-    document.getElementById('devtools-count').textContent = `(${items.length} araç tespit edildi)`;
+    document.getElementById('devtools-count').textContent = `(${items.length} ${t('dev.zero_tools', 'tools detected')})`;
 
     if (items.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Global CLI aracı bulunamadı.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('dev.empty_tools_found', 'No global CLI tools found.')}</td></tr>`;
       return;
     }
 
     if (!changed && previousItems.length) {
-      showToast('Global CLI araçlarında değişiklik yok.', 'info');
+      showToast(t('toast.no_cli_changes', 'No changes in global CLI tools.'), 'info');
       return;
     }
 
     tbody.innerHTML = items.map((item, idx) => `
-      <tr class="clickable-row" data-idx="${idx}" data-item-id="${escapeHtml(item.id || item.path)}" title="Detayları görüntülemek ve kaldırmak için tıklayın">
+      <tr class="clickable-row" data-idx="${idx}" data-item-id="${escapeHtml(item.id || item.path)}" title="${t('dev.row_tip_detail', 'Click to view details and remove')}">
         <td><strong>${escapeHtml(item.title)}</strong></td>
         <td><span class="badge-status">${escapeHtml(item.manager)}</span></td>
         <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
@@ -1862,8 +2897,8 @@ async function scanDeveloperSDKs() {
   SoundEffects.playClick();
   const tbody = document.getElementById('tbody-devsdks');
   const previousItems = state.developerSDKs || [];
-  beginCollectionRefresh(tbody, previousItems, 5, 'SDK ve simülatörler taranıyor...');
-  startLiveProgressPolling('SDK ve simülatörler taranıyor…');
+  beginCollectionRefresh(tbody, previousItems, 5, t('dev.action_scanning_sdks', 'Scanning SDKs & simulators...'));
+  startLiveProgressPolling(t('dev.action_scanning_sdks', 'Scanning SDKs & simulators…'));
 
   try {
     const res = await fetch('/api/developer/sdks');
@@ -1873,16 +2908,16 @@ async function scanDeveloperSDKs() {
     const changed = collectionFingerprint(previousItems) !== collectionFingerprint(items);
     state.developerSDKs = items;
     document.getElementById('devsdks-total-size').textContent = data.humanTotal || formatBytes(data.totalBytes);
-    document.getElementById('devsdks-count').textContent = `(${items.length} SDK/Simülatör tespit edildi)`;
+    document.getElementById('devsdks-count').textContent = `(${items.length} ${t('dev.zero_sdks', 'SDKs/Simulators detected')})`;
 
     if (items.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">SDK veya simülatör bulunamadı.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('dev.empty_sdks_found', 'No SDKs or simulators found.')}</td></tr>`;
       return;
     }
 
     if (!changed && previousItems.length) return;
     tbody.innerHTML = items.map((item, idx) => `
-      <tr class="clickable-row" data-idx="${idx}" data-item-id="${escapeHtml(item.id || item.path)}" title="Detayları görüntülemek ve kaldırmak için tıklayın">
+      <tr class="clickable-row" data-idx="${idx}" data-item-id="${escapeHtml(item.id || item.path)}" title="${t('dev.row_tip_detail', 'Click to view details and remove')}">
         <td><strong>${escapeHtml(item.title)}</strong></td>
         <td><span class="badge-status">${escapeHtml(item.manager)}</span></td>
         <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
@@ -1915,14 +2950,14 @@ async function scanDeveloperSDKs() {
 async function fetchSnapshotsList() {
   SoundEffects.playClick();
   const box = document.getElementById('snapshots-list-box');
-  box.textContent = 'Snapshot listesi alınıyor...';
+  box.textContent = t('more.action_getting_snapshots', 'Retrieving snapshot list...');
   startLiveProgressPolling();
 
   try {
     const res = await fetch('/api/snapshots');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    box.textContent = data.raw || 'Hiç anlık görüntü bulunamadı.';
+    box.textContent = data.raw || t('more.empty_snapshots_found', 'No snapshots found.');
   } catch (err) {
     box.textContent = `Hata: ${err.message}`;
   } finally {
@@ -1936,15 +2971,15 @@ async function executeSnapshotThin() {
   const payload = { targetGB };
   let reviewResponse;
   try { reviewResponse = await requestOperationReview('/api/snapshots/thin', payload); }
-  catch (err) { showToast(`İnceleme hazırlanamadı: ${err.message}`, 'error'); return; }
+  catch (err) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error'); return; }
 
   showModal(
     reviewResponse.review.title,
     operationReviewHtml(reviewResponse.review),
     [
-      { text: 'İptal', class: 'btn-secondary', onClick: hideModal },
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
       {
-        text: 'Daraltmayı Başlat',
+        text: t('more.btn_start_thinning', 'Start Thinning'),
         class: 'btn-danger',
         onClick: async () => {
           const authorized = reviewedPayload(payload, reviewResponse);
@@ -1960,9 +2995,9 @@ async function executeSnapshotThin() {
             const data = await readAPIResponse(res);
             SoundEffects.playSuccess();
             const observed = data.observedFreeBytesDelta === null || data.observedFreeBytesDelta === undefined
-              ? 'gözlenen fark ölçülemedi'
-              : `gözlenen boş alan ${formatBytes(Math.abs(data.observedFreeBytesDelta))} ${data.observedFreeBytesDelta >= 0 ? 'arttı' : 'azaldı'}`;
-            showToast(`Snapshot daraltma isteği tamamlandı · gerçek manager etkisi bilinmiyor · ${observed} (MacMaid’e kesin atfedilemez)`, 'success');
+              ? t('outcome.diff_unmeasured', 'observed difference unmeasured')
+              : `${t('more.observed_free_space', 'observed free space ')}${formatBytes(Math.abs(data.observedFreeBytesDelta))} ${data.observedFreeBytesDelta >= 0 ? t('common.increased', 'increased') : t('common.decreased', 'decreased')}`;
+            showToast(`${t('toast.snapshot_thinned', 'Snapshot thinning request completed · actual manager impact unknown · ')}${observed}${t('outcome.not_strictly_macmaid', ' (not strictly attributable to MacMaid)')}`, 'success');
             fetchSnapshotsList();
           } catch (e) {
             showToast(`Hata: ${e.message}`, 'error');
@@ -1984,13 +3019,13 @@ async function fetchOptimizationTasks() {
   try {
     const res = await fetch('/api/optimize');
     const data = await readAPIResponse(res);
-    renderOptimizationTasks(data.tasks || [], data.reason || 'Kullanılabilir optimizasyon görevi bulunamadı.');
+    renderOptimizationTasks(data.tasks || [], data.reason || t('optimize.empty_tasks', 'No available optimization tasks found.'));
   } catch (err) {
-    container.innerHTML = `<div class="empty-state">Görevler alınamadı: ${escapeHtml(err.message)}</div>`;
+    container.innerHTML = `<div class="empty-state">${t('optimize.load_failed', 'Failed to load tasks: ')}${escapeHtml(err.message)}</div>`;
   }
 }
 
-function renderOptimizationTasks(tasks, unavailableReason = 'Kullanılabilir optimizasyon görevi bulunamadı.') {
+function renderOptimizationTasks(tasks, unavailableReason = t('optimize.empty_tasks', 'No available optimization tasks found.')) {
   const container = document.getElementById('optimize-tasks-grid');
   if (tasks.length === 0) {
     container.innerHTML = `<div class="empty-state">${escapeHtml(unavailableReason)}</div>`;
@@ -2012,7 +3047,7 @@ function renderOptimizationTasks(tasks, unavailableReason = 'Kullanılabilir opt
       </div>
       <div class="task-footer">
         <span class="badge-status ${task.risk === 'SAFE' ? 'live-status' : ''}">${escapeHtml(task.risk)}</span>
-        <button class="btn btn-secondary btn-sm btn-run-task" data-id="${task.id}">Çalıştır</button>
+        <button class="btn btn-secondary btn-sm btn-run-task" data-id="${task.id}">${t('optimize.btn_run', 'Run')}</button>
       </div>
     </div>
   `).join('');
@@ -2027,10 +3062,10 @@ async function runSingleOptimizeTask(taskId) {
   const payload = { taskId };
   let reviewResponse;
   try { reviewResponse = await requestOperationReview('/api/optimize/run', payload); }
-  catch (err) { showToast(`İnceleme hazırlanamadı: ${err.message}`, 'error'); return; }
+  catch (err) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error'); return; }
   showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-    { text: 'İptal', class: 'btn-secondary', onClick: hideModal },
-    { text: 'Görevi Çalıştır', class: 'btn-danger', onClick: async () => {
+    { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
+    { text: t('optimize.btn_run_task', 'Run Task'), class: 'btn-danger', onClick: async () => {
       const authorized = reviewedPayload(payload, reviewResponse);
       if (!authorized) return;
       hideModal(); startLiveProgressPolling();
@@ -2039,7 +3074,7 @@ async function runSingleOptimizeTask(taskId) {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized)
         });
         const data = await readAPIResponse(res);
-        SoundEffects.playSuccess(); showToast(`Görev tamamlandı: ${data.message || 'Başarılı'}`, 'success');
+        SoundEffects.playSuccess(); showToast(`${t('toast.task_completed', 'Task completed: ')}${data.message || t('hud.ok', 'Successful')}`, 'success');
       } catch (err) { showToast(`Hata: ${err.message}`, 'error'); }
       finally { stopLiveProgressPolling(); }
     }}
@@ -2071,7 +3106,7 @@ async function fetchDoctorReport() {
       `).join('');
     }
   } catch (e) {
-    showToast(`Doktor raporu alınamadı: ${e.message}`, 'error');
+    showToast(`${t('toast.doctor_failed', 'Failed to obtain doctor report: ')}${e.message}`, 'error');
   } finally {
     stopLiveProgressPolling();
   }
@@ -2138,7 +3173,7 @@ function renderTreemap(data) {
     .sort((a, b) => b.value - a.value);
 
   if (!nodes.length) {
-    box.innerHTML = `<div class="empty-state">${data.isComplete ? 'Bu klasörde gösterilecek öğe yok.' : 'İlk sonuçlar ölçülüyor…'}</div>`;
+    box.innerHTML = `<div class="empty-state">${data.isComplete ? t('more.empty_treemap_folder', 'No items to show in this folder.') : t('more.treemap_initial_measuring', 'Measuring initial results…')}</div>`;
     return;
   }
 
@@ -2157,9 +3192,9 @@ function renderTreemap(data) {
   box.innerHTML = `
     <div class="treemap-shell">
       <div class="treemap-summary-row">
-        <span><strong>${nodes.length}</strong> öğe haritalandı</span>
-        <span>Toplam görünür alan: <strong>${escapeHtml(data.humanTotal || formatBytes(totalBytes))}</strong></span>
-        <span class="text-muted">Kare büyüklüğü disk kullanımına göre ölçeklenir. Klasöre girmek için kutuya tıkla.</span>
+        <span><strong>${nodes.length}</strong> ${t('more.items_mapped', 'items mapped')}</span>
+        <span>${t('more.total_visible_space', 'Total visible space: ')}<strong>${escapeHtml(data.humanTotal || formatBytes(totalBytes))}</strong></span>
+        <span class="text-muted">${t('more.treemap_hint', 'Tile size scales with disk usage. Click a box to drill into the folder.')}</span>
       </div>
       <div class="treemap-canvas" style="height:${height}px;">
         ${rects.map(rect => {
@@ -2211,7 +3246,7 @@ async function fetchTreemap(path = treemapPath, force = false, polling = false, 
       renderTreemap(localSnapshot);
       card?.classList.add('hidden');
     } else {
-      box.innerHTML = `<div class="empty-state">Treemap ölçülüyor…</div>`;
+      box.innerHTML = `<div class="empty-state">${t('more.treemap_measuring', 'Measuring treemap…')}</div>`;
       card?.classList.remove('hidden');
     }
   }
@@ -2231,7 +3266,7 @@ async function fetchTreemap(path = treemapPath, force = false, polling = false, 
     document.getElementById('treemap-progress-percent').textContent = `${percent}% · ${done}/${total}`;
     document.getElementById('treemap-progress-bar').style.width = `${percent}%`;
     document.getElementById('treemap-progress-path').textContent = data.currentScanPath || treemapPath;
-    document.getElementById('treemap-action-label').textContent = data.isComplete ? 'Treemap taraması tamamlandı' : 'Treemap taranıyor…';
+    document.getElementById('treemap-action-label').textContent = data.isComplete ? t('more.treemap_done', 'Treemap scan completed') : t('more.action_scanning_treemap', 'Scanning treemap…');
     lastTreemapData = data;
     const renderSignature = getTreemapRenderSignature(data);
     if (renderSignature !== lastTreemapRenderSignature) {
@@ -2251,7 +3286,7 @@ async function fetchTreemap(path = treemapPath, force = false, polling = false, 
   } catch (err) {
     if (requestId !== treemapRequestId) return;
     card?.classList.add('hidden');
-    box.innerHTML = `<div class="empty-state">Treemap başarısız: ${escapeHtml(err.message)}</div>`;
+    box.innerHTML = `<div class="empty-state">${t('more.treemap_failed', 'Treemap failed: ')}${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -2266,8 +3301,8 @@ async function trashTreemapPath(path) {
   try {
     const reviewResponse = await requestOperationReview('/api/treemap/trash', payload);
     showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-      { text: 'Vazgeç', class: 'btn-secondary', onClick: hideModal },
-      { text: 'Trash’e Taşı', class: 'btn-danger', onClick: async () => {
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
+      { text: t('common.move_to_trash', 'Move to Trash'), class: 'btn-danger', onClick: async () => {
         const authorized = reviewedPayload({ ...payload, extraOptIn: true }, reviewResponse);
         if (!authorized) return;
         hideModal();
@@ -2286,7 +3321,7 @@ async function trashTreemapPath(path) {
 async function fetchBrowserStorage() {
   const tbody = document.getElementById('tbody-browser-storage');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Browser storage taranıyor…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${t('more.action_scanning_browsers_sub', 'Scanning browser storage…')}</td></tr>`;
   try {
     const data = await readAPIResponse(await fetch('/api/browser-storage'));
     state.browserStorage = data;
@@ -2301,20 +3336,20 @@ async function fetchBrowserStorage() {
         <td><span class="${riskClass}">${escapeHtml(area.risk || '')}${area.cleanable ? ' · Smart Clean' : ' · Not auto-selected'}</span></td>
         <td>${escapeHtml(area.humanBytes || formatBytes(area.bytes || 0))}</td>
       </tr>`;
-    }).join('') || `<tr><td colspan="6" class="empty-state">Browser storage bulunamadı.</td></tr>`;
+    }).join('') || `<tr><td colspan="6" class="empty-state">${t('more.empty_browsers_found', 'No browser storage found.')}</td></tr>`;
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Browser storage scan başarısız: ${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${t('more.browser_scan_failed', 'Browser storage scan failed: ')}${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
 async function cleanBrowserCache() {
   const ids = Array.from(document.querySelectorAll('.browser-storage-chk:checked')).map(chk => chk.dataset.id).filter(Boolean);
-  if (ids.length === 0) return showToast('Smart Clean için güvenli cache alanı seçilmedi.', 'warning');
+  if (ids.length === 0) return showToast(t('toast.no_safe_cache_warn', 'No safe cache area selected for Smart Clean.'), 'warning');
   const payload = { itemIds: ids };
   try {
     const reviewResponse = await requestOperationReview('/api/browser-storage/clean', payload);
     showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-      { text: 'Vazgeç', class: 'btn-secondary', onClick: hideModal },
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
       { text: 'Cache Temizle', class: 'btn-danger', onClick: async () => {
         const authorized = reviewedPayload(payload, reviewResponse);
         if (!authorized) return;
@@ -2337,7 +3372,7 @@ async function fetchSmartDownloads() {
   const tbody = document.getElementById('tbody-smart-downloads');
   if (!tbody) return;
   const age = document.getElementById('smart-downloads-age-filter')?.value || '30';
-  tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Smart Downloads taranıyor…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.action_scanning_downloads_sub', 'Scanning smart downloads…')}</td></tr>`;
   try {
     const data = await readAPIResponse(await fetch(`/api/smart-downloads?olderThanDays=${encodeURIComponent(age)}`));
     tbody.innerHTML = (data.files || []).map(file => `<tr>
@@ -2346,10 +3381,10 @@ async function fetchSmartDownloads() {
       <td>${Number(file.ageDays || 0)}d</td>
       <td>${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
       <td><button class="mini-btn smart-download-trash" data-path="${escapeHtml(file.path)}">Move to Trash</button></td>
-    </tr>`).join('') || `<tr><td colspan="5" class="empty-state">Smart Downloads adayı bulunamadı.</td></tr>`;
+    </tr>`).join('') || `<tr><td colspan="5" class="empty-state">${t('more.empty_downloads_found', 'No smart download candidates found.')}</td></tr>`;
     tbody.querySelectorAll('.smart-download-trash').forEach(button => button.addEventListener('click', () => trashSmartDownloadPath(button.dataset.path)));
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Smart Downloads scan başarısız: ${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.downloads_scan_failed', 'Smart Downloads scan failed: ')}${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -2359,8 +3394,8 @@ async function trashSmartDownloadPath(path) {
   try {
     const reviewResponse = await requestOperationReview('/api/smart-downloads/trash', payload);
     showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-      { text: 'Vazgeç', class: 'btn-secondary', onClick: hideModal },
-      { text: 'Trash’e Taşı', class: 'btn-danger', onClick: async () => {
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
+      { text: t('common.move_to_trash', 'Move to Trash'), class: 'btn-danger', onClick: async () => {
         const authorized = reviewedPayload({ ...payload, extraOptIn: true }, reviewResponse);
         if (!authorized) return;
         hideModal();
@@ -2383,7 +3418,7 @@ async function fetchLargeFiles() {
   if (!tbody) return;
   const size = document.getElementById('large-size-filter')?.value || '500MB';
   const age = document.getElementById('large-age-filter')?.value || '';
-  tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Large/old files taranıyor…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.action_scanning_large_sub', 'Scanning large and old files…')}</td></tr>`;
   try {
     const params = new URLSearchParams({ minSize: size });
     if (age) params.set('olderThanDays', age);
@@ -2394,10 +3429,10 @@ async function fetchLargeFiles() {
       <td>${Number(file.ageDays || 0)}d</td>
       <td>${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
       <td><button class="mini-btn large-file-trash" data-path="${escapeHtml(file.path)}">Move to Trash</button></td>
-    </tr>`).join('') || `<tr><td colspan="5" class="empty-state">Filtrelere uyan large/old file bulunamadı.</td></tr>`;
+    </tr>`).join('') || `<tr><td colspan="5" class="empty-state">${t('more.empty_large_found', 'No large or old files matching filters found.')}</td></tr>`;
     tbody.querySelectorAll('.large-file-trash').forEach(button => button.addEventListener('click', () => trashLargeFilePath(button.dataset.path)));
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Large/old scan başarısız: ${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.large_scan_failed', 'Large/old scan failed: ')}${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -2407,8 +3442,8 @@ async function trashLargeFilePath(path) {
   try {
     const reviewResponse = await requestOperationReview('/api/large-files/trash', payload);
     showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-      { text: 'Vazgeç', class: 'btn-secondary', onClick: hideModal },
-      { text: 'Trash’e Taşı', class: 'btn-danger', onClick: async () => {
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
+      { text: t('common.move_to_trash', 'Move to Trash'), class: 'btn-danger', onClick: async () => {
         const authorized = reviewedPayload({ ...payload, extraOptIn: true }, reviewResponse);
         if (!authorized) return;
         hideModal();
@@ -2429,7 +3464,7 @@ async function trashLargeFilePath(path) {
 async function fetchDuplicates() {
   const tbody = document.getElementById('tbody-duplicates');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="4" class="empty-state">Duplicate taranıyor…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="4" class="empty-state">${t('more.action_scanning_duplicates_sub', 'Scanning duplicates…')}</td></tr>`;
   try {
     const res = await fetch('/api/duplicates');
     const data = await readAPIResponse(res);
@@ -2444,12 +3479,12 @@ async function fetchDuplicates() {
         </tr>`);
       });
     });
-    tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="empty-state">Byte-for-byte duplicate bulunamadı.</td></tr>`;
+    tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="empty-state">${t('more.empty_duplicates_found', 'No byte-for-byte duplicates found.')}</td></tr>`;
     tbody.querySelectorAll('.duplicate-trash').forEach(button => {
       button.addEventListener('click', () => trashDuplicatePath(button.dataset.path));
     });
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="4" class="empty-state">Duplicate taraması başarısız: ${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-state">${t('more.duplicate_scan_failed', 'Duplicate scan failed: ')}${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -2459,8 +3494,8 @@ async function trashDuplicatePath(path) {
   try {
     const reviewResponse = await requestOperationReview('/api/duplicates/trash', payload);
     showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-      { text: 'Vazgeç', class: 'btn-secondary', onClick: hideModal },
-      { text: 'Trash’e Taşı', class: 'btn-danger', onClick: async () => {
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
+      { text: t('common.move_to_trash', 'Move to Trash'), class: 'btn-danger', onClick: async () => {
         const authorized = reviewedPayload({ ...payload, extraOptIn: true }, reviewResponse);
         if (!authorized) return;
         hideModal();
@@ -2487,11 +3522,11 @@ async function fetchHistory() {
 
     document.getElementById('hist-total-freed').textContent = data.humanTotalEstimatedReclaimed || '0 B';
     document.getElementById('hist-total-items').textContent = data.totalOperations || '0';
-    document.getElementById('hist-last-run').textContent = data.lastOperationDate || 'Hiç yapılmadı';
+    document.getElementById('hist-last-run').textContent = data.lastOperationDate || t('more.hist_never', 'Never');
 
     const tbody = document.getElementById('tbody-history');
     if (!data.entries || data.entries.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Kayıtlı geçmiş işlem bulunamadı.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.empty_history_found', 'No recorded history operations found.')}</td></tr>`;
       return;
     }
 
@@ -2505,7 +3540,7 @@ async function fetchHistory() {
       <tr>
         <td>${escapeHtml(e.date || '')}</td>
         <td><span class="badge-status">${escapeHtml(e.action || 'clean')}</span></td>
-        <td><strong>${escapeHtml(e.label || e.category || 'İşlem özeti')}</strong><br><small>${escapeHtml(restoreStatus)}</small></td>
+        <td><strong>${escapeHtml(e.label || e.category || t('more.op_summary', 'Operation Summary'))}</strong><br><small>${escapeHtml(restoreStatus)}</small></td>
         <td style="font-family: var(--font-mono);">${formatBytes(e.estimatedReclaimedBytes || 0)}</td>
         <td><span class="highlight-green">${escapeHtml(e.result || 'success')}</span>${actions}</td>
       </tr>`;
@@ -2559,9 +3594,9 @@ async function saveWhitelist() {
       body: JSON.stringify({ lines })
     });
     await readAPIResponse(res);
-    showToast('Beyaz liste ayarları kaydedildi.', 'success');
+    showToast(t('toast.whitelist_saved', 'Whitelist settings saved.'), 'success');
   } catch (e) {
-    showToast(`Kayıt hatası: ${e.message}`, 'error');
+    showToast(`${t('toast.save_error', 'Save error: ')}${e.message}`, 'error');
   }
 }
 
@@ -2584,37 +3619,38 @@ function operationReviewHtml(review) {
       <strong>[${escapeHtml(item.risk)}] ${escapeHtml(item.label)}</strong><br>
       <span style="font-family:var(--font-mono);font-size:11px;word-break:break-all;">${escapeHtml(item.target)}</span><br>
       <span class="text-muted">${escapeHtml(item.action)} · ${escapeHtml(item.reason)}</span>
-      ${item.requires_app_closed ? `<br><span class="badge-status badge-yellow">Önce kapat: ${escapeHtml(item.requires_app_closed)}</span>` : ''}
-      ${item.user_data ? '<br><span class="badge-status badge-yellow">USER DATA / AÇIK OPT-IN</span>' : ''}
+      ${item.requires_app_closed ? `<br><span class="badge-status badge-yellow">${t('modal.close_first', 'Close first: ')}${escapeHtml(item.requires_app_closed)}</span>` : ''}
+      ${item.user_data ? `<br><span class="badge-status badge-yellow">${t('modal.user_data_badge', 'USER DATA / EXPLICIT OPT-IN')}</span>` : ''}
     </li>`).join('');
   const extra = review.requiresExtraOptIn ? `
     <label style="display:flex;gap:8px;align-items:flex-start;margin-top:14px;">
       <input type="checkbox" id="review-extra-opt-in">
-      <span>USER DATA / MANUAL etkisini anladım ve bu exact seçimi ayrıca onaylıyorum.</span>
+      <span>${t('modal.user_data_confirm', 'I understand the impact of USER DATA / MANUAL and explicitly confirm this selection.')}</span>
     </label>` : '';
   return `
     <p>${escapeHtml(review.impact)}</p>
-    <div style="margin:10px 0;"><strong>${review.items.length} işlem · tarama tahmini ${escapeHtml(review.humanEstimated)}</strong></div>
+    <div style="margin:10px 0;"><strong>${review.items.length} ${t('modal.actions_scan_est', 'actions · scan estimate')} ${escapeHtml(review.humanEstimated)}</strong></div>
     <ul style="max-height:320px;overflow:auto;padding-left:20px;">${items}</ul>
     <p style="font-size:11.5px;color:var(--text-dim);">${escapeHtml(review.estimateNote)}</p>
-    <p style="font-size:11.5px;color:var(--text-dim);">Whitelist, path, ownership, symlink ve çalışan uygulama kontrolleri yürütmeden hemen önce tekrar yapılır.</p>
+    <p style="font-size:11.5px;color:var(--text-dim);">${t('modal.pre_exec_checks', 'Whitelist, path, ownership, symlink, and running app checks are re-evaluated immediately before execution.')}</p>
     ${extra}`;
 }
 
 function operationOutcomeText(result) {
-  if (result.dryRun) return `Tarama tahmini ${result.humanScannedEstimate || formatBytes(result.scannedEstimatedBytes || 0)} · değişiklik yapılmadı`;
+  if (result.dryRun) return `${t('outcome.scan_est', 'Scan estimate ')}${result.humanScannedEstimate || formatBytes(result.scannedEstimatedBytes || 0)}${t('outcome.no_changes', ' · no changes made')}`;
   const parts = [
-    `İşlenen hedef tahmini ${result.humanProcessedEstimate || formatBytes(result.processedEstimatedBytes || 0)}`,
-    `tahmini geri kazanım ${result.humanEstimatedReclaimed || formatBytes(result.estimatedReclaimedBytes || 0)}`
+    `${t('outcome.processed_est', 'Processed target estimate ')}${result.humanProcessedEstimate || formatBytes(result.processedEstimatedBytes || 0)}`,
+    `${t('outcome.est_reclaim', 'estimated reclaim ')}${result.humanEstimatedReclaimed || formatBytes(result.estimatedReclaimedBytes || 0)}`
   ];
   if (Number(result.trashMovedEstimatedBytes || 0) > 0) {
-    parts.push(`Trash'e taşınan ${result.humanTrashMovedEstimate || formatBytes(result.trashMovedEstimatedBytes)} (alan boşalmadı)`);
+    parts.push(`${t('outcome.trash_moved', 'Moved to Trash ')}${result.humanTrashMovedEstimate || formatBytes(result.trashMovedEstimatedBytes)}${t('outcome.no_freed', ' (space not reclaimed)')}`);
   }
-  if (Number(result.unknownReclaimCount || 0) > 0) parts.push(`${result.unknownReclaimCount} manager etkisi bilinmiyor`);
+  if (Number(result.unknownReclaimCount || 0) > 0) parts.push(`${result.unknownReclaimCount}${t('outcome.manager_unknown', ' manager impact unknown')}`);
   if (result.observedFreeBytesDelta === null || result.observedFreeBytesDelta === undefined) {
-    parts.push('gözlenen boş alan farkı ölçülemedi');
+    parts.push(t('outcome.diff_unmeasured', 'observed free space difference unmeasured'));
   } else {
-    parts.push(`gözlenen boş alan ${result.humanObservedFreeDelta} ${result.observedFreeDirection === 'decrease' ? 'azaldı' : 'arttı'} (MacMaid’e kesin atfedilemez)`);
+    const dir = result.observedFreeDirection === 'decrease' ? t('common.decreased', 'decreased') : t('common.increased', 'increased');
+    parts.push(`${t('more.observed_free_space', 'observed free space ')}${result.humanObservedFreeDelta} ${dir}${t('outcome.not_strictly_macmaid', ' (not strictly attributable to MacMaid)')}`);
   }
   return parts.join(' · ');
 }
@@ -2623,7 +3659,7 @@ function reviewedPayload(payload, reviewResponse) {
   const needsExtra = Boolean(reviewResponse.review.requiresExtraOptIn);
   const extraOptIn = Boolean(document.getElementById('review-extra-opt-in')?.checked);
   if (needsExtra && !extraOptIn) {
-    showToast('USER DATA / MANUAL seçimi için ek onay kutusunu işaretleyin.', 'warning');
+    showToast(t('toast.extra_opt_in_warn', 'Please check the extra confirmation box for USER DATA / MANUAL selections.'), 'warning');
     return null;
   }
   return { ...payload, reviewToken: reviewResponse.reviewToken, extraOptIn };
@@ -2684,9 +3720,18 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.nav-item.has-submenu').forEach(n => { if (n !== navItem) n.classList.remove('expanded'); });
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
 
-    navItem?.classList.add('active');
-    navItem?.setAttribute('aria-current', 'page');
-    if (navItem?.classList.contains('has-submenu')) navItem.classList.add('expanded');
+    const settingsBtn = document.getElementById('settings-btn');
+    if (tab === 'settings') {
+      settingsBtn?.classList.add('active');
+    } else {
+      settingsBtn?.classList.remove('active');
+    }
+
+    if (navItem) {
+      navItem.classList.add('active');
+      navItem.setAttribute('aria-current', 'page');
+      if (navItem.classList.contains('has-submenu')) navItem.classList.add('expanded');
+    }
     const targetPane = document.getElementById(`pane-${tab}`);
     if (targetPane) targetPane.classList.add('active');
     state.activeTab = tab;
@@ -2771,9 +3816,15 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('macmaid_sound', state.soundEnabled ? 'on' : 'off');
     soundBtn.querySelector('.icon-sound-on').classList.toggle('hidden', !state.soundEnabled);
     soundBtn.querySelector('.icon-sound-off').classList.toggle('hidden', state.soundEnabled);
-    document.getElementById('chk-sound-setting').checked = state.soundEnabled;
+    const soundChk = document.getElementById('chk-sound-setting');
+    if (soundChk) soundChk.checked = state.soundEnabled;
+    const mainSoundChk = document.getElementById('chk-main-sound-setting');
+    if (mainSoundChk) mainSoundChk.checked = state.soundEnabled;
     SoundEffects.playClick();
-    showToast(`Ses efektleri ${state.soundEnabled ? 'açıldı' : 'kapatıldı'}.`, 'info');
+    const msg = state.soundEnabled
+      ? (state.lang === 'tr' ? I18N.tr['toast.sound_on'] : I18N.en['toast.sound_on'])
+      : (state.lang === 'tr' ? I18N.tr['toast.sound_off'] : I18N.en['toast.sound_off']);
+    showToast(msg, 'info');
   });
 
   soundSetting?.addEventListener('change', event => {
@@ -2781,6 +3832,8 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('macmaid_sound', state.soundEnabled ? 'on' : 'off');
     soundBtn?.querySelector('.icon-sound-on')?.classList.toggle('hidden', !state.soundEnabled);
     soundBtn?.querySelector('.icon-sound-off')?.classList.toggle('hidden', state.soundEnabled);
+    const mainSoundChk = document.getElementById('chk-main-sound-setting');
+    if (mainSoundChk) mainSoundChk.checked = state.soundEnabled;
   });
 
   // Theme toggle button in header
@@ -2791,7 +3844,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.documentElement.setAttribute('data-theme', state.theme);
     localStorage.setItem('macmaid_theme', state.theme);
     if (themeSelect) themeSelect.value = state.theme;
+    const mainTheme = document.getElementById('main-theme-selector');
+    if (mainTheme) mainTheme.value = state.theme;
     SoundEffects.playClick();
+  });
+
+  // Settings button in sidebar footer
+  document.getElementById('settings-btn')?.addEventListener('click', () => {
+    SoundEffects.playClick();
+    activateTopLevelTab('settings');
+    document.querySelectorAll('.nav-submenu-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
   });
 
   if (themeSelect) {
@@ -2799,8 +3862,62 @@ document.addEventListener('DOMContentLoaded', () => {
       state.theme = e.target.value;
       document.documentElement.setAttribute('data-theme', state.theme);
       localStorage.setItem('macmaid_theme', state.theme);
+      const mainTheme = document.getElementById('main-theme-selector');
+      if (mainTheme) mainTheme.value = state.theme;
     });
   }
+
+  // Language selector in Settings page
+  const langSelect = document.getElementById('setting-lang-select');
+  if (langSelect) {
+    langSelect.value = state.lang;
+    langSelect.addEventListener('change', (e) => {
+      const newLang = e.target.value;
+      state.lang = newLang;
+      localStorage.setItem('macmaid_lang', newLang);
+      applyLanguage(newLang);
+      SoundEffects.playClick();
+      const msg = newLang === 'en' ? I18N.en['toast.lang_en'] : I18N.tr['toast.lang_tr'];
+      showToast(msg, 'info');
+    });
+  }
+
+  // Main settings theme selector
+  const mainThemeSelect = document.getElementById('main-theme-selector');
+  if (mainThemeSelect) {
+    mainThemeSelect.value = state.theme;
+    mainThemeSelect.addEventListener('change', (e) => {
+      state.theme = e.target.value;
+      document.documentElement.setAttribute('data-theme', state.theme);
+      localStorage.setItem('macmaid_theme', state.theme);
+      if (themeSelect) themeSelect.value = state.theme;
+      SoundEffects.playClick();
+    });
+  }
+
+  // Main settings sound toggle
+  const mainSoundSetting = document.getElementById('chk-main-sound-setting');
+  if (mainSoundSetting) {
+    mainSoundSetting.checked = state.soundEnabled;
+    mainSoundSetting.addEventListener('change', (e) => {
+      state.soundEnabled = e.target.checked;
+      localStorage.setItem('macmaid_sound', state.soundEnabled ? 'on' : 'off');
+      if (soundSetting) soundSetting.checked = state.soundEnabled;
+      soundBtn?.querySelector('.icon-sound-on')?.classList.toggle('hidden', !state.soundEnabled);
+      soundBtn?.querySelector('.icon-sound-off')?.classList.toggle('hidden', state.soundEnabled);
+      SoundEffects.playClick();
+    });
+  }
+
+  // Save main settings button
+  document.getElementById('btn-save-main-settings')?.addEventListener('click', () => {
+    SoundEffects.playSuccess();
+    const msg = state.lang === 'tr' ? I18N.tr['toast.settings_saved'] : I18N.en['toast.settings_saved'];
+    showToast(msg, 'success');
+  });
+
+  // Apply language on initial load
+  applyLanguage(state.lang);
 
   // Profile pills in Smart Clean
   document.querySelectorAll('.profile-pill').forEach(pill => {
@@ -2949,10 +4066,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const payload = {};
     let reviewResponse;
     try { reviewResponse = await requestOperationReview('/api/optimize/run-all', payload); }
-    catch (e) { showToast(`İnceleme hazırlanamadı: ${e.message}`, 'error'); return; }
+    catch (e) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${e.message}`, 'error'); return; }
     showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-      { text: 'İptal', class: 'btn-secondary', onClick: hideModal },
-      { text: 'Tümünü Çalıştır', class: 'btn-danger', onClick: async () => {
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
+      { text: t('optimize.btn_run_all', 'Run All'), class: 'btn-danger', onClick: async () => {
         const authorized = reviewedPayload(payload, reviewResponse);
         if (!authorized) return;
         hideModal(); startLiveProgressPolling();
@@ -2961,7 +4078,7 @@ document.addEventListener('DOMContentLoaded', () => {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized)
           });
           const result = await readAPIResponse(res);
-          SoundEffects.playSuccess(); showToast(`${result.executed}/${result.total} bakım görevi tamamlandı.`, 'success');
+          SoundEffects.playSuccess(); showToast(`${result.executed}/${result.total} ${t('toast.tasks_completed_count', 'maintenance tasks completed.')}`, 'success');
         } catch (e) { showToast(`Hata: ${e.message}`, 'error'); }
         finally { stopLiveProgressPolling(); }
       }}

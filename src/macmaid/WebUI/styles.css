@@ -267,6 +267,12 @@ body {
   color: var(--text-main);
   border-color: var(--border-glass-strong);
 }
+.btn-icon.active {
+  background: var(--primary-soft);
+  color: var(--primary-glow-color, #38bdf8);
+  border-color: var(--primary-border, rgba(56, 189, 248, 0.4));
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+}
 
 /* Main Body & Sidebar */
 .main-body {
@@ -462,6 +468,14 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+#settings-btn svg {
+  transition: transform 0.3s ease;
+}
+
+#settings-btn:hover svg {
+  transform: rotate(45deg);
 }
 
 .sidebar-tools-row .safety-badge {

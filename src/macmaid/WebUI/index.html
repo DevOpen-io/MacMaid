@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-  <a class="skip-link" href="#main-content">Ana içeriğe geç</a>
+  <a class="skip-link" href="#main-content" data-i18n="skip_link">Skip to main content</a>
   <!-- Ambient background glow elements -->
   <div class="ambient-glow glow-1"></div>
   <div class="ambient-glow glow-2"></div>
@@ -41,15 +41,15 @@
           </div>
         </div>
 
-        <nav class="nav-menu" aria-label="MacMaid araçları">
-          <div class="nav-section-title">MACMAID (ANA MENÜ)</div>
+        <nav class="nav-menu" aria-label="MacMaid tools" data-i18n-title="nav.aria_tools">
+          <div class="nav-section-title" data-i18n="nav.section_title">MACMAID (MAIN MENU)</div>
           
           <!-- 1. Clean -->
           <button class="nav-item active" data-tab="cleaner">
             <span class="nav-symbol">✦</span>
             <div class="nav-text-group">
-              <span class="nav-main-title">Clean</span>
-              <span class="nav-sub-title">Akıllı Temizlik</span>
+              <span class="nav-main-title" data-i18n="nav.clean">Clean</span>
+              <span class="nav-sub-title" data-i18n="nav.clean_sub">Smart Clean</span>
             </div>
             <span class="nav-task-dot hidden" id="dot-cleaner"></span>
           </button>
@@ -58,8 +58,8 @@
           <button class="nav-item" data-tab="apps">
             <span class="nav-symbol">⌫</span>
             <div class="nav-text-group">
-              <span class="nav-main-title">Uninstall Apps</span>
-              <span class="nav-sub-title">Uygulama Kaldırıcı</span>
+              <span class="nav-main-title" data-i18n="nav.apps">Uninstall Apps</span>
+              <span class="nav-sub-title" data-i18n="nav.apps_sub">App Uninstaller</span>
             </div>
             <span class="nav-task-dot hidden" id="dot-apps"></span>
           </button>
@@ -68,8 +68,8 @@
           <button class="nav-item" data-tab="optimize">
             <span class="nav-symbol">⚙</span>
             <div class="nav-text-group">
-              <span class="nav-main-title">Optimize</span>
-              <span class="nav-sub-title">Mac İyileştirme</span>
+              <span class="nav-main-title" data-i18n="nav.optimize">Optimize</span>
+              <span class="nav-sub-title" data-i18n="nav.optimize_sub">Mac Optimization</span>
             </div>
             <span class="nav-task-dot hidden" id="dot-optimize"></span>
           </button>
@@ -78,8 +78,8 @@
           <button class="nav-item" data-tab="analyzer">
             <span class="nav-symbol">◫</span>
             <div class="nav-text-group">
-              <span class="nav-main-title">Analyze</span>
-              <span class="nav-sub-title">Disk Alanı Analizörü</span>
+              <span class="nav-main-title" data-i18n="nav.analyzer">Analyze</span>
+              <span class="nav-sub-title" data-i18n="nav.analyzer_sub">Disk Space Analyzer</span>
             </div>
             <span class="nav-task-dot hidden" id="dot-analyzer"></span>
           </button>
@@ -88,8 +88,8 @@
           <button class="nav-item" data-tab="purge">
             <span class="nav-symbol">⌁</span>
             <div class="nav-text-group">
-              <span class="nav-main-title">Project Purge</span>
-              <span class="nav-sub-title">Geliştirici Projeleri</span>
+              <span class="nav-main-title" data-i18n="nav.purge">Project Purge</span>
+              <span class="nav-sub-title" data-i18n="nav.purge_sub">Developer Projects</span>
             </div>
             <span class="nav-task-dot hidden" id="dot-purge"></span>
           </button>
@@ -98,8 +98,8 @@
           <button class="nav-item has-submenu" data-tab="developer">
             <span class="nav-symbol">⌘</span>
             <div class="nav-text-group">
-              <span class="nav-main-title">Developer Tools</span>
-              <span class="nav-sub-title">Runtimes, SDKs & Caches</span>
+              <span class="nav-main-title" data-i18n="nav.developer">Developer Tools</span>
+              <span class="nav-sub-title" data-i18n="nav.developer_sub">Runtimes, SDKs & Caches</span>
             </div>
             <span class="nav-submenu-toggle">▼</span>
             <span class="nav-task-dot hidden" id="dot-developer"></span>
@@ -135,8 +135,8 @@
           <button class="nav-item" data-tab="dashboard">
             <span class="nav-symbol">●</span>
             <div class="nav-text-group">
-              <span class="nav-main-title">Status</span>
-              <span class="nav-sub-title">Sistem & Metrikler</span>
+              <span class="nav-main-title" data-i18n="nav.status">Status</span>
+              <span class="nav-sub-title" data-i18n="nav.status_sub">System & Metrics</span>
             </div>
             <span class="nav-task-dot hidden" id="dot-dashboard"></span>
           </button>
@@ -145,8 +145,8 @@
           <button class="nav-item has-submenu" data-tab="more">
             <span class="nav-symbol">⋯</span>
             <div class="nav-text-group">
-              <span class="nav-main-title">More Tools</span>
-              <span class="nav-sub-title">Artıklar, Teşhis & Geçmiş</span>
+              <span class="nav-main-title" data-i18n="nav.more">More Tools</span>
+              <span class="nav-sub-title" data-i18n="nav.more_sub">Leftovers, Diagnostics & History</span>
             </div>
             <span class="nav-submenu-toggle">▼</span>
             <span class="nav-task-dot hidden" id="dot-more"></span>
@@ -197,7 +197,7 @@
             </button>
             <button class="nav-submenu-item" data-subtab="whitelist">
               <span class="nav-submenu-symbol">✓</span>
-              <span>Whitelist & Ayarlar</span>
+              <span data-i18n="nav.more_whitelist">Whitelist & Settings</span>
             </button>
           </div>
         </nav>
@@ -205,17 +205,17 @@
         <div class="sidebar-footer">
           <!-- Sidebar Live System Metric Pills -->
           <div class="sidebar-metrics">
-            <div class="quick-pill" id="quick-cpu" title="Canlı CPU Kullanımı">
+            <div class="quick-pill" id="quick-cpu" title="Live CPU Usage" data-i18n-title="sidebar.cpu_tip">
               <span class="pill-dot cpu-dot"></span>
               <span class="pill-label">CPU:</span>
               <span class="pill-val" id="header-cpu-val">--%</span>
             </div>
-            <div class="quick-pill" id="quick-ram" title="Canlı RAM Kullanımı">
+            <div class="quick-pill" id="quick-ram" title="Live RAM Usage" data-i18n-title="sidebar.ram_tip">
               <span class="pill-dot ram-dot"></span>
               <span class="pill-label">RAM:</span>
               <span class="pill-val" id="header-ram-val">-- GB</span>
             </div>
-            <div class="quick-pill" id="quick-disk" title="Disk Doluluğu">
+            <div class="quick-pill" id="quick-disk" title="Disk Usage" data-i18n-title="sidebar.disk_tip">
               <span class="pill-dot disk-dot"></span>
               <span class="pill-label">Disk:</span>
               <span class="pill-val" id="header-disk-val">-- GB</span>
@@ -225,7 +225,7 @@
           <!-- Bottom Tools Row: Theme, Sound, Safety -->
           <div class="sidebar-tools-row">
             <div class="theme-dropdown">
-              <button class="btn-icon" id="theme-btn" title="Görünüm Teması" aria-label="Sonraki görünüm temasına geç">
+              <button class="btn-icon" id="theme-btn" title="Appearance Theme" data-i18n-title="sidebar.theme_tip" aria-label="Appearance Theme">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="5"></circle>
                   <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -240,7 +240,7 @@
               </button>
             </div>
 
-            <button class="btn-icon" id="sound-toggle" title="Ses Efektleri" aria-label="Ses efektlerini aç veya kapat">
+            <button class="btn-icon" id="sound-toggle" title="Sound Effects" data-i18n-title="sidebar.sound_tip" aria-label="Sound Effects">
               <svg class="icon-sound-on" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                 <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
@@ -252,11 +252,18 @@
               </svg>
             </button>
 
-            <div class="safety-badge" title="SIP ve Sistem Verileri Korumalıdır">
+            <button class="btn-icon" id="settings-btn" title="Settings" data-i18n-title="sidebar.settings_tip" aria-label="Settings">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+            </button>
+
+            <div class="safety-badge" title="SIP & System Data Protected">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
-              <span>SIP Safe</span>
+              <span data-i18n="sidebar.sip_safe">SIP Safe</span>
             </div>
           </div>
         </div>
@@ -269,12 +276,12 @@
         <section class="tab-pane" id="pane-dashboard">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title">Mac Sağlığı</h1>
-              <p class="pane-subtitle">Somut disk, bellek baskısı, termal ve pil ölçümleri. Keyfî puan veya otomatik müdahale yoktur.</p>
+              <h1 class="pane-title" data-i18n="status.title">Mac Health</h1>
+              <p class="pane-subtitle" data-i18n="status.subtitle">Tangible disk, memory pressure, thermal and battery metrics. No arbitrary scores or automated interference.</p>
             </div>
             <button class="btn btn-primary btn-hero-scan" id="dash-quick-scan-btn">
               <span style="margin-right: 6px;">✦</span>
-              <span>Clean Ekranına Git</span>
+              <span data-i18n="status.btn_goto_clean">Go to Clean Screen</span>
             </button>
           </div>
 
@@ -298,9 +305,9 @@
                       <line x1="1" y1="14" x2="4" y2="14"></line>
                     </svg>
                   </div>
-                  <h3>İşlemci (CPU)</h3>
+                  <h3 data-i18n="status.cpu_title">Processor (CPU)</h3>
                 </div>
-                <span class="badge-status live-status">Canlı</span>
+                <span class="badge-status live-status" data-i18n="status.badge_live">Live</span>
               </div>
 
               <div class="gauge-content">
@@ -311,16 +318,16 @@
                   </svg>
                   <div class="gauge-center-text">
                     <span class="gauge-val" id="dash-cpu-val">0%</span>
-                    <span class="gauge-label">Yük</span>
+                    <span class="gauge-label" data-i18n="status.gauge_load">Load</span>
                   </div>
                 </div>
                 <div class="gauge-stats">
                   <div class="stat-row">
-                    <span class="stat-lbl">Termal Durum:</span>
+                    <span class="stat-lbl" data-i18n="status.lbl_thermal">Thermal State:</span>
                     <span class="stat-val" id="dash-thermal-val">Normal</span>
                   </div>
                   <div class="stat-row">
-                    <span class="stat-lbl">Yük Ortalaması:</span>
+                    <span class="stat-lbl" data-i18n="status.lbl_load_avg">Load Average:</span>
                     <span class="stat-val" id="dash-load-val">--</span>
                   </div>
                   <div class="stat-row">
@@ -343,9 +350,9 @@
                       <line x1="6" y1="18" x2="6.01" y2="18"></line>
                     </svg>
                   </div>
-                  <h3>Bellek (RAM)</h3>
+                  <h3 data-i18n="status.ram_title">Memory (RAM)</h3>
                 </div>
-                <span class="badge-status live-status">Canlı</span>
+                <span class="badge-status live-status" data-i18n="status.badge_live">Live</span>
               </div>
 
               <div class="gauge-content">
@@ -356,20 +363,20 @@
                   </svg>
                   <div class="gauge-center-text">
                     <span class="gauge-val" id="dash-ram-val">0%</span>
-                    <span class="gauge-label">Kullanım</span>
+                    <span class="gauge-label" data-i18n="status.gauge_usage">Usage</span>
                   </div>
                 </div>
                 <div class="gauge-stats">
                   <div class="stat-row">
-                    <span class="stat-lbl">Kullanılan:</span>
+                    <span class="stat-lbl" data-i18n="status.lbl_used">Used:</span>
                     <span class="stat-val" id="dash-ram-used-val">-- GB</span>
                   </div>
                   <div class="stat-row">
-                    <span class="stat-lbl">Toplam:</span>
+                    <span class="stat-lbl" data-i18n="status.lbl_total">Total:</span>
                     <span class="stat-val" id="dash-ram-total-val">-- GB</span>
                   </div>
                   <div class="stat-row">
-                    <span class="stat-lbl">Boş / Rezerve:</span>
+                    <span class="stat-lbl" data-i18n="status.lbl_free_reserved">Free / Reserved:</span>
                     <span class="stat-val" id="dash-ram-free-val">-- GB</span>
                   </div>
                 </div>
@@ -388,9 +395,9 @@
                       <line x1="10" y1="16" x2="10.01" y2="16"></line>
                     </svg>
                   </div>
-                  <h3>Depolama (SSD/Disk)</h3>
+                  <h3 data-i18n="status.disk_title">Storage (SSD/Disk)</h3>
                 </div>
-                <span class="badge-status live-status">Canlı</span>
+                <span class="badge-status live-status" data-i18n="status.badge_live">Live</span>
               </div>
 
               <div class="gauge-content">
@@ -401,20 +408,20 @@
                   </svg>
                   <div class="gauge-center-text">
                     <span class="gauge-val" id="dash-disk-percent-val">0%</span>
-                    <span class="gauge-label">Dolu</span>
+                    <span class="gauge-label" data-i18n="status.gauge_full">Used</span>
                   </div>
                 </div>
                 <div class="gauge-stats">
                   <div class="stat-row">
-                    <span class="stat-lbl">Boş Alan:</span>
+                    <span class="stat-lbl" data-i18n="status.lbl_free_space">Free Space:</span>
                     <span class="stat-val highlight-green" id="dash-disk-free-val">-- GB</span>
                   </div>
                   <div class="stat-row">
-                    <span class="stat-lbl">Kullanılan:</span>
+                    <span class="stat-lbl" data-i18n="status.lbl_used">Used:</span>
                     <span class="stat-val" id="dash-disk-used-val">-- GB</span>
                   </div>
                   <div class="stat-row">
-                    <span class="stat-lbl">Kapasite:</span>
+                    <span class="stat-lbl" data-i18n="status.lbl_capacity">Capacity:</span>
                     <span class="stat-val" id="dash-disk-total-val">-- GB</span>
                   </div>
                 </div>
@@ -423,7 +430,7 @@
           </div>
 
           <div class="health-indicators-grid" id="health-indicators">
-            <div class="glass-card empty-state">Sağlık göstergeleri okunuyor…</div>
+            <div class="glass-card empty-state" data-i18n="status.reading_health">Reading health indicators...</div>
           </div>
 
           <!-- Secondary Dashboard Widgets: Network, Battery & Top Processes -->
@@ -431,7 +438,7 @@
             <!-- Network & Battery Card -->
             <div class="glass-card">
               <div class="card-header">
-                <h3>Ağ & Batarya Durumu</h3>
+                <h3 data-i18n="status.net_batt_title">Network & Battery Status</h3>
               </div>
               <div class="net-battery-wrapper">
                 <div class="net-meter">
@@ -443,7 +450,7 @@
                       </svg>
                     </div>
                     <div>
-                      <span class="net-lbl">İndirme (Download)</span>
+                      <span class="net-lbl" data-i18n="status.lbl_download">Download</span>
                       <div class="net-speed" id="dash-net-down">0 KB/s</div>
                     </div>
                   </div>
@@ -456,7 +463,7 @@
                       </svg>
                     </div>
                     <div>
-                      <span class="net-lbl">Yükleme (Upload)</span>
+                      <span class="net-lbl" data-i18n="status.lbl_upload">Upload</span>
                       <div class="net-speed" id="dash-net-up">0 KB/s</div>
                     </div>
                   </div>
@@ -464,15 +471,15 @@
 
                 <div class="battery-section" id="battery-box">
                   <div class="battery-header">
-                    <span class="battery-title">Pil Sağlığı</span>
+                    <span class="battery-title" data-i18n="status.battery_title">Battery Health</span>
                     <span class="battery-percent" id="dash-batt-pct">--%</span>
                   </div>
                   <div class="battery-track">
                     <div class="battery-fill" id="dash-batt-bar" style="width: 0%"></div>
                   </div>
                   <div class="battery-meta">
-                    <span id="dash-batt-state">Durum Bilinmiyor</span>
-                    <span id="dash-batt-cycles">-- Döngü</span>
+                    <span id="dash-batt-state" data-i18n="status.batt_unknown">Unknown State</span>
+                    <span id="dash-batt-cycles" data-i18n="status.batt_cycles">-- Cycles</span>
                   </div>
                 </div>
               </div>
@@ -481,21 +488,21 @@
             <!-- Top Processes Card -->
             <div class="glass-card">
               <div class="card-header">
-                <h3>En Çok Kaynak Tüketen Süreçler</h3>
-                <span class="hint-text">Aktif Uygulamalar</span>
+                <h3 data-i18n="status.top_proc_title">Top Resource Intensive Processes</h3>
+                <span class="hint-text" data-i18n="status.active_apps">Active Applications</span>
               </div>
               <div class="table-container">
                 <table class="data-table" id="table-top-processes">
                   <thead>
                     <tr>
-                      <th>Süreç / Uygulama</th>
+                      <th data-i18n="status.th_process">Process / Application</th>
                       <th>PID</th>
                       <th>CPU %</th>
                       <th>RAM %</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-top-processes">
-                    <tr><td colspan="4" class="empty-state">Yükleniyor...</td></tr>
+                    <tr><td colspan="4" class="empty-state" data-i18n="status.loading">Loading...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -508,8 +515,8 @@
         <section class="tab-pane active" id="pane-cleaner">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title">Clean — Akıllı Sistem Temizliği</h1>
-              <p class="pane-subtitle">Scan safely, choose a profile, then reclaim space. (Güvenli önbellek, log ve kırıntı temizliği)</p>
+              <h1 class="pane-title" data-i18n="clean.title">Clean — Smart System Maintenance</h1>
+              <p class="pane-subtitle" data-i18n="clean.subtitle">Scan safely, choose a profile, then reclaim space.</p>
             </div>
           </div>
 
@@ -518,8 +525,8 @@
             <div class="inpage-progress-header">
               <div class="inpage-title-group">
                 <span class="live-pulse-dot"></span>
-                <span class="inpage-action-label" id="cleaner-action-label">Sistem Taranıyor...</span>
-                <span class="inpage-phase-badge" id="cleaner-phase-badge">ÇALIŞIYOR</span>
+                <span class="inpage-action-label" id="cleaner-action-label" data-i18n="clean.action_scanning">Scanning System...</span>
+                <span class="inpage-phase-badge" id="cleaner-phase-badge" data-i18n="clean.phase_working">WORKING</span>
               </div>
               <div class="inpage-stats-group">
                 <span class="inpage-count" id="cleaner-progress-count"></span>
@@ -531,11 +538,11 @@
             </div>
             <div class="inpage-path-ticker">
               <span class="inpage-path-icon">📂</span>
-              <span class="inpage-path-text" id="cleaner-path-text">Hazırlanıyor...</span>
+              <span class="inpage-path-text" id="cleaner-path-text" data-i18n="clean.path_preparing">Preparing...</span>
             </div>
             <div class="inpage-logs-drawer">
               <button class="inpage-logs-btn" type="button" data-log-service="cleaner">
-                <span id="cleaner-logs-btn-text">▸ Canlı Log Akışı</span>
+                <span id="cleaner-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
               </button>
               <div class="inpage-logs-container hidden" id="cleaner-logs-container"></div>
             </div>
@@ -545,46 +552,46 @@
           <div class="glass-card scan-config-card">
             <div class="config-row">
               <div class="config-group">
-                <label class="control-label">Temizlik Profili:</label>
+                <label class="control-label" data-i18n="clean.profile_label">Cleaning Profile:</label>
                 <div class="profile-pills">
                   <button class="profile-pill active" data-profile="safe">
                     <span class="pill-dot safe-dot"></span>
-                    <span class="pill-title">Safe (Güvenli)</span>
-                    <span class="pill-badge">Düşük Risk</span>
+                    <span class="pill-title" data-i18n="clean.profile_safe">Safe</span>
+                    <span class="pill-badge" data-i18n="clean.badge_low_risk">Low Risk</span>
                   </button>
                   <button class="profile-pill" data-profile="deep">
                     <span class="pill-dot deep-dot"></span>
-                    <span class="pill-title">Deep (Derin)</span>
-                    <span class="pill-badge">Orta Risk</span>
+                    <span class="pill-title" data-i18n="clean.profile_deep">Deep</span>
+                    <span class="pill-badge" data-i18n="clean.badge_med_risk">Medium Risk</span>
                   </button>
                   <button class="profile-pill" data-profile="developer">
                     <span class="pill-dot dev-dot"></span>
                     <span class="pill-title">Developer</span>
-                    <span class="pill-badge">Geliştirici</span>
+                    <span class="pill-badge" data-i18n="clean.profile_dev">Developer</span>
                   </button>
                   <button class="profile-pill" data-profile="aggressive">
                     <span class="pill-dot agg-dot"></span>
                     <span class="pill-title">Aggressive</span>
-                    <span class="pill-badge">Kapsamlı</span>
+                    <span class="pill-badge" data-i18n="clean.badge_extensive">Extensive</span>
                   </button>
                 </div>
               </div>
 
               <div class="config-switches">
-                <label class="switch-item" title="Çöp Sepetini de boşalt">
+                <label class="switch-item" title="Also empty Trash Can" data-i18n-title="clean.tip_trash">
                   <input type="checkbox" id="chk-trash" checked>
                   <span class="switch-toggle"></span>
-                  <span class="switch-text">Çöp Sepeti (~/.Trash)</span>
+                  <span class="switch-text" data-i18n="clean.chk_trash">Trash Can (~/.Trash)</span>
                 </label>
-                <label class="switch-item" title="Eski geçici sistem dosyalarını tara">
+                <label class="switch-item" title="Scan old temporary system files" data-i18n-title="clean.tip_temp">
                   <input type="checkbox" id="chk-temp">
                   <span class="switch-toggle"></span>
-                  <span class="switch-text">Geçici Dosyalar (/private/tmp)</span>
+                  <span class="switch-text" data-i18n="clean.chk_temp">Temporary Files (/private/tmp)</span>
                 </label>
-                <label class="switch-item" title="Dosyaları silmeden yalnızca simülasyon yap">
+                <label class="switch-item" title="Simulate without deleting files" data-i18n-title="clean.tip_dryrun">
                   <input type="checkbox" id="chk-dryrun">
                   <span class="switch-toggle"></span>
-                  <span class="switch-text">Simülasyon Modu (Dry Run)</span>
+                  <span class="switch-text" data-i18n="clean.chk_dryrun">Simulation Mode (Dry Run)</span>
                 </label>
               </div>
 
@@ -594,7 +601,7 @@
                     <circle cx="11" cy="11" r="8"></circle>
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                   </svg>
-                  <span>Sistemi Tara</span>
+                  <span data-i18n="clean.btn_scan">Scan System</span>
                 </button>
               </div>
             </div>
@@ -605,29 +612,29 @@
             <!-- Results Summary Banner -->
             <div class="results-summary-card">
               <div class="summary-stat">
-                <span class="summary-label">Kazanılabilir Alan:</span>
+                <span class="summary-label" data-i18n="clean.stat_reclaimable">Reclaimable Space:</span>
                 <span class="summary-value highlight-cyan" id="res-total-bytes">0 GB</span>
               </div>
               <div class="summary-divider"></div>
               <div class="summary-stat">
-                <span class="summary-label">Tespit Edilen Öğe:</span>
+                <span class="summary-label" data-i18n="clean.stat_detected">Detected Items:</span>
                 <span class="summary-value" id="res-total-items">0</span>
               </div>
               <div class="summary-divider"></div>
               <div class="summary-stat">
-                <span class="summary-label">Seçilen Alan:</span>
+                <span class="summary-label" data-i18n="clean.stat_selected">Selected Space:</span>
                 <span class="summary-value highlight-green" id="res-selected-bytes">0 GB</span>
               </div>
 
               <div class="summary-actions">
-                <button class="btn btn-secondary btn-sm" id="btn-select-all">Tümünü Seç</button>
-                <button class="btn btn-secondary btn-sm" id="btn-deselect-all">Seçimi Kaldır</button>
+                <button class="btn btn-secondary btn-sm" id="btn-select-all" data-i18n="clean.btn_select_all">Select All</button>
+                <button class="btn btn-secondary btn-sm" id="btn-deselect-all" data-i18n="clean.btn_deselect_all">Deselect All</button>
                 <button class="btn btn-danger btn-large" id="btn-execute-clean">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"></polyline>
                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                   </svg>
-                  <span>Temizliği Başlat</span>
+                  <span data-i18n="clean.btn_execute">Start Cleaning</span>
                 </button>
               </div>
             </div>
@@ -635,9 +642,9 @@
             <!-- Categories and Items Table -->
             <div class="glass-card">
               <div class="table-toolbar">
-                <h3>Bulunan Temizlik Öğeleri</h3>
+                <h3 data-i18n="clean.table_title">Found Cleanup Items</h3>
                 <div class="filter-box">
-                  <input type="text" id="search-clean-items" placeholder="Öğe ara..." class="input-search">
+                  <input type="text" id="search-clean-items" placeholder="Search item..." data-i18n-placeholder="clean.search_placeholder" class="input-search">
                 </div>
               </div>
 
@@ -645,12 +652,12 @@
                 <table class="data-table" id="table-clean-items">
                   <thead>
                     <tr>
-                      <th width="40"><input type="checkbox" id="master-clean-chk" aria-label="Tüm güvenli temizlik öğelerini seç" disabled></th>
-                      <th>Kategori & Başlık</th>
-                      <th>Konum / Yol</th>
+                      <th width="40"><input type="checkbox" id="master-clean-chk" aria-label="Select all safe cleanup items" data-i18n-title="clean.tip_master_chk" disabled></th>
+                      <th data-i18n="clean.th_cat_title">Category & Title</th>
+                      <th data-i18n="clean.th_location">Location / Path</th>
                       <th>Risk</th>
-                      <th>Gerekçe</th>
-                      <th width="120" style="text-align: right;">Boyut</th>
+                      <th data-i18n="clean.th_reason">Reason</th>
+                      <th width="120" style="text-align: right;" data-i18n="clean.th_size">Size</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-clean-items">
@@ -667,12 +674,12 @@
         <section class="tab-pane" id="pane-apps">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title">Uninstall Apps — Uygulama Kaldırıcı</h1>
-              <p class="pane-subtitle">Remove applications plus exact, reviewable leftovers. (Uygulamalar ve arkalarındaki artıklar)</p>
+              <h1 class="pane-title" data-i18n="apps.title">Uninstall Apps — Application Cleaner</h1>
+              <p class="pane-subtitle" data-i18n="apps.subtitle">Remove applications plus exact, reviewable leftovers.</p>
             </div>
             <button class="btn btn-primary" id="btn-refresh-apps">
               <span style="margin-right: 6px;">⌫</span>
-              <span>Uygulamaları Tara</span>
+              <span data-i18n="apps.btn_scan">Scan Applications</span>
             </button>
           </div>
 
@@ -681,8 +688,8 @@
             <div class="inpage-progress-header">
               <div class="inpage-title-group">
                 <span class="live-pulse-dot"></span>
-                <span class="inpage-action-label" id="apps-action-label">Uygulamalar Taranıyor...</span>
-                <span class="inpage-phase-badge" id="apps-phase-badge">ÇALIŞIYOR</span>
+                <span class="inpage-action-label" id="apps-action-label" data-i18n="apps.action_scanning">Scanning Applications...</span>
+                <span class="inpage-phase-badge" id="apps-phase-badge" data-i18n="clean.phase_working">WORKING</span>
               </div>
               <div class="inpage-stats-group">
                 <span class="inpage-count" id="apps-progress-count"></span>
@@ -694,11 +701,11 @@
             </div>
             <div class="inpage-path-ticker">
               <span class="inpage-path-icon">📂</span>
-              <span class="inpage-path-text" id="apps-path-text">Hazırlanıyor...</span>
+              <span class="inpage-path-text" id="apps-path-text" data-i18n="clean.path_preparing">Preparing...</span>
             </div>
             <div class="inpage-logs-drawer">
               <button class="inpage-logs-btn" type="button" data-log-service="apps">
-                <span id="apps-logs-btn-text">▸ Canlı Log Akışı</span>
+                <span id="apps-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
               </button>
               <div class="inpage-logs-container hidden" id="apps-logs-container"></div>
             </div>
@@ -709,18 +716,18 @@
             <div class="glass-card apps-list-card">
               <div class="table-toolbar">
                 <div class="search-wrap">
-                  <input type="text" id="search-apps-input" placeholder="Uygulama ara (örn. Slack, Chrome)..." class="input-search">
+                  <input type="text" id="search-apps-input" placeholder="Search apps (e.g. Slack, Chrome)..." data-i18n-placeholder="apps.search_placeholder" class="input-search">
                 </div>
                 <div class="sort-wrap">
                   <select id="sort-apps-select" class="select-box">
-                    <option value="size">Boyuta Göre (Büyükten Küçüğe)</option>
-                    <option value="name">İsme Göre (A-Z)</option>
+                    <option value="size" data-i18n="apps.sort_size">By Size (Largest first)</option>
+                    <option value="name" data-i18n="apps.sort_name">By Name (A-Z)</option>
                   </select>
                 </div>
               </div>
 
               <div class="apps-scroll-list" id="apps-list-container">
-                <div class="empty-state" style="padding: 40px; text-align: center;">Yüklü uygulamaları listelemek ve artıklarını analiz etmek için yukarıdaki <strong>"Uygulamaları Tara"</strong> butonuna tıklayın.</div>
+                <div class="empty-state" style="padding: 40px; text-align: center;" data-i18n="apps.empty_list">Click <strong>"Scan Applications"</strong> above to list installed applications and analyze their leftovers.</div>
               </div>
             </div>
 
@@ -732,14 +739,14 @@
                   <line x1="9" y1="9" x2="15" y2="15"></line>
                   <line x1="15" y1="9" x2="9" y2="15"></line>
                 </svg>
-                <p>Detayları ve geriye kalan artıkları görüntülemek için soldan bir uygulama seçin.</p>
+                <p data-i18n="apps.empty_detail">Select an application from the left to view details and remaining leftovers.</p>
               </div>
 
               <div class="app-detail-content hidden" id="app-detail-view">
                 <div class="detail-header">
                   <div class="detail-app-avatar" id="detail-app-icon"></div>
                   <div class="detail-app-meta">
-                    <h2 id="detail-app-name">Uygulama Adı</h2>
+                    <h2 id="detail-app-name" data-i18n="apps.detail_app_name">Application Name</h2>
                     <span class="detail-bundle" id="detail-app-bundle">com.example.app</span>
                     <span class="detail-version" id="detail-app-version">v1.0.0</span>
                   </div>
@@ -748,8 +755,8 @@
 
                 <div class="leftovers-section">
                   <div class="leftovers-title-bar">
-                    <h4>Tespit Edilen Artıklar & Bağlantılı Dosyalar</h4>
-                    <span class="badge-status" id="detail-leftovers-count">0 öğe</span>
+                    <h4 data-i18n="apps.leftovers_title">Detected Leftovers & Associated Files</h4>
+                    <span class="badge-status" id="detail-leftovers-count" data-i18n="apps.zero_items">0 items</span>
                   </div>
 
                   <div class="leftovers-list" id="detail-leftovers-list">
@@ -763,7 +770,7 @@
                       <polyline points="3 6 5 6 21 6"></polyline>
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                     </svg>
-                    <span>Uygulamayı ve Artıkları Kaldır</span>
+                    <span data-i18n="apps.btn_uninstall">Uninstall Application & Leftovers</span>
                   </button>
                 </div>
               </div>
@@ -775,8 +782,8 @@
         <section class="tab-pane" id="pane-optimize">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title">Optimize — Mac İyileştirme</h1>
-              <p class="pane-subtitle">Bakım görevleri, kararlılık incelemesi tamamlanana kadar geçici olarak devre dışı.</p>
+              <h1 class="pane-title" data-i18n="optimize.title">Optimize — macOS Tuning</h1>
+              <p class="pane-subtitle" data-i18n="optimize.subtitle">Maintenance tasks are temporarily paused pending stability review.</p>
             </div>
           </div>
 
@@ -785,8 +792,8 @@
             <div class="inpage-progress-header">
               <div class="inpage-title-group">
                 <span class="live-pulse-dot"></span>
-                <span class="inpage-action-label" id="optimize-action-label">Optimizasyon Çalıştırılıyor...</span>
-                <span class="inpage-phase-badge" id="optimize-phase-badge">ÇALIŞIYOR</span>
+                <span class="inpage-action-label" id="optimize-action-label" data-i18n="optimize.action_running">Running Optimizations...</span>
+                <span class="inpage-phase-badge" id="optimize-phase-badge" data-i18n="clean.phase_working">WORKING</span>
               </div>
               <div class="inpage-stats-group">
                 <span class="inpage-count" id="optimize-progress-count"></span>
@@ -798,11 +805,11 @@
             </div>
             <div class="inpage-path-ticker">
               <span class="inpage-path-icon">📂</span>
-              <span class="inpage-path-text" id="optimize-path-text">Hazırlanıyor...</span>
+              <span class="inpage-path-text" id="optimize-path-text" data-i18n="clean.path_preparing">Preparing...</span>
             </div>
             <div class="inpage-logs-drawer">
               <button class="inpage-logs-btn" type="button" data-log-service="optimize">
-                <span id="optimize-logs-btn-text">▸ Canlı Log Akışı</span>
+                <span id="optimize-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
               </button>
               <div class="inpage-logs-container hidden" id="optimize-logs-container"></div>
             </div>
@@ -818,8 +825,8 @@
         <section class="tab-pane" id="pane-analyzer">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title">Analyze — Disk Alanı Analizörü</h1>
-              <p class="pane-subtitle">Browse disk usage, search, multi-select and move items to Trash. (Görsel disk kullanım oranları)</p>
+              <h1 class="pane-title" data-i18n="analyzer.title">Analyze — Disk Space Analyzer</h1>
+              <p class="pane-subtitle" data-i18n="analyzer.subtitle">Browse disk usage, search, multi-select and move items to Trash.</p>
             </div>
           </div>
 
@@ -828,8 +835,8 @@
             <div class="inpage-progress-header">
               <div class="inpage-title-group">
                 <span class="live-pulse-dot"></span>
-                <span class="inpage-action-label" id="analyzer-action-label">Dizin Analiz Ediliyor...</span>
-                <span class="inpage-phase-badge" id="analyzer-phase-badge">ÇALIŞIYOR</span>
+                <span class="inpage-action-label" id="analyzer-action-label" data-i18n="analyzer.action_analyzing">Analyzing Directory...</span>
+                <span class="inpage-phase-badge" id="analyzer-phase-badge" data-i18n="clean.phase_working">WORKING</span>
               </div>
               <div class="inpage-stats-group">
                 <span class="inpage-count" id="analyzer-progress-count"></span>
@@ -841,11 +848,11 @@
             </div>
             <div class="inpage-path-ticker">
               <span class="inpage-path-icon">📂</span>
-              <span class="inpage-path-text" id="analyzer-path-text">Hazırlanıyor...</span>
+              <span class="inpage-path-text" id="analyzer-path-text" data-i18n="clean.path_preparing">Preparing...</span>
             </div>
             <div class="inpage-logs-drawer">
               <button class="inpage-logs-btn" type="button" data-log-service="analyzer">
-                <span id="analyzer-logs-btn-text">▸ Canlı Log Akışı</span>
+                <span id="analyzer-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
               </button>
               <div class="inpage-logs-container hidden" id="analyzer-logs-container"></div>
             </div>
@@ -853,43 +860,43 @@
 
           <div class="glass-card">
             <div class="analyzer-bar">
-              <button class="btn-sm btn-secondary" id="btn-analyzer-parent" title="Bir üst dizine dön">
+              <button class="btn-sm btn-secondary" id="btn-analyzer-parent" title="Return to parent directory" data-i18n-title="analyzer.tip_parent">
                 <span style="font-weight: 700; margin-right: 4px;">↑</span>
-                <span>Üst Dizin</span>
+                <span data-i18n="analyzer.btn_parent">Parent Directory</span>
               </button>
               <div class="analyzer-input-group">
-                <span class="analyzer-path-prefix">Dizin:</span>
+                <span class="analyzer-path-prefix" data-i18n="analyzer.lbl_dir">Directory:</span>
                 <input type="text" id="analyzer-path-input" class="analyzer-path-input" value="~">
               </div>
               <div class="analyzer-quick-paths">
-                <button class="btn-sm btn-secondary btn-quick-path" data-path="~">Ev Dizinim (~)</button>
-                <button class="btn-sm btn-secondary btn-quick-path" data-path="~/Downloads">İndirilenler</button>
+                <button class="btn-sm btn-secondary btn-quick-path" data-path="~" data-i18n="analyzer.quick_home">Home (~)</button>
+                <button class="btn-sm btn-secondary btn-quick-path" data-path="~/Downloads" data-i18n="analyzer.quick_downloads">Downloads</button>
                 <button class="btn-sm btn-secondary btn-quick-path" data-path="~/Library">Library</button>
                 <button class="btn-sm btn-secondary btn-quick-path" data-path="~/Developer">Developer</button>
               </div>
               <button class="btn btn-primary" id="btn-run-analyzer">
                 <span style="margin-right: 6px;">◫</span>
-                <span>Analiz Et</span>
+                <span data-i18n="analyzer.btn_analyze">Analyze</span>
               </button>
             </div>
 
             <!-- Idle State Prompt before scan -->
             <div class="tab-hero-state" id="analyzer-idle-state" style="margin: 20px 0;">
               <div class="hero-state-symbol">◫</div>
-              <h2 class="hero-state-title">Disk Alanı Analizörü</h2>
-              <p class="hero-state-desc">İncelemek istediğiniz dizini yukarıdan seçin veya yazın, ardından <strong>"Analiz Et"</strong> butonuna tıklayın.</p>
+              <h2 class="hero-state-title" data-i18n="nav.analyzer_sub">Disk Space Analyzer</h2>
+              <p class="hero-state-desc" data-i18n="analyzer.idle_desc">Select or type the directory you want to inspect above, then click <strong>"Analyze"</strong>.</p>
             </div>
 
             <!-- Visual Bar Chart of Child Folders -->
             <div class="analyzer-results-wrap hidden" id="analyzer-results-box">
               <div class="analyzer-summary-row">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <span class="text-muted">Aktif Konum: </span>
+                  <span class="text-muted" data-i18n="analyzer.lbl_active_path">Active Location: </span>
                   <strong id="analyzer-current-path" style="font-family: var(--font-mono);">~</strong>
-                  <span class="badge-status badge-cyan hidden" id="analyzer-cached-badge">⚡ Önbellekten</span>
+                  <span class="badge-status badge-cyan hidden" id="analyzer-cached-badge" data-i18n="analyzer.cached_badge">⚡ Cached</span>
                 </div>
                 <div>
-                  <span class="text-muted">Toplam İncelenen Boyut: </span>
+                  <span class="text-muted" data-i18n="analyzer.lbl_total_size">Total Analyzed Size: </span>
                   <strong class="highlight-cyan" id="analyzer-total-size">0 GB</strong>
                 </div>
               </div>
@@ -901,15 +908,15 @@
 
               <!-- Largest Files in This Folder -->
               <div class="largest-files-section" style="margin-top: 24px;">
-                <h4 style="margin-bottom: 12px;">Bu Konumdaki En Büyük Dosyalar</h4>
+                <h4 style="margin-bottom: 12px;" data-i18n="analyzer.largest_files_title">Largest Files in This Location</h4>
                 <div class="table-container">
                   <table class="data-table" id="table-analyzer-files">
                     <thead>
                       <tr>
-                        <th>Dosya Adı</th>
-                        <th>Tam Yol</th>
-                        <th width="120" style="text-align: right;">Boyut</th>
-                        <th width="80">İşlem</th>
+                        <th data-i18n="analyzer.th_filename">File Name</th>
+                        <th data-i18n="analyzer.th_fullpath">Full Path</th>
+                        <th width="120" style="text-align: right;" data-i18n="clean.th_size">Size</th>
+                        <th width="80" data-i18n="analyzer.th_action">Action</th>
                       </tr>
                     </thead>
                     <tbody id="tbody-analyzer-files">
@@ -927,12 +934,12 @@
         <section class="tab-pane" id="pane-purge">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title">Project Purge — Geliştirici Projeleri</h1>
-              <p class="pane-subtitle">Find old rebuildable project artifacts and dependency folders. (node_modules, target, .build, Pods)</p>
+              <h1 class="pane-title" data-i18n="purge.title">Project Purge — Developer Projects</h1>
+              <p class="pane-subtitle" data-i18n="purge.subtitle">Find old rebuildable project artifacts and dependency folders (node_modules, target, .build, Pods).</p>
             </div>
             <button class="btn btn-primary" id="btn-scan-projects">
               <span style="margin-right: 6px;">⌁</span>
-              <span>Projeleri Tara</span>
+              <span data-i18n="purge.btn_scan">Scan Projects</span>
             </button>
           </div>
 
@@ -941,8 +948,8 @@
             <div class="inpage-progress-header">
               <div class="inpage-title-group">
                 <span class="live-pulse-dot"></span>
-                <span class="inpage-action-label" id="purge-action-label">Projeler Taranıyor...</span>
-                <span class="inpage-phase-badge" id="purge-phase-badge">ÇALIŞIYOR</span>
+                <span class="inpage-action-label" id="purge-action-label" data-i18n="purge.action_scanning">Scanning Projects...</span>
+                <span class="inpage-phase-badge" id="purge-phase-badge" data-i18n="clean.phase_working">WORKING</span>
               </div>
               <div class="inpage-stats-group">
                 <span class="inpage-count" id="purge-progress-count"></span>
@@ -954,11 +961,11 @@
             </div>
             <div class="inpage-path-ticker">
               <span class="inpage-path-icon">📂</span>
-              <span class="inpage-path-text" id="purge-path-text">Hazırlanıyor...</span>
+              <span class="inpage-path-text" id="purge-path-text" data-i18n="clean.path_preparing">Preparing...</span>
             </div>
             <div class="inpage-logs-drawer">
               <button class="inpage-logs-btn" type="button" data-log-service="purge">
-                <span id="purge-logs-btn-text">▸ Canlı Log Akışı</span>
+                <span id="purge-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
               </button>
               <div class="inpage-logs-container hidden" id="purge-logs-container"></div>
             </div>
@@ -967,19 +974,19 @@
           <div class="glass-card">
             <div class="table-toolbar">
               <div class="purge-summary">
-                <span>Kurtarılabilir Alan: </span>
+                <span data-i18n="purge.lbl_reclaimable">Reclaimable Space: </span>
                 <strong class="highlight-cyan" id="purge-total-size">0 GB</strong>
-                <span class="text-muted" id="purge-artifacts-count">(0 dizin tespit edildi)</span>
+                <span class="text-muted" id="purge-artifacts-count" data-i18n="purge.zero_dirs">(0 directories detected)</span>
               </div>
 
               <div class="purge-actions">
-                <button class="btn btn-secondary btn-sm" id="btn-purge-select-all">Tümünü Seç</button>
+                <button class="btn btn-secondary btn-sm" id="btn-purge-select-all" data-i18n="clean.btn_select_all">Select All</button>
                 <button class="btn btn-danger btn-sm" id="btn-execute-purge">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"></polyline>
                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                   </svg>
-                  <span>Seçili Dizinleri Çöpe Taşı</span>
+                  <span data-i18n="purge.btn_execute">Move Selected Folders to Trash</span>
                 </button>
               </div>
             </div>
@@ -988,16 +995,16 @@
               <table class="data-table" id="table-purge-items">
                 <thead>
                   <tr>
-                    <th width="40"><input type="checkbox" id="master-purge-chk" aria-label="Tüm proje artıklarını seç" disabled></th>
-                    <th>Proje Adı</th>
-                    <th>Artık Türü</th>
-                    <th>Tam Yol</th>
-                    <th>Son Değişiklik</th>
-                    <th width="120" style="text-align: right;">Kurtarılabilir</th>
+                    <th width="40"><input type="checkbox" id="master-purge-chk" aria-label="Select all project artifacts" data-i18n-title="purge.tip_master_chk" disabled></th>
+                    <th data-i18n="purge.th_project_name">Project Name</th>
+                    <th data-i18n="purge.th_artifact_type">Artifact Type</th>
+                    <th data-i18n="analyzer.th_fullpath">Full Path</th>
+                    <th data-i18n="purge.th_last_modified">Last Modified</th>
+                    <th width="120" style="text-align: right;" data-i18n="purge.th_reclaimable">Reclaimable</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-purge-items">
-                  <tr><td colspan="6" class="empty-state">Projelerinizi taramak için yukarıdaki butona tıklayın.</td></tr>
+                  <tr><td colspan="6" class="empty-state" data-i18n="purge.empty_table">Click the button above to scan your developer projects.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1009,8 +1016,8 @@
         <section class="tab-pane" id="pane-developer">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title">Developer Tools — Geliştirici Alanı</h1>
-              <p class="pane-subtitle">Inspect runtimes, SDKs, global tools and package caches. (Çalışma zamanları, ortamlar, araçlar ve önbellekler)</p>
+              <h1 class="pane-title" data-i18n="dev.title">Developer Tools — Environments & SDKs</h1>
+              <p class="pane-subtitle" data-i18n="dev.subtitle">Inspect runtimes, SDKs, global tools and package caches.</p>
             </div>
           </div>
 
@@ -1019,15 +1026,15 @@
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
                 <h3 style="font-size: 16px; font-weight: 600;">Developer Storage Center</h3>
-                <p class="pane-subtitle">Xcode, Node.js, Python, Rust, Android ve Docker depolamasını read-only gösterir.</p>
+                <p class="pane-subtitle" data-i18n="dev.storage_desc">Displays Xcode, Node.js, Python, Rust, Android and Docker storage read-only.</p>
               </div>
-              <button class="btn btn-primary" id="btn-scan-devstorage"><span>Storage Tara</span></button>
+              <button class="btn btn-primary" id="btn-scan-devstorage"><span data-i18n="dev.btn_scan_storage">Scan Storage</span></button>
             </div>
             <div class="glass-card">
               <div class="table-container">
                 <table class="data-table" id="table-devstorage">
-                  <thead><tr><th>Ekosistem</th><th>Boyut</th><th>Öğeler</th><th>Not</th></tr></thead>
-                  <tbody id="tbody-devstorage"><tr><td colspan="4" class="empty-state">Developer Storage Center için tara.</td></tr></tbody>
+                  <thead><tr><th data-i18n="dev.th_ecosystem">Ecosystem</th><th data-i18n="clean.th_size">Size</th><th data-i18n="dev.th_items">Items</th><th data-i18n="dev.th_note">Note</th></tr></thead>
+                  <tbody id="tbody-devstorage"><tr><td colspan="4" class="empty-state" data-i18n="dev.empty_storage">Click above to scan Developer Storage Center.</td></tr></tbody>
                 </table>
               </div>
             </div>
@@ -1037,12 +1044,12 @@
           <div class="sub-pane" id="subpane-dev-caches">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Paket Yöneticisi Önbellekleri</h3>
-                <p class="pane-subtitle">Xcode, Homebrew, Conda, npm, cargo, pip ve diğer paket önbellekleri.</p>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="dev.caches_title">Package Manager Caches</h3>
+                <p class="pane-subtitle" data-i18n="dev.caches_desc">Xcode, Homebrew, Conda, npm, cargo, pip and other package caches.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-devcaches">
                 <span style="margin-right: 6px;">⌘</span>
-                <span>Önbellekleri Tara</span>
+                <span data-i18n="dev.btn_scan_caches">Scan Caches</span>
               </button>
             </div>
 
@@ -1051,8 +1058,8 @@
               <div class="inpage-progress-header">
                 <div class="inpage-title-group">
                   <span class="live-pulse-dot"></span>
-                  <span class="inpage-action-label" id="devcaches-action-label">Önbellekler Taranıyor...</span>
-                  <span class="inpage-phase-badge" id="devcaches-phase-badge">ÇALIŞIYOR</span>
+                  <span class="inpage-action-label" id="devcaches-action-label" data-i18n="dev.action_scanning_caches">Scanning Caches...</span>
+                  <span class="inpage-phase-badge" id="devcaches-phase-badge" data-i18n="clean.phase_working">WORKING</span>
                 </div>
                 <div class="inpage-stats-group">
                   <span class="inpage-count" id="devcaches-progress-count"></span>
@@ -1064,11 +1071,11 @@
               </div>
               <div class="inpage-path-ticker">
                 <span class="inpage-path-icon">📂</span>
-                <span class="inpage-path-text" id="devcaches-path-text">Hazırlanıyor...</span>
+                <span class="inpage-path-text" id="devcaches-path-text" data-i18n="clean.path_preparing">Preparing...</span>
               </div>
               <div class="inpage-logs-drawer">
                 <button class="inpage-logs-btn" type="button" data-log-service="devcaches">
-                  <span id="devcaches-logs-btn-text">▸ Canlı Log Akışı</span>
+                  <span id="devcaches-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
                 </button>
                 <div class="inpage-logs-container hidden" id="devcaches-logs-container"></div>
               </div>
@@ -1077,18 +1084,18 @@
             <div class="glass-card">
               <div class="table-toolbar">
                 <div class="purge-summary">
-                  <span>Kurtarılabilir Önbellek: </span>
+                  <span data-i18n="dev.lbl_reclaimable_cache">Reclaimable Cache: </span>
                   <strong class="highlight-cyan" id="devcaches-total-size">0 GB</strong>
-                  <span class="text-muted" id="devcaches-count">(0 önbellek öğesi)</span>
+                  <span class="text-muted" id="devcaches-count" data-i18n="dev.zero_cache_items">(0 cache items)</span>
                 </div>
                 <div class="summary-actions">
-                  <button class="btn btn-secondary btn-sm" id="btn-devcaches-select-all">Tümünü Seç</button>
+                  <button class="btn btn-secondary btn-sm" id="btn-devcaches-select-all" data-i18n="clean.btn_select_all">Select All</button>
                   <button class="btn btn-danger btn-sm" id="btn-execute-devcaches-clean">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="3 6 5 6 21 6"></polyline>
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                     </svg>
-                    <span>Önbellekleri Temizle</span>
+                    <span data-i18n="dev.btn_clean_caches">Clean Caches</span>
                   </button>
                 </div>
               </div>
@@ -1097,16 +1104,16 @@
                 <table class="data-table" id="table-devcaches">
                   <thead>
                     <tr>
-                      <th width="40"><input type="checkbox" id="master-devcaches-chk" aria-label="Tüm güvenli geliştirici önbelleklerini seç" disabled></th>
-                      <th>Araç / Paket Yöneticisi</th>
-                      <th>Önbellek Yolu</th>
-                      <th>Risk Seviyesi</th>
-                      <th>Temizlik Yöntemi</th>
-                      <th width="120" style="text-align: right;">Boyut</th>
+                      <th width="40"><input type="checkbox" id="master-devcaches-chk" aria-label="Select all safe developer caches" data-i18n-title="dev.tip_master_cache_chk" disabled></th>
+                      <th data-i18n="dev.th_tool_manager">Tool / Package Manager</th>
+                      <th data-i18n="dev.th_cache_path">Cache Path</th>
+                      <th data-i18n="common.th_risk_level">Risk Level</th>
+                      <th data-i18n="more.th_clean_method">Clean Method</th>
+                      <th width="120" style="text-align: right;" data-i18n="clean.th_size">Size</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-devcaches">
-                    <tr><td colspan="6" class="empty-state">Geliştirici önbelleklerini listelemek için yukarıdaki butona tıklayın.</td></tr>
+                    <tr><td colspan="6" class="empty-state" data-i18n="dev.empty_caches">Click above to scan developer caches.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1117,12 +1124,12 @@
           <div class="sub-pane" id="subpane-dev-runtimes">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Çalışma Zamanları & Programlama Dilleri</h3>
-                <p class="pane-subtitle">Python (pyenv), Ruby (rbenv), Rust (rustup), Node (nvm), Go, Java kurulumları.</p>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="dev.runtimes_title">Runtimes & Programming Languages</h3>
+                <p class="pane-subtitle" data-i18n="dev.runtimes_desc">Python (pyenv), Ruby (rbenv), Rust (rustup), Node (nvm), Go, Java installations.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-runtimes">
                 <span style="margin-right: 6px;">{}</span>
-                <span>Çalışma Zamanlarını Tara</span>
+                <span data-i18n="dev.btn_scan_runtimes">Scan Runtimes</span>
               </button>
             </div>
 
@@ -1131,8 +1138,8 @@
               <div class="inpage-progress-header">
                 <div class="inpage-title-group">
                   <span class="live-pulse-dot"></span>
-                  <span class="inpage-action-label" id="runtimes-action-label">Çalışma Zamanları Taranıyor...</span>
-                  <span class="inpage-phase-badge" id="runtimes-phase-badge">ÇALIŞIYOR</span>
+                  <span class="inpage-action-label" id="runtimes-action-label" data-i18n="dev.action_scanning_runtimes">Scanning Runtimes...</span>
+                  <span class="inpage-phase-badge" id="runtimes-phase-badge" data-i18n="clean.phase_working">WORKING</span>
                 </div>
                 <div class="inpage-stats-group">
                   <span class="inpage-count" id="runtimes-progress-count"></span>
@@ -1144,16 +1151,16 @@
               </div>
               <div class="inpage-path-ticker">
                 <span class="inpage-path-icon">📂</span>
-                <span class="inpage-path-text" id="runtimes-path-text">Hazırlanıyor...</span>
+                <span class="inpage-path-text" id="runtimes-path-text" data-i18n="clean.path_preparing">Preparing...</span>
               </div>
             </div>
 
             <div class="glass-card">
               <div class="table-toolbar">
                 <div class="purge-summary">
-                  <span>Toplam Alan: </span>
+                  <span data-i18n="common.total_space">Total Space: </span>
                   <strong class="highlight-cyan" id="devruntimes-total-size">0 GB</strong>
-                  <span class="text-muted" id="devruntimes-count">(0 çalışma zamanı tespit edildi)</span>
+                  <span class="text-muted" id="devruntimes-count" data-i18n="dev.zero_runtimes">(0 runtimes detected)</span>
                 </div>
               </div>
 
@@ -1161,16 +1168,16 @@
                 <table class="data-table" id="table-devruntimes">
                   <thead>
                     <tr>
-                      <th>Dil / Runtime</th>
-                      <th>Sürüm</th>
-                      <th>Yönetici</th>
-                      <th>Kurulum Yolu</th>
-                      <th>Durum</th>
-                      <th width="120" style="text-align: right;">Boyut</th>
+                      <th data-i18n="dev.th_lang_runtime">Language / Runtime</th>
+                      <th data-i18n="dev.th_version">Version</th>
+                      <th data-i18n="dev.th_manager">Manager</th>
+                      <th data-i18n="dev.th_install_path">Install Path</th>
+                      <th data-i18n="dev.th_status">Status</th>
+                      <th width="120" style="text-align: right;" data-i18n="clean.th_size">Size</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-devruntimes">
-                    <tr><td colspan="6" class="empty-state">Çalışma zamanlarını listelemek için yukarıdaki "Çalışma Zamanlarını Tara" butonuna tıklayın.</td></tr>
+                    <tr><td colspan="6" class="empty-state" data-i18n="dev.empty_runtimes">Click "Scan Runtimes" above to list installed runtimes.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1181,12 +1188,12 @@
           <div class="sub-pane" id="subpane-dev-environments">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Sanal Ortamlar & Depolama</h3>
-                <p class="pane-subtitle">Conda, Micromamba ve Poetry sanal ortam (virtualenv) dizinleri.</p>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="dev.venv_title">Virtual Environments & Storage</h3>
+                <p class="pane-subtitle" data-i18n="dev.venv_desc">Conda, Micromamba and Poetry virtualenv directories.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-environments">
                 <span style="margin-right: 6px;">◌</span>
-                <span>Ortamları Tara</span>
+                <span data-i18n="dev.btn_scan_env">Scan Environments</span>
               </button>
             </div>
 
@@ -1195,8 +1202,8 @@
               <div class="inpage-progress-header">
                 <div class="inpage-title-group">
                   <span class="live-pulse-dot"></span>
-                  <span class="inpage-action-label" id="environments-action-label">Ortamlar Taranıyor...</span>
-                  <span class="inpage-phase-badge" id="environments-phase-badge">ÇALIŞIYOR</span>
+                  <span class="inpage-action-label" id="environments-action-label" data-i18n="dev.action_scanning_env">Scanning Environments...</span>
+                  <span class="inpage-phase-badge" id="environments-phase-badge" data-i18n="clean.phase_working">WORKING</span>
                 </div>
                 <div class="inpage-stats-group">
                   <span class="inpage-count" id="environments-progress-count"></span>
@@ -1208,16 +1215,16 @@
               </div>
               <div class="inpage-path-ticker">
                 <span class="inpage-path-icon">📂</span>
-                <span class="inpage-path-text" id="environments-path-text">Hazırlanıyor...</span>
+                <span class="inpage-path-text" id="environments-path-text" data-i18n="clean.path_preparing">Preparing...</span>
               </div>
             </div>
 
             <div class="glass-card">
               <div class="table-toolbar">
                 <div class="purge-summary">
-                  <span>Toplam Alan: </span>
+                  <span data-i18n="common.total_space">Total Space: </span>
                   <strong class="highlight-cyan" id="devenvironments-total-size">0 GB</strong>
-                  <span class="text-muted" id="devenvironments-count">(0 ortam tespit edildi)</span>
+                  <span class="text-muted" id="devenvironments-count" data-i18n="dev.zero_env">(0 environments detected)</span>
                 </div>
               </div>
 
@@ -1225,15 +1232,15 @@
                 <table class="data-table" id="table-devenvironments">
                   <thead>
                     <tr>
-                      <th>Ortam Adı</th>
-                      <th>Yönetici</th>
-                      <th>Dizin Yolu</th>
-                      <th>Not</th>
-                      <th width="120" style="text-align: right;">Boyut</th>
+                      <th data-i18n="dev.th_env_name">Environment Name</th>
+                      <th data-i18n="dev.th_manager">Manager</th>
+                      <th data-i18n="common.th_dir_path">Directory Path</th>
+                      <th data-i18n="dev.th_note">Note</th>
+                      <th width="120" style="text-align: right;" data-i18n="clean.th_size">Size</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-devenvironments">
-                    <tr><td colspan="5" class="empty-state">Sanal ortamları listelemek için yukarıdaki "Ortamları Tara" butonuna tıklayın.</td></tr>
+                    <tr><td colspan="5" class="empty-state" data-i18n="dev.empty_env">Click "Scan Environments" above to list virtual environments.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1244,12 +1251,12 @@
           <div class="sub-pane" id="subpane-dev-tools">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Global CLI Araçları</h3>
-                <p class="pane-subtitle">Homebrew leaves, pipx, uv, npm global, pnpm, Cargo ve Pixi araçları.</p>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="dev.tools_title">Global CLI Tools</h3>
+                <p class="pane-subtitle" data-i18n="dev.tools_desc">Homebrew leaves, pipx, uv, npm global, pnpm, Cargo and Pixi tools.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-devtools">
                 <span style="margin-right: 6px;">⌁</span>
-                <span>Global Araçları Tara</span>
+                <span data-i18n="dev.btn_scan_tools">Scan Global Tools</span>
               </button>
             </div>
 
@@ -1258,8 +1265,8 @@
               <div class="inpage-progress-header">
                 <div class="inpage-title-group">
                   <span class="live-pulse-dot"></span>
-                  <span class="inpage-action-label" id="devtools-action-label">Global Araçlar Taranıyor...</span>
-                  <span class="inpage-phase-badge" id="devtools-phase-badge">ÇALIŞIYOR</span>
+                  <span class="inpage-action-label" id="devtools-action-label" data-i18n="dev.action_scanning_tools">Scanning Global Tools...</span>
+                  <span class="inpage-phase-badge" id="devtools-phase-badge" data-i18n="clean.phase_working">WORKING</span>
                 </div>
                 <div class="inpage-stats-group">
                   <span class="inpage-count" id="devtools-progress-count"></span>
@@ -1271,16 +1278,16 @@
               </div>
               <div class="inpage-path-ticker">
                 <span class="inpage-path-icon">📂</span>
-                <span class="inpage-path-text" id="devtools-path-text">Hazırlanıyor...</span>
+                <span class="inpage-path-text" id="devtools-path-text" data-i18n="clean.path_preparing">Preparing...</span>
               </div>
             </div>
 
             <div class="glass-card">
               <div class="table-toolbar">
                 <div class="purge-summary">
-                  <span>Toplam Alan: </span>
+                  <span data-i18n="common.total_space">Total Space: </span>
                   <strong class="highlight-cyan" id="devtools-total-size">0 GB</strong>
-                  <span class="text-muted" id="devtools-count">(0 araç tespit edildi)</span>
+                  <span class="text-muted" id="devtools-count" data-i18n="dev.zero_tools">(0 tools detected)</span>
                 </div>
               </div>
 
@@ -1288,15 +1295,15 @@
                 <table class="data-table" id="table-devtools">
                   <thead>
                     <tr>
-                      <th>Araç Adı</th>
-                      <th>Yönetici</th>
-                      <th>Konum Yolu</th>
-                      <th>Not</th>
-                      <th width="120" style="text-align: right;">Boyut</th>
+                      <th data-i18n="dev.th_tool_name">Tool Name</th>
+                      <th data-i18n="dev.th_manager">Manager</th>
+                      <th data-i18n="common.th_location_path">Location Path</th>
+                      <th data-i18n="dev.th_note">Note</th>
+                      <th width="120" style="text-align: right;" data-i18n="clean.th_size">Size</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-devtools">
-                    <tr><td colspan="5" class="empty-state">Global araçları listelemek için yukarıdaki "Global Araçları Tara" butonuna tıklayın.</td></tr>
+                    <tr><td colspan="5" class="empty-state" data-i18n="dev.empty_tools">Click "Scan Global Tools" above to list global CLI tools.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1307,12 +1314,12 @@
           <div class="sub-pane" id="subpane-dev-sdks">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">SDK & Simülatörler</h3>
-                <p class="pane-subtitle">Android SDK/NDK/AVDs, Xcode platform runtimes, devices ve DeviceSupport.</p>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="dev.sdks_title">SDKs & Simulators</h3>
+                <p class="pane-subtitle" data-i18n="dev.sdks_subdesc">Android SDK/NDK/AVDs, Xcode platform runtimes, devices and DeviceSupport.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-sdks">
                 <span style="margin-right: 6px;">▣</span>
-                <span>SDK & Simülatörleri Tara</span>
+                <span data-i18n="dev.btn_scan_sdks">Scan SDKs & Simulators</span>
               </button>
             </div>
 
@@ -1321,8 +1328,8 @@
               <div class="inpage-progress-header">
                 <div class="inpage-title-group">
                   <span class="live-pulse-dot"></span>
-                  <span class="inpage-action-label" id="sdks-action-label">SDK & Simülatörler Taranıyor...</span>
-                  <span class="inpage-phase-badge" id="sdks-phase-badge">ÇALIŞIYOR</span>
+                  <span class="inpage-action-label" id="sdks-action-label" data-i18n="dev.action_scanning_sdks">Scanning SDKs & Simulators...</span>
+                  <span class="inpage-phase-badge" id="sdks-phase-badge" data-i18n="clean.phase_working">WORKING</span>
                 </div>
                 <div class="inpage-stats-group">
                   <span class="inpage-count" id="sdks-progress-count"></span>
@@ -1334,16 +1341,16 @@
               </div>
               <div class="inpage-path-ticker">
                 <span class="inpage-path-icon">📂</span>
-                <span class="inpage-path-text" id="sdks-path-text">Hazırlanıyor...</span>
+                <span class="inpage-path-text" id="sdks-path-text" data-i18n="clean.path_preparing">Preparing...</span>
               </div>
             </div>
 
             <div class="glass-card">
               <div class="table-toolbar">
                 <div class="purge-summary">
-                  <span>Toplam Alan: </span>
+                  <span data-i18n="common.total_space">Total Space: </span>
                   <strong class="highlight-cyan" id="devsdks-total-size">0 GB</strong>
-                  <span class="text-muted" id="devsdks-count">(0 SDK/Simülatör tespit edildi)</span>
+                  <span class="text-muted" id="devsdks-count" data-i18n="dev.zero_sdks">(0 SDKs/Simulators detected)</span>
                 </div>
               </div>
 
@@ -1351,15 +1358,15 @@
                 <table class="data-table" id="table-devsdks">
                   <thead>
                     <tr>
-                      <th>SDK / Simülatör</th>
-                      <th>Platform / Yönetici</th>
-                      <th>Dizin Yolu</th>
-                      <th>Not</th>
-                      <th width="120" style="text-align: right;">Boyut</th>
+                      <th data-i18n="dev.th_sdk_sim">SDK / Simulator</th>
+                      <th data-i18n="dev.th_platform_manager">Platform / Manager</th>
+                      <th data-i18n="common.th_dir_path">Directory Path</th>
+                      <th data-i18n="dev.th_note">Note</th>
+                      <th width="120" style="text-align: right;" data-i18n="clean.th_size">Size</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-devsdks">
-                    <tr><td colspan="5" class="empty-state">SDK ve simülatörleri listelemek için yukarıdaki "SDK & Simülatörleri Tara" butonuna tıklayın.</td></tr>
+                    <tr><td colspan="5" class="empty-state" data-i18n="dev.empty_sdks">Click "Scan SDKs & Simulators" above to list SDKs and simulators.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1372,7 +1379,7 @@
           <div class="pane-header">
             <div>
               <h1 class="pane-title">Tool Center</h1>
-              <p class="pane-subtitle">Araçlar kullanım amacına göre Cleanup, Storage & Data ve System & History olarak gruplandırılmıştır.</p>
+              <p class="pane-subtitle" data-i18n="more.subtitle">Tools are grouped by purpose: Cleanup, Storage & Data, and System & History.</p>
             </div>
           </div>
 
@@ -1380,12 +1387,12 @@
           <div class="sub-pane active" id="subpane-more-leftovers">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Uygulama Artıkları (Leftovers)</h3>
-                <p class="pane-subtitle">Kaldırılmış uygulamalardan geriye kalan öksüz artıklar ve konfigürasyon dosyaları.</p>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="more.leftovers_title">Application Leftovers</h3>
+                <p class="pane-subtitle" data-i18n="more.leftovers_desc">Orphaned leftovers and configuration files left behind by uninstalled applications.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-leftovers">
                 <span style="margin-right: 6px;">◇</span>
-                <span>Artıkları Tara</span>
+                <span data-i18n="more.btn_scan_leftovers">Scan Leftovers</span>
               </button>
             </div>
 
@@ -1394,8 +1401,8 @@
               <div class="inpage-progress-header">
                 <div class="inpage-title-group">
                   <span class="live-pulse-dot"></span>
-                  <span class="inpage-action-label" id="leftovers-action-label">Artıklar Taranıyor...</span>
-                  <span class="inpage-phase-badge" id="leftovers-phase-badge">ÇALIŞIYOR</span>
+                  <span class="inpage-action-label" id="leftovers-action-label" data-i18n="more.action_scanning_leftovers">Scanning Leftovers...</span>
+                  <span class="inpage-phase-badge" id="leftovers-phase-badge" data-i18n="clean.phase_working">WORKING</span>
                 </div>
                 <div class="inpage-stats-group">
                   <span class="inpage-count" id="leftovers-progress-count"></span>
@@ -1407,11 +1414,11 @@
               </div>
               <div class="inpage-path-ticker">
                 <span class="inpage-path-icon">📂</span>
-                <span class="inpage-path-text" id="leftovers-path-text">Hazırlanıyor...</span>
+                <span class="inpage-path-text" id="leftovers-path-text" data-i18n="clean.path_preparing">Preparing...</span>
               </div>
               <div class="inpage-logs-drawer">
                 <button class="inpage-logs-btn" type="button" data-log-service="leftovers">
-                  <span id="leftovers-logs-btn-text">▸ Canlı Log Akışı</span>
+                  <span id="leftovers-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
                 </button>
                 <div class="inpage-logs-container hidden" id="leftovers-logs-container"></div>
               </div>
@@ -1420,36 +1427,36 @@
             <div class="glass-card">
               <div class="config-row" style="margin-bottom: 20px;">
                 <div class="config-group">
-                  <label class="control-label">Artık Yaşı:</label>
+                  <label class="control-label" data-i18n="more.lbl_leftover_age">Leftover Age:</label>
                   <div class="profile-pills">
-                    <button class="profile-pill active leftover-age-pill" data-days="30">30 günden eski</button>
-                    <button class="profile-pill leftover-age-pill" data-days="14">14 günden eski</button>
-                    <button class="profile-pill leftover-age-pill" data-days="0">Tümü</button>
+                    <button class="profile-pill active leftover-age-pill" data-days="30" data-i18n="more.filter_30days">> 30 days old</button>
+                    <button class="profile-pill leftover-age-pill" data-days="14" data-i18n="more.filter_14days">> 14 days old</button>
+                    <button class="profile-pill leftover-age-pill" data-days="0" data-i18n="more.filter_all">All</button>
                   </div>
                 </div>
                 <div class="config-switches">
                   <label class="switch-item" title="Application Support ve Container verilerini de dahil et">
                     <input type="checkbox" id="chk-leftovers-data">
                     <span class="switch-toggle"></span>
-                    <span class="switch-text">Uygulama Veri Klasörlerini Dahil Et (Application Support/Containers)</span>
+                    <span class="switch-text" data-i18n="apps.include_user_data">Include Application Data Folders (Application Support/Containers)</span>
                   </label>
                 </div>
               </div>
 
               <div class="table-toolbar">
                 <div class="purge-summary">
-                  <span>Kurtarılabilir Alan: </span>
+                  <span data-i18n="purge.lbl_reclaimable">Reclaimable Space: </span>
                   <strong class="highlight-cyan" id="leftovers-total-size">0 GB</strong>
-                  <span class="text-muted" id="leftovers-count">(0 artık tespit edildi)</span>
+                  <span class="text-muted" id="leftovers-count" data-i18n="more.zero_leftovers">(0 leftovers detected)</span>
                 </div>
                 <div class="summary-actions">
-                  <button class="btn btn-secondary btn-sm" id="btn-leftovers-select-all">Tümünü Seç</button>
+                  <button class="btn btn-secondary btn-sm" id="btn-leftovers-select-all" data-i18n="clean.btn_select_all">Select All</button>
                   <button class="btn btn-danger btn-sm" id="btn-execute-leftovers-clean">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="3 6 5 6 21 6"></polyline>
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                     </svg>
-                    <span>Seçili Artıkları Sil</span>
+                    <span data-i18n="more.btn_clean_leftovers">Delete Selected Leftovers</span>
                   </button>
                 </div>
               </div>
@@ -1458,15 +1465,15 @@
                 <table class="data-table" id="table-leftovers">
                   <thead>
                     <tr>
-                      <th width="40"><input type="checkbox" id="master-leftovers-chk" aria-label="Tüm güvenli uygulama artıklarını seç" disabled></th>
-                      <th>Uygulama Kimliği (Bundle ID)</th>
-                      <th>Konum</th>
-                      <th>Risk Seviyesi</th>
-                      <th width="120" style="text-align: right;">Boyut</th>
+                      <th width="40"><input type="checkbox" id="master-leftovers-chk" aria-label="Select all safe application leftovers" data-i18n-title="more.tip_master_leftovers_chk" disabled></th>
+                      <th data-i18n="more.th_bundle_id">Bundle ID</th>
+                      <th data-i18n="dev.th_location_simple">Location</th>
+                      <th data-i18n="common.th_risk_level">Risk Level</th>
+                      <th width="120" style="text-align: right;" data-i18n="clean.th_size">Size</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-leftovers">
-                    <tr><td colspan="5" class="empty-state">Öksüz artıkları taramak için yukarıdaki butona tıklayın.</td></tr>
+                    <tr><td colspan="5" class="empty-state" data-i18n="more.empty_leftovers">Click the button above to scan orphaned leftovers.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1477,12 +1484,12 @@
           <div class="sub-pane" id="subpane-more-installers">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Eski Yükleyiciler (DMG, PKG, ISO, IPSW)</h3>
-                <p class="pane-subtitle">İndirilenler ve Masaüstündeki eski imaj ve kurulum paketleri.</p>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="more.installers_title">Old Installers (DMG, PKG, ISO, IPSW)</h3>
+                <p class="pane-subtitle" data-i18n="more.installers_desc">Old disk images and installation packages in Downloads and Desktop.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-installers">
                 <span style="margin-right: 6px;">↓</span>
-                <span>Yükleyicileri Tara</span>
+                <span data-i18n="more.btn_scan_installers">Scan Installers</span>
               </button>
             </div>
 
@@ -1491,8 +1498,8 @@
               <div class="inpage-progress-header">
                 <div class="inpage-title-group">
                   <span class="live-pulse-dot"></span>
-                  <span class="inpage-action-label" id="installers-action-label">Yükleyiciler Taranıyor...</span>
-                  <span class="inpage-phase-badge" id="installers-phase-badge">ÇALIŞIYOR</span>
+                  <span class="inpage-action-label" id="installers-action-label" data-i18n="more.action_scanning_installers">Scanning Installers...</span>
+                  <span class="inpage-phase-badge" id="installers-phase-badge" data-i18n="clean.phase_working">WORKING</span>
                 </div>
                 <div class="inpage-stats-group">
                   <span class="inpage-count" id="installers-progress-count"></span>
@@ -1504,11 +1511,11 @@
               </div>
               <div class="inpage-path-ticker">
                 <span class="inpage-path-icon">📂</span>
-                <span class="inpage-path-text" id="installers-path-text">Hazırlanıyor...</span>
+                <span class="inpage-path-text" id="installers-path-text" data-i18n="clean.path_preparing">Preparing...</span>
               </div>
               <div class="inpage-logs-drawer">
                 <button class="inpage-logs-btn" type="button" data-log-service="installers">
-                  <span id="installers-logs-btn-text">▸ Canlı Log Akışı</span>
+                  <span id="installers-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
                 </button>
                 <div class="inpage-logs-container hidden" id="installers-logs-container"></div>
               </div>
@@ -1517,30 +1524,30 @@
             <div class="glass-card">
               <div class="config-row" style="margin-bottom: 20px;">
                 <div class="config-group">
-                  <label class="control-label">Minimum Yaş:</label>
+                  <label class="control-label" data-i18n="more.lbl_min_age">Minimum Age:</label>
                   <div class="profile-pills">
-                    <button class="profile-pill active installer-age-pill" data-days="30">30 günden eski</button>
-                    <button class="profile-pill installer-age-pill" data-days="14">14 günden eski</button>
-                    <button class="profile-pill installer-age-pill" data-days="7">7 günden eski</button>
-                    <button class="profile-pill installer-age-pill" data-days="0">Tümü (Tüm İmajlar)</button>
+                    <button class="profile-pill active installer-age-pill" data-days="30" data-i18n="more.filter_30days">> 30 days old</button>
+                    <button class="profile-pill installer-age-pill" data-days="14" data-i18n="more.filter_14days">> 14 days old</button>
+                    <button class="profile-pill installer-age-pill" data-days="7" data-i18n="more.filter_7days">> 7 days old</button>
+                    <button class="profile-pill installer-age-pill" data-days="0" data-i18n="more.filter_all_images">All (All Images)</button>
                   </div>
                 </div>
               </div>
 
               <div class="table-toolbar">
                 <div class="purge-summary">
-                  <span>Kazanılabilir Alan: </span>
+                  <span data-i18n="clean.stat_reclaimable">Reclaimable Space: </span>
                   <strong class="highlight-cyan" id="installers-total-size">0 GB</strong>
-                  <span class="text-muted" id="installers-count">(0 dosya)</span>
+                  <span class="text-muted" id="installers-count" data-i18n="more.zero_files">(0 files)</span>
                 </div>
                 <div class="summary-actions">
-                  <button class="btn btn-secondary btn-sm" id="btn-installers-select-all">Tümünü Seç</button>
+                  <button class="btn btn-secondary btn-sm" id="btn-installers-select-all" data-i18n="clean.btn_select_all">Select All</button>
                   <button class="btn btn-danger btn-sm" id="btn-execute-installers-clean">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="3 6 5 6 21 6"></polyline>
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                     </svg>
-                    <span>Seçilenleri Çöpe Taşı</span>
+                    <span data-i18n="more.btn_clean_installers">Move Selected to Trash</span>
                   </button>
                 </div>
               </div>
@@ -1549,15 +1556,15 @@
                 <table class="data-table" id="table-installers">
                   <thead>
                     <tr>
-                      <th width="40"><input type="checkbox" id="master-installers-chk" aria-label="Tüm yükleyicileri seç" disabled></th>
-                      <th>Dosya Adı</th>
-                      <th>Konum</th>
-                      <th>Gerekçe</th>
-                      <th width="120" style="text-align: right;">Boyut</th>
+                      <th width="40"><input type="checkbox" id="master-installers-chk" aria-label="Select all installers" data-i18n-title="more.tip_master_installers_chk" disabled></th>
+                      <th data-i18n="analyzer.th_filename">File Name</th>
+                      <th data-i18n="dev.th_location_simple">Location</th>
+                      <th data-i18n="clean.th_reason">Reason</th>
+                      <th width="120" style="text-align: right;" data-i18n="clean.th_size">Size</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-installers">
-                    <tr><td colspan="5" class="empty-state">Yükleyicileri taramak için yukarıdaki butona tıklayın.</td></tr>
+                    <tr><td colspan="5" class="empty-state" data-i18n="more.empty_installers">Click the button above to scan installers.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1569,18 +1576,18 @@
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
                 <h3 style="font-size: 16px; font-weight: 600;">Storage Treemap</h3>
-                <p class="pane-subtitle">Disk Analyzer backend ile folder size, percentage ve file count gösterir; drill-down/back/Open in Finder destekler.</p>
+                <p class="pane-subtitle" data-i18n="more.treemap_desc">Displays folder sizes, percentages and file counts with drill-down and Open in Finder support.</p>
               </div>
-              <button class="btn btn-primary" id="btn-scan-treemap"><span>Treemap Tara</span></button>
+              <button class="btn btn-primary" id="btn-scan-treemap"><span data-i18n="more.btn_scan_treemap">Scan Treemap</span></button>
             </div>
             <div class="inpage-progress-card hidden" id="treemap-progress-card">
-              <div class="inpage-progress-header"><div class="inpage-title-group"><span class="live-pulse-dot"></span><span id="treemap-action-label">Treemap taranıyor…</span></div><span id="treemap-progress-percent">0%</span></div>
+              <div class="inpage-progress-header"><div class="inpage-title-group"><span class="live-pulse-dot"></span><span id="treemap-action-label" data-i18n="more.action_scanning_treemap">Scanning treemap…</span></div><span id="treemap-progress-percent">0%</span></div>
               <div class="inpage-progress-track"><div class="inpage-progress-fill" id="treemap-progress-bar" style="width:0%"></div></div>
-              <div class="inpage-path-ticker"><span class="inpage-path-icon">📂</span><span id="treemap-progress-path">Hazırlanıyor…</span></div>
+              <div class="inpage-path-ticker"><span class="inpage-path-icon">📂</span><span id="treemap-progress-path" data-i18n="clean.path_preparing2">Preparing...</span></div>
             </div>
             <div class="glass-card">
               <div class="table-toolbar"><button class="btn btn-secondary btn-sm" id="btn-treemap-back">Back</button><strong id="treemap-path" class="highlight-cyan">~</strong></div>
-              <div id="treemap-box" class="table-container"><div class="empty-state">Treemap için tara.</div></div>
+              <div id="treemap-box" class="table-container"><div class="empty-state" data-i18n="more.empty_treemap">Click above to generate treemap.</div></div>
             </div>
           </div>
 
@@ -1589,16 +1596,16 @@
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
                 <h3 style="font-size: 16px; font-weight: 600;">Browser Storage Inspector</h3>
-                <p class="pane-subtitle">Safari, Chrome, Chromium, Brave, Edge, Firefox ve Arc alanlarını ayrı gösterir. Smart Clean yalnız güvenli cache alanlarını seçer.</p>
+                <p class="pane-subtitle" data-i18n="more.browsers_desc">Displays Safari, Chrome, Brave, Edge, Firefox and Arc storage. Smart Clean selects only safe cache areas.</p>
               </div>
-              <button class="btn btn-primary" id="btn-scan-browser-storage"><span>Browser Storage Tara</span></button>
+              <button class="btn btn-primary" id="btn-scan-browser-storage"><span data-i18n="more.btn_scan_browsers">Scan Browser Storage</span></button>
             </div>
             <div class="glass-card">
               <div class="table-toolbar"><div class="purge-summary"><span>Safe cache: </span><strong id="browser-safe-cache" class="highlight-cyan">0 B</strong></div><button class="btn btn-danger btn-sm" id="btn-clean-browser-cache">Smart Clean Cache</button></div>
               <div class="table-container">
                 <table class="data-table" id="table-browser-storage">
-                  <thead><tr><th width="40"><input type="checkbox" id="master-browser-storage-chk" checked></th><th>Browser</th><th>Profile</th><th>Area</th><th>Risk</th><th>Boyut</th></tr></thead>
-                  <tbody id="tbody-browser-storage"><tr><td colspan="6" class="empty-state">Browser storage için tara.</td></tr></tbody>
+                  <thead><tr><th width="40"><input type="checkbox" id="master-browser-storage-chk" checked></th><th data-i18n="more.th_browser">Browser</th><th data-i18n="more.th_profile">Profile</th><th data-i18n="more.th_area">Area</th><th data-i18n="more.th_risk">Risk</th><th data-i18n="clean.th_size">Size</th></tr></thead>
+                  <tbody id="tbody-browser-storage"><tr><td colspan="6" class="empty-state" data-i18n="more.empty_browsers">Click above to scan browser storage.</td></tr></tbody>
                 </table>
               </div>
             </div>
@@ -1609,19 +1616,19 @@
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
                 <h3 style="font-size: 16px; font-weight: 600;">Smart Downloads</h3>
-                <p class="pane-subtitle">Installers, Archives, Old Downloads, Incomplete Downloads ve Duplicates olarak sınıflandırır. Documents/photos/source code otomatik junk değildir.</p>
+                <p class="pane-subtitle" data-i18n="more.downloads_desc">Categorizes Installers, Archives, Old Downloads, and Incomplete Downloads. Documents and source code are never classified as junk.</p>
               </div>
-              <button class="btn btn-primary" id="btn-scan-smart-downloads"><span>↓ Smart Downloads Tara</span></button>
+              <button class="btn btn-primary" id="btn-scan-smart-downloads"><span data-i18n="more.btn_scan_downloads">↓ Scan Smart Downloads</span></button>
             </div>
             <div class="glass-card">
               <div class="config-row" style="margin-bottom: 16px;">
-                <label class="control-label">Old Downloads:</label>
-                <select id="smart-downloads-age-filter"><option value="30">30 gün</option><option value="90">90 gün</option><option value="180">180 gün</option><option value="365">1 yıl</option></select>
+                <label class="control-label" data-i18n="more.lbl_old_downloads">Old Downloads:</label>
+                <select id="smart-downloads-age-filter"><option value="30" data-i18n="more.filter_30d">30 days</option><option value="90" data-i18n="more.filter_90d">90 days</option><option value="180" data-i18n="more.filter_180d">180 days</option><option value="365" data-i18n="more.filter_1yr">1 year</option></select>
               </div>
               <div class="table-container">
                 <table class="data-table" id="table-smart-downloads">
-                  <thead><tr><th>Kategori</th><th>Dosya</th><th>Yaş</th><th>Boyut</th><th>Aksiyon</th></tr></thead>
-                  <tbody id="tbody-smart-downloads"><tr><td colspan="5" class="empty-state">Smart Downloads taraması için yukarıdaki butona tıklayın.</td></tr></tbody>
+                  <thead><tr><th data-i18n="common.th_category">Category</th><th data-i18n="common.th_file">File</th><th data-i18n="more.th_age">Age</th><th data-i18n="clean.th_size">Size</th><th data-i18n="common.th_action">Action</th></tr></thead>
+                  <tbody id="tbody-smart-downloads"><tr><td colspan="5" class="empty-state" data-i18n="more.empty_downloads">Click above to scan downloads.</td></tr></tbody>
                 </table>
               </div>
             </div>
@@ -1632,15 +1639,15 @@
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
                 <h3 style="font-size: 16px; font-weight: 600;">Duplicate File Finder</h3>
-                <p class="pane-subtitle">Byte-for-byte eşleşmeleri size → partial hash → full hash ile doğrular. Hiçbir dosya otomatik seçilmez.</p>
+                <p class="pane-subtitle" data-i18n="more.duplicates_desc">Verifies byte-for-byte matches via size, partial hash, and full SHA256. No files are auto-selected.</p>
               </div>
-              <button class="btn btn-primary" id="btn-scan-duplicates"><span>⧉ Duplicate Tara</span></button>
+              <button class="btn btn-primary" id="btn-scan-duplicates"><span data-i18n="more.btn_scan_duplicates">⧉ Scan Duplicates</span></button>
             </div>
             <div class="glass-card">
               <div class="table-container">
                 <table class="data-table" id="table-duplicates">
-                  <thead><tr><th>Grup</th><th>Dosya</th><th>Boyut</th><th>Aksiyon</th></tr></thead>
-                  <tbody id="tbody-duplicates"><tr><td colspan="4" class="empty-state">Duplicate taraması için yukarıdaki butona tıklayın.</td></tr></tbody>
+                  <thead><tr><th data-i18n="common.th_group">Group</th><th data-i18n="common.th_file">File</th><th data-i18n="clean.th_size">Size</th><th data-i18n="common.th_action">Action</th></tr></thead>
+                  <tbody id="tbody-duplicates"><tr><td colspan="4" class="empty-state" data-i18n="more.empty_duplicates">Click above to scan duplicate files.</td></tr></tbody>
                 </table>
               </div>
             </div>
@@ -1651,21 +1658,21 @@
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
                 <h3 style="font-size: 16px; font-weight: 600;">Large & Old Files</h3>
-                <p class="pane-subtitle">500 MB, 1 GB, 5 GB, 10 GB ve 30/90/180/365 gün filtreleri. User dosyaları otomatik seçilmez.</p>
+                <p class="pane-subtitle" data-i18n="more.large_files_desc">Filters by size (500MB - 10GB) and age (30 - 365 days). Personal files are never auto-selected.</p>
               </div>
-              <button class="btn btn-primary" id="btn-scan-large-files"><span>◫ Large/Old Tara</span></button>
+              <button class="btn btn-primary" id="btn-scan-large-files"><span data-i18n="more.btn_scan_large">◫ Scan Large/Old</span></button>
             </div>
             <div class="glass-card">
               <div class="config-row" style="margin-bottom: 16px;">
-                <label class="control-label">Min boyut:</label>
+                <label class="control-label" data-i18n="more.lbl_min_size">Min size:</label>
                 <select id="large-size-filter"><option>500MB</option><option>1GB</option><option>5GB</option><option>10GB</option></select>
-                <label class="control-label">Yaş:</label>
-                <select id="large-age-filter"><option value="">Tümü</option><option value="30">30 gün</option><option value="90">90 gün</option><option value="180">180 gün</option><option value="365">1 yıl</option></select>
+                <label class="control-label" data-i18n="more.lbl_age">Age:</label>
+                <select id="large-age-filter"><option value="" data-i18n="more.filter_all">All</option><option value="30" data-i18n="more.filter_30d">30 days</option><option value="90" data-i18n="more.filter_90d">90 days</option><option value="180" data-i18n="more.filter_180d">180 days</option><option value="365" data-i18n="more.filter_1yr">1 year</option></select>
               </div>
               <div class="table-container">
                 <table class="data-table" id="table-large-files">
-                  <thead><tr><th>Kategori</th><th>Dosya</th><th>Yaş</th><th>Boyut</th><th>Aksiyon</th></tr></thead>
-                  <tbody id="tbody-large-files"><tr><td colspan="5" class="empty-state">Large/old file taraması için yukarıdaki butona tıklayın.</td></tr></tbody>
+                  <thead><tr><th data-i18n="common.th_category">Category</th><th data-i18n="common.th_file">File</th><th data-i18n="more.th_age">Age</th><th data-i18n="clean.th_size">Size</th><th data-i18n="common.th_action">Action</th></tr></thead>
+                  <tbody id="tbody-large-files"><tr><td colspan="5" class="empty-state" data-i18n="more.empty_large">Click above to scan large and old files.</td></tr></tbody>
                 </table>
               </div>
             </div>
@@ -1675,12 +1682,12 @@
           <div class="sub-pane" id="subpane-more-snapshots">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Time Machine Anlık Görüntüleri (APFS Snapshots)</h3>
-                <p class="pane-subtitle">Yerel APFS anlık görüntüleri ve depolama daraltma.</p>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="more.snapshots_title">Time Machine Snapshots (APFS Snapshots)</h3>
+                <p class="pane-subtitle" data-i18n="more.snapshots_desc">Local APFS snapshots and disk space thinning.</p>
               </div>
               <button class="btn btn-primary" id="btn-refresh-snapshots">
                 <span style="margin-right: 6px;">◷</span>
-                <span>Snapshot'ları Listele</span>
+                <span data-i18n="more.btn_list_snapshots">List Snapshots</span>
               </button>
             </div>
 
@@ -1689,8 +1696,8 @@
               <div class="inpage-progress-header">
                 <div class="inpage-title-group">
                   <span class="live-pulse-dot"></span>
-                  <span class="inpage-action-label" id="snapshots-action-label">Snapshot'lar Denetleniyor...</span>
-                  <span class="inpage-phase-badge" id="snapshots-phase-badge">ÇALIŞIYOR</span>
+                  <span class="inpage-action-label" id="snapshots-action-label" data-i18n="more.action_checking_snapshots">Checking Snapshots...</span>
+                  <span class="inpage-phase-badge" id="snapshots-phase-badge" data-i18n="clean.phase_working">WORKING</span>
                 </div>
                 <div class="inpage-stats-group">
                   <span class="inpage-count" id="snapshots-progress-count"></span>
@@ -1702,11 +1709,11 @@
               </div>
               <div class="inpage-path-ticker">
                 <span class="inpage-path-icon">📂</span>
-                <span class="inpage-path-text" id="snapshots-path-text">Hazırlanıyor...</span>
+                <span class="inpage-path-text" id="snapshots-path-text" data-i18n="clean.path_preparing">Preparing...</span>
               </div>
               <div class="inpage-logs-drawer">
                 <button class="inpage-logs-btn" type="button" data-log-service="snapshots">
-                  <span id="snapshots-logs-btn-text">▸ Canlı Log Akışı</span>
+                  <span id="snapshots-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
                 </button>
                 <div class="inpage-logs-container hidden" id="snapshots-logs-container"></div>
               </div>
@@ -1715,25 +1722,25 @@
             <div class="doctor-grid">
               <div class="glass-card">
                 <div class="card-header">
-                  <h3>Tespit Edilen APFS Snapshot'lar</h3>
+                  <h3 data-i18n="more.detected_snapshots_title">Detected APFS Snapshots</h3>
                 </div>
-                <div id="snapshots-list-box" class="code-terminal-block" style="max-height: 250px;">
-                  Yerel APFS anlık görüntülerini listelemek için yukarıdaki "Snapshot'ları Listele" butonuna tıklayın.
+                <div id="snapshots-list-box" class="code-terminal-block" style="max-height: 250px;" data-i18n="more.empty_snapshots">
+                  Click "List Snapshots" above to view APFS snapshots.
                 </div>
               </div>
 
               <div class="glass-card">
                 <div class="card-header">
-                  <h3>Snapshot Alanı Daraltma (Thinning)</h3>
+                  <h3 data-i18n="more.thinning_title">Snapshot Thinning</h3>
                 </div>
-                <p class="card-desc">Apple normalde snapshot'ları otomatik siler. Ancak acil depolama alanı gerektiğinde güvenli daraltma komutu çalıştırabilirsiniz.</p>
+                <p class="card-desc" data-i18n="more.thinning_desc">Apple manages snapshots automatically. When immediate disk recovery is required, a safe thinning routine can be executed.</p>
                 
                 <div style="margin: 20px 0;">
-                  <label class="control-label" style="display:block; margin-bottom: 8px;">Kurtarılmak İstenen Alan:</label>
+                  <label class="control-label" style="display:block; margin-bottom: 8px;" data-i18n="more.lbl_target_reclaim">Target Reclaim Space:</label>
                   <div class="profile-pills">
-                    <button class="profile-pill active snapshot-thin-pill" data-gb="10">10 GB Geri Kazan</button>
-                    <button class="profile-pill snapshot-thin-pill" data-gb="20">20 GB Geri Kazan</button>
-                    <button class="profile-pill snapshot-thin-pill" data-gb="50">50 GB Geri Kazan</button>
+                    <button class="profile-pill active snapshot-thin-pill" data-gb="10" data-i18n="more.btn_reclaim_10gb">Reclaim 10 GB</button>
+                    <button class="profile-pill snapshot-thin-pill" data-gb="20" data-i18n="more.btn_reclaim_20gb">Reclaim 20 GB</button>
+                    <button class="profile-pill snapshot-thin-pill" data-gb="50" data-i18n="more.btn_reclaim_50gb">Reclaim 50 GB</button>
                   </div>
                 </div>
 
@@ -1741,7 +1748,7 @@
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
                   </svg>
-                  <span>Snapshot'ları Daralt (Alan Aç)</span>
+                  <span data-i18n="more.btn_thin_snapshots">Thin Snapshots (Free Space)</span>
                 </button>
               </div>
             </div>
@@ -1751,12 +1758,12 @@
           <div class="sub-pane" id="subpane-more-doctor">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Sistem Doktoru (macOS Health Diagnostics)</h3>
-                <p class="pane-subtitle">SIP durumu, APFS, izinler ve donanım sağlık kontrolleri.</p>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="more.sys_doctor_title">System Doctor (macOS Health Diagnostics)</h3>
+                <p class="pane-subtitle" data-i18n="more.doctor_desc">SIP status, APFS health, permissions and hardware diagnostic checks.</p>
               </div>
               <button class="btn btn-primary" id="btn-refresh-doctor">
                 <span style="margin-right: 6px;">✚</span>
-                <span>Teşhisi Başlat</span>
+                <span data-i18n="more.btn_run_doctor">Run Diagnostic</span>
               </button>
             </div>
 
@@ -1765,8 +1772,8 @@
               <div class="inpage-progress-header">
                 <div class="inpage-title-group">
                   <span class="live-pulse-dot"></span>
-                  <span class="inpage-action-label" id="doctor-action-label">Sistem Sağlığı Denetleniyor...</span>
-                  <span class="inpage-phase-badge" id="doctor-phase-badge">ÇALIŞIYOR</span>
+                  <span class="inpage-action-label" id="doctor-action-label" data-i18n="more.action_running_doctor">Checking System Health...</span>
+                  <span class="inpage-phase-badge" id="doctor-phase-badge" data-i18n="clean.phase_working">WORKING</span>
                 </div>
                 <div class="inpage-stats-group">
                   <span class="inpage-count" id="doctor-progress-count"></span>
@@ -1778,11 +1785,11 @@
               </div>
               <div class="inpage-path-ticker">
                 <span class="inpage-path-icon">📂</span>
-                <span class="inpage-path-text" id="doctor-path-text">Hazırlanıyor...</span>
+                <span class="inpage-path-text" id="doctor-path-text" data-i18n="clean.path_preparing">Preparing...</span>
               </div>
               <div class="inpage-logs-drawer">
                 <button class="inpage-logs-btn" type="button" data-log-service="doctor">
-                  <span id="doctor-logs-btn-text">▸ Canlı Log Akışı</span>
+                  <span id="doctor-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
                 </button>
                 <div class="inpage-logs-container hidden" id="doctor-logs-container"></div>
               </div>
@@ -1791,21 +1798,21 @@
             <div class="doctor-grid">
               <div class="glass-card">
                 <div class="card-header">
-                  <h3>Donanım & macOS Bilgileri</h3>
+                  <h3 data-i18n="more.hw_title">Hardware & macOS Information</h3>
                 </div>
                 <div class="key-val-list" id="doc-sys-list">
-                  <div class="key-val-row"><span class="k">macOS:</span><span class="v" id="doc-macos">Yükleniyor...</span></div>
-                  <div class="key-val-row"><span class="k">İşlemci Mimarisi:</span><span class="v" id="doc-arch">--</span></div>
-                  <div class="key-val-row"><span class="k">SIP Durumu:</span><span class="v highlight-green" id="doc-sip">--</span></div>
-                  <div class="key-val-row"><span class="k">Disk Mount:</span><span class="v" id="doc-disk">--</span></div>
+                  <div class="key-val-row"><span class="k">macOS:</span><span class="v" id="doc-macos" data-i18n="status.loading">Loading...</span></div>
+                  <div class="key-val-row"><span class="k" data-i18n="more.lbl_arch">Processor Architecture:</span><span class="v" id="doc-arch">--</span></div>
+                  <div class="key-val-row"><span class="k" data-i18n="more.lbl_sip_status">SIP Status:</span><span class="v highlight-green" id="doc-sip">--</span></div>
+                  <div class="key-val-row"><span class="k" data-i18n="more.lbl_disk_mount">Disk Mount:</span><span class="v" id="doc-disk">--</span></div>
                 </div>
               </div>
 
               <div class="glass-card">
                 <div class="card-header">
-                  <h3>Güvenlik & İzin Taraması</h3>
+                  <h3 data-i18n="more.security_check_title">Security & Permission Audit</h3>
                 </div>
-                <p class="card-desc">MacMaid hassas kullanıcı dizinlerini (Mail, Safari) asla izinsiz silmez ve SIP durumunu asla değiştirmez.</p>
+                <p class="card-desc" data-i18n="more.security_note">MacMaid never accesses protected mail or safari folders without authorization and never alters SIP status.</p>
                 <div class="probes-list" id="doc-probes-list">
                   <div class="probe-item ok">
                     <span class="probe-status">OK</span>
@@ -1820,43 +1827,43 @@
           <div class="sub-pane" id="subpane-more-history">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Temizlik Geçmişi & Tasarruf Analizi</h3>
-                <p class="pane-subtitle">İşlenen hedef tahminleri; Trash ve ölçülemeyen manager etkileri kazanım sayılmaz.</p>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="more.history_title">Cleanup History & Audit Log</h3>
+                <p class="pane-subtitle" data-i18n="more.history_desc">Audit history of completed cleanups and recovered disk space.</p>
               </div>
             </div>
 
             <div class="history-banner glass-card">
               <div class="history-stat">
-                <span class="h-label">Toplam Tahmini Geri Kazanım</span>
+                <span class="h-label" data-i18n="more.history_total_reclaimed">Total Reclaimed Space</span>
                 <span class="h-val highlight-green" id="hist-total-freed">0 GB</span>
               </div>
               <div class="history-stat">
-                <span class="h-label">Toplam Temizlenen Öğe</span>
+                <span class="h-label" data-i18n="more.history_total_cleaned">Total Cleaned Items</span>
                 <span class="h-val" id="hist-total-items">0</span>
               </div>
               <div class="history-stat">
-                <span class="h-label">Son Temizlik</span>
-                <span class="h-val" id="hist-last-run">Hiç yapılmadı</span>
+                <span class="h-label" data-i18n="more.lbl_last_cleanup">Last Cleanup</span>
+                <span class="h-val" id="hist-last-run" data-i18n="more.hist_never">Never</span>
               </div>
             </div>
 
             <div class="glass-card">
               <div class="card-header">
-                <h3>İşlem Günlüğü</h3>
+                <h3 data-i18n="more.history_log_title">Audit Log</h3>
               </div>
               <div class="table-container">
                 <table class="data-table" id="table-history">
                   <thead>
                     <tr>
-                      <th>Tarih / Saat</th>
-                      <th>İşlem Türü</th>
-                      <th>Öğe / Kategori</th>
-                      <th>Tahmini Geri Kazanım</th>
-                      <th>Sonuç</th>
+                      <th data-i18n="more.th_date_time">Date / Time</th>
+                      <th data-i18n="more.th_op_type">Operation Type</th>
+                      <th data-i18n="more.th_item_category">Item / Category</th>
+                      <th data-i18n="more.th_est_reclaim">Estimated Reclaim</th>
+                      <th data-i18n="more.th_result">Result</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-history">
-                    <tr><td colspan="5" class="empty-state">Geçmiş işlem bulunamadı.</td></tr>
+                    <tr><td colspan="5" class="empty-state" data-i18n="more.empty_history">No history records found.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1867,8 +1874,8 @@
           <div class="sub-pane" id="subpane-more-whitelist">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Ayarlar ve Beyaz Liste (Whitelist)</h3>
-                <p class="pane-subtitle">MacMaid'in kesinlikle dokunmasını istemediğiniz dizinleri ve tercihlerinizi yapılandırın.</p>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="more.whitelist_title">Settings & Directory Whitelist</h3>
+                <p class="pane-subtitle" data-i18n="more.whitelist_desc">Configure directories and paths that MacMaid must never touch.</p>
               </div>
               <button class="btn btn-primary" id="btn-save-settings">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1876,28 +1883,28 @@
                   <polyline points="17 21 17 13 7 13 7 21"></polyline>
                   <polyline points="7 3 7 8 15 8"></polyline>
                 </svg>
-                <span>Ayarları Kaydet</span>
+                <span data-i18n="more.btn_save_whitelist">Save Settings</span>
               </button>
             </div>
 
             <div class="settings-grid">
               <div class="glass-card">
                 <div class="card-header">
-                  <h3>Dizin Beyaz Listesi (~/.config/macmaid/whitelist)</h3>
+                  <h3 data-i18n="more.whitelist_card_title">Directory Whitelist (~/.config/macmaid/whitelist)</h3>
                 </div>
-                <p class="card-desc">Her satıra bir dosya yolu veya glob deseni girin. Bu konumlardaki dosyalar taramalarda asla silinmeyecektir.</p>
+                <p class="card-desc" data-i18n="more.whitelist_card_desc">Enter one path or glob pattern per line. Files in these directories will never be deleted.</p>
                 <textarea id="whitelist-textarea" class="settings-textarea" rows="10" placeholder="~/Library/Caches/MySpecialApp&#10;~/Developer/important-builds/*"></textarea>
               </div>
 
               <div class="glass-card">
                 <div class="card-header">
-                  <h3>Arayüz & Ses Tercihleri</h3>
+                  <h3 data-i18n="more.ui_prefs_title">Interface & Sound Preferences</h3>
                 </div>
                 <div class="settings-options">
                   <div class="setting-row">
                     <div>
-                      <strong>Arayüz Teması</strong>
-                      <p class="text-muted">Favori macOS renk paletinizi belirleyin.</p>
+                      <strong data-i18n="more.lbl_ui_theme">Interface Theme</strong>
+                      <p class="text-muted" data-i18n="more.desc_ui_theme">Choose your preferred macOS color palette.</p>
                     </div>
                     <select id="theme-selector-setting" class="select-box">
                       <option value="dark">Obsidian</option>
@@ -1909,14 +1916,125 @@
 
                   <div class="setting-row">
                     <div>
-                      <strong>UI Ses Efektleri</strong>
-                      <p class="text-muted">Temizlik tamamlama sesi ve buton tıklama tınıları.</p>
+                      <strong data-i18n="more.lbl_sound">UI Sound Effects</strong>
+                      <p class="text-muted" data-i18n="more.desc_sound">Audio cues on scan completion and button clicks.</p>
                     </div>
                     <label class="switch-item">
                       <input type="checkbox" id="chk-sound-setting" checked>
                       <span class="switch-toggle"></span>
                     </label>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= TAB 9: SETTINGS ================= -->
+        <section class="tab-pane" id="pane-settings">
+          <div class="pane-header">
+            <div>
+              <h1 class="pane-title" data-i18n="settings.title">Settings</h1>
+              <p class="pane-subtitle" data-i18n="settings.subtitle">Configure application preferences, interface language, and system parameters.</p>
+            </div>
+            <button class="btn btn-primary" id="btn-save-main-settings">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
+              <span data-i18n="settings.save_btn">Save Settings</span>
+            </button>
+          </div>
+
+          <div class="settings-grid">
+            <!-- Card 1: Language Selection -->
+            <div class="glass-card">
+              <div class="card-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                  </svg>
+                  <h3 data-i18n="settings.language_title">Language / Dil</h3>
+                </div>
+              </div>
+              <p class="card-desc" data-i18n="settings.language_desc">Select the primary interface language. (Default: English)</p>
+              <div class="settings-options">
+                <div class="setting-row">
+                  <div>
+                    <strong data-i18n="settings.language_label">Interface Language</strong>
+                    <p class="text-muted" data-i18n="settings.language_sub">Choose between English and Türkçe.</p>
+                  </div>
+                  <select id="setting-lang-select" class="select-box" style="min-width: 150px;">
+                    <option value="en">English (US)</option>
+                    <option value="tr">Türkçe (TR)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2: Appearance & Sound -->
+            <div class="glass-card">
+              <div class="card-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                  </svg>
+                  <h3 data-i18n="settings.appearance_title">Appearance & Sound</h3>
+                </div>
+              </div>
+              <p class="card-desc" data-i18n="settings.appearance_desc">Customize color themes and audio feedback.</p>
+              <div class="settings-options">
+                <div class="setting-row">
+                  <div>
+                    <strong data-i18n="settings.theme_label">Color Theme</strong>
+                    <p class="text-muted" data-i18n="settings.theme_sub">Select your preferred macOS aesthetic palette.</p>
+                  </div>
+                  <select id="main-theme-selector" class="select-box" style="min-width: 150px;">
+                    <option value="dark">Obsidian (Dark)</option>
+                    <option value="midnight">Midnight Indigo</option>
+                    <option value="cyber">Emerald Noir</option>
+                    <option value="light">Porcelain (Light)</option>
+                  </select>
+                </div>
+                <div class="setting-row">
+                  <div>
+                    <strong data-i18n="settings.sound_label">Sound Effects</strong>
+                    <p class="text-muted" data-i18n="settings.sound_sub">Audio cues on scan completion and button clicks.</p>
+                  </div>
+                  <label class="switch-item">
+                    <input type="checkbox" id="chk-main-sound-setting" checked>
+                    <span class="switch-toggle"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 3: About & System Integration -->
+            <div class="glass-card" style="grid-column: 1 / -1;">
+              <div class="card-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <img src="/assets/MacMaid-Logo.png" alt="MacMaid" style="width: 22px; height: 22px; border-radius: 5px;">
+                  <h3 data-i18n="settings.about_title">About MacMaid</h3>
+                </div>
+                <span class="badge-pro">PRO</span>
+              </div>
+              <p class="card-desc" data-i18n="settings.about_desc">System maintenance, disk optimization and developer environment cleaner built exclusively for macOS.</p>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 14px;">
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 10px 14px;">
+                  <div style="font-size: 11px; color: var(--text-dim);" data-i18n="settings.version_label">Version</div>
+                  <div style="font-size: 13px; font-weight: 600; color: var(--text-main); font-family: var(--font-mono); margin-top: 2px;">0.9.22 (Python 3.11+)</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 10px 14px;">
+                  <div style="font-size: 11px; color: var(--text-dim);" data-i18n="settings.safety_label">Safety Model</div>
+                  <div style="font-size: 13px; font-weight: 600; color: var(--green); margin-top: 2px;">SIP Safe & PathSafety Guard</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 10px 14px;">
+                  <div style="font-size: 11px; color: var(--text-dim);" data-i18n="settings.arch_label">Architecture</div>
+                  <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-top: 2px;">Apple Silicon & Intel (Universal)</div>
                 </div>
               </div>
             </div>
@@ -1934,8 +2052,8 @@
   <div class="modal-backdrop hidden" id="modal-container" role="presentation">
     <div class="glass-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-header">
-        <h3 id="modal-title">İşlem Onayı</h3>
-        <button class="btn-icon" id="modal-close-btn" aria-label="Pencereyi kapat">&times;</button>
+        <h3 id="modal-title" data-i18n="modal.title">Confirm Action</h3>
+        <button class="btn-icon" id="modal-close-btn" aria-label="Close dialog" data-i18n-title="modal.aria_close">&times;</button>
       </div>
       <div class="modal-body" id="modal-body">
         <!-- Content -->
@@ -1953,10 +2071,10 @@
   <div class="global-operation-hud hidden" id="global-operation-hud" role="status" aria-live="polite" aria-atomic="true">
     <span class="operation-spinner" id="global-operation-spinner" aria-hidden="true"></span>
     <div class="global-operation-copy">
-      <strong id="global-operation-title">İşlem başlatılıyor…</strong>
-      <span id="global-operation-detail">Hazırlanıyor</span>
+      <strong id="global-operation-title" data-i18n="hud.starting">Starting operation…</strong>
+      <span id="global-operation-detail" data-i18n="clean.preparing">Preparing</span>
     </div>
-    <button class="btn btn-secondary btn-sm hidden" id="global-scan-cancel" type="button">Taramayı durdur</button>
+    <button class="btn btn-secondary btn-sm hidden" id="global-scan-cancel" type="button" data-i18n="hud.cancel_scan">Stop scan</button>
     <span class="global-operation-percent" id="global-operation-percent">…</span>
   </div>
 
