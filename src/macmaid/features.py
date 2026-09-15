@@ -651,8 +651,9 @@ def macmaid_brew_update_status(*, refresh: bool = False) -> dict[str, Any]:
     if not installed.succeeded:
         return {"available": False, "installed": False, "reason": "MacMaid is not installed by Homebrew"}
     outdated = run_command(brew, ["outdated", "--cask", "macmaid", "--json=v2"], timeout=60)
-    if not outdated.succeeded:
-        return {"available": False, "installed": True, "reason": outdated.stderr or outdated.stdout or "Could not check Homebrew updates"}
+    # Homebrew returns 1 when it finds outdated packages; JSON remains the authoritative result.
+    if outdated.status not in (0, 1):
+        return {"available": False, "installed": True, "reason": outdated.stderr or "Could not check Homebrew updates"}
     try:
         data = json.loads(outdated.stdout or "{}")
         casks = data.get("casks", [])

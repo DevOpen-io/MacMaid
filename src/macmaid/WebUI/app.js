@@ -97,6 +97,16 @@ const I18N = {
     "settings.version_label": "Version",
     "settings.safety_label": "Safety Model",
     "settings.arch_label": "Architecture",
+    "settings.check_updates": "Check for Updates",
+    "settings.update_checking": "Checking Homebrew for updates…",
+    "settings.update_available": "Update available: {current} → {latest}",
+    "settings.update_with_brew": "Update with Homebrew",
+    "settings.update_installing": "Installing update with Homebrew…",
+    "settings.update_installed": "Update installed. Restart MacMaid to use the new version.",
+    "settings.update_up_to_date": "MacMaid is up to date.",
+    "settings.update_not_brew": "MacMaid was not installed with Homebrew.",
+    "settings.update_check_failed": "Update check failed: {error}",
+    "settings.update_failed": "Update failed: {error}",
     "status.title": "Mac Health",
     "status.subtitle": "Tangible disk, memory pressure, thermal and battery metrics. No arbitrary scores or automated interference.",
     "status.btn_goto_clean": "Go to Clean Screen",
@@ -591,6 +601,16 @@ const I18N = {
     "settings.version_label": "Sürüm",
     "settings.safety_label": "Güvenlik Modeli",
     "settings.arch_label": "Mimari",
+    "settings.check_updates": "Güncellemeleri Kontrol Et",
+    "settings.update_checking": "Homebrew güncellemeleri denetleniyor…",
+    "settings.update_available": "Güncelleme var: {current} → {latest}",
+    "settings.update_with_brew": "Homebrew ile Güncelle",
+    "settings.update_installing": "Güncelleme Homebrew ile yükleniyor…",
+    "settings.update_installed": "Güncelleme yüklendi. Yeni sürümü kullanmak için MacMaid’i yeniden başlat.",
+    "settings.update_up_to_date": "MacMaid güncel.",
+    "settings.update_not_brew": "MacMaid Homebrew ile kurulmamış.",
+    "settings.update_check_failed": "Güncelleme denetimi başarısız: {error}",
+    "settings.update_failed": "Güncelleme başarısız: {error}",
     "status.title": "Mac Sağlığı",
     "status.subtitle": "Somut disk, bellek baskısı, termal ve pil ölçümleri. Keyfî puan veya otomatik müdahale yoktur.",
     "status.btn_goto_clean": "Clean Ekranına Git",
@@ -3627,42 +3647,44 @@ async function checkMacMaidUpdate() {
   const button = document.getElementById('btn-check-macmaid-update');
   const status = document.getElementById('macmaid-update-status');
   button.disabled = true;
-  status.textContent = 'Checking Homebrew…';
+  status.textContent = t('settings.update_checking', 'Checking Homebrew for updates…');
   try {
     const result = await readAPIResponse(await fetch('/api/macmaid/update/check', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
     }));
     if (!result.installed) {
-      status.textContent = result.reason || 'MacMaid is not installed by Homebrew.';
+      status.textContent = result.reason || t('settings.update_not_brew', 'MacMaid was not installed with Homebrew.');
       return;
     }
     if (!result.available) {
-      status.textContent = result.reason || 'MacMaid is up to date.';
+      status.textContent = result.reason || t('settings.update_up_to_date', 'MacMaid is up to date.');
       return;
     }
-    status.textContent = `Update available: ${result.installedVersion || 'current'} → ${result.latestVersion || 'latest'}`;
+    status.textContent = t('settings.update_available', 'Update available: {current} → {latest}')
+      .replace('{current}', result.installedVersion || 'current')
+      .replace('{latest}', result.latestVersion || 'latest');
     const review = await requestOperationReview('/api/macmaid/update', {});
     showModal(review.review.title, operationReviewHtml(review.review), [
       { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      { text: 'Update with Homebrew', class: 'btn-danger', onClick: async () => {
+      { text: t('settings.update_with_brew', 'Update with Homebrew'), class: 'btn-danger', onClick: async () => {
         const payload = reviewedPayload({}, review);
         if (!payload) return;
         hideModal();
-        status.textContent = 'Updating with Homebrew…';
+        status.textContent = t('settings.update_installing', 'Installing update with Homebrew…');
         try {
           const updated = await readAPIResponse(await fetch('/api/macmaid/update', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
           }));
-          status.textContent = updated.updated ? 'Update installed. Restart MacMaid.' : (updated.reason || 'MacMaid is up to date.');
+          status.textContent = updated.updated ? t('settings.update_installed', 'Update installed. Restart MacMaid to use the new version.') : (updated.reason || t('settings.update_up_to_date', 'MacMaid is up to date.'));
           showToast(status.textContent, 'success');
         } catch (error) {
-          status.textContent = `Update failed: ${error.message}`;
+          status.textContent = t('settings.update_failed', 'Update failed: {error}').replace('{error}', error.message);
           showToast(status.textContent, 'error');
         }
       }}
     ]);
   } catch (error) {
-    status.textContent = `Update check failed: ${error.message}`;
+    status.textContent = t('settings.update_check_failed', 'Update check failed: {error}').replace('{error}', error.message);
     showToast(status.textContent, 'error');
   } finally {
     button.disabled = false;

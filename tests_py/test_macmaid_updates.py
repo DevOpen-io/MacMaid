@@ -4,7 +4,8 @@ import threading
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from macmaid import web
+from macmaid import features, web
+from macmaid.system import CommandResult
 
 
 def handler(state):
@@ -15,6 +16,20 @@ def handler(state):
 
 def state():
     return SimpleNamespace(token="secret", generations={}, review_tokens={}, lock=threading.RLock())
+
+
+def test_homebrew_outdated_exit_one_with_json_means_update_available(monkeypatch):
+    monkeypatch.setattr(features, "which", lambda name: "brew")
+    responses = iter([
+        CommandResult(0),
+        CommandResult(1, '{"formulae": [], "casks": [{"name": "macmaid", "installed_versions": ["0.9.29"], "current_version": "0.9.30"}]}'),
+    ])
+    monkeypatch.setattr(features, "run_command", lambda *args, **kwargs: next(responses))
+
+    assert features.macmaid_brew_update_status() == {
+        "available": True, "installed": True, "installedVersion": "0.9.29",
+        "latestVersion": "0.9.30", "reason": None,
+    }
 
 
 def test_update_check_refreshes_homebrew_and_update_requires_review(monkeypatch):
