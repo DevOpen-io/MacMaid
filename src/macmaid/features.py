@@ -10,6 +10,7 @@ import socket
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -456,12 +457,21 @@ def _expensive_health_probes(*, force: bool = False) -> dict[str, Any]:
             return _health_probe_cache[1]
 
         measured_at = _measured_now()
-        pressure_result = run_command("/usr/bin/memory_pressure", ["-Q"], timeout=5)
+        # These independent, read-only macOS probes can each be slow on a busy Mac.
+        # Run them concurrently so dashboard refresh latency is bounded by the slowest
+        # probe rather than the sum of all three command durations.
+        with ThreadPoolExecutor(max_workers=3, thread_name_prefix="macmaid-health") as executor:
+            pressure_future = executor.submit(run_command, "/usr/bin/memory_pressure", ["-Q"], timeout=5)
+            thermal_future = executor.submit(run_command, "/usr/bin/pmset", ["-g", "therm"], timeout=5)
+            battery_future = executor.submit(run_command, "/usr/sbin/ioreg", ["-rc", "AppleSmartBattery", "-a"], timeout=5)
+            pressure_result = pressure_future.result()
+            thermal_result = thermal_future.result()
+            battery_probe = battery_future.result()
+
         pressure_match = re.search(r"System-wide memory free percentage:\s*(\d+(?:\.\d+)?)%", pressure_result.stdout)
         memory_free_percent = (min(100.0, max(0.0, float(pressure_match.group(1))))
                                if pressure_result.succeeded and pressure_match else None)
 
-        thermal_result = run_command("/usr/bin/pmset", ["-g", "therm"], timeout=5)
         thermal_text = (thermal_result.stdout or thermal_result.stderr).lower()
         thermal = "Unknown"
         if thermal_result.succeeded and "error:" not in thermal_text:
@@ -474,7 +484,6 @@ def _expensive_health_probes(*, force: bool = False) -> dict[str, Any]:
         except (OSError, psutil.Error):
             battery = None
         battery_details: dict[str, Any] | None = None
-        battery_probe = run_command("/usr/sbin/ioreg", ["-rc", "AppleSmartBattery", "-a"], timeout=5)
         battery_record: dict[str, Any] | None = None
         battery_probe_readable = False
         if battery_probe.succeeded:
@@ -594,6 +603,7 @@ def system_status(*, force_health_refresh: bool = False) -> dict[str, Any]:
     memory = psutil.virtual_memory()
     network_before = psutil.net_io_counters()
     disk_before = psutil.disk_io_counters()
+    psutil.cpu_percent(interval=None)
     time.sleep(0.1)
     network_after = psutil.net_io_counters()
     disk_after = psutil.disk_io_counters()
@@ -608,7 +618,7 @@ def system_status(*, force_health_refresh: bool = False) -> dict[str, Any]:
     except (OSError, psutil.Error):
         # Process visibility can be restricted independently of the health probes.
         processes = []
-    cpu = psutil.cpu_percent(interval=0.1)
+    cpu = psutil.cpu_percent(interval=None)
     probes = _expensive_health_probes(force=force_health_refresh)
     try:
         boot_time = psutil.boot_time()

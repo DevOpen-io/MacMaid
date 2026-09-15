@@ -19,6 +19,7 @@ APP_VERSION=$("$UV" run --python "$PYTHON_VERSION" python -c 'from macmaid impor
 APP_NAME=${APP_NAME:-MacMaid}
 BIN_NAME=${BIN_NAME:-macmaid}
 INSTALL_BIN_DIR=${INSTALL_BIN_DIR:-$HOME/.local/bin}
+INSTALL_RUNTIME_DIR=${INSTALL_RUNTIME_DIR:-$HOME/.local/lib/macmaid}
 INSTALL_APP_DIR=${INSTALL_APP_DIR:-$HOME/Applications}
 BUILD_DIR=${BUILD_DIR:-$ROOT/build/prod}
 ENTRYPOINT=$BUILD_DIR/macmaid_entry.py
@@ -50,7 +51,7 @@ info "Building standalone MacMaid binary with PyInstaller..."
 "$UV" run --python "$PYTHON_VERSION" --with pyinstaller pyinstaller \
   --noconfirm \
   --clean \
-  --onefile \
+  --onedir \
   --name "$BIN_NAME" \
   --distpath "$DIST_DIR" \
   --workpath "$WORK_DIR" \
@@ -60,12 +61,13 @@ info "Building standalone MacMaid binary with PyInstaller..."
   --collect-all textual \
   "$ENTRYPOINT"
 
-BINARY=$DIST_DIR/$BIN_NAME
+BUNDLE_DIR=$DIST_DIR/$BIN_NAME
+BINARY=$BUNDLE_DIR/$BIN_NAME
 [ -x "$BINARY" ] || fail "PyInstaller did not produce $BINARY"
 
 if command -v codesign >/dev/null 2>&1; then
   info "Applying ad-hoc code signature..."
-  codesign --force --sign - "$BINARY" >/dev/null 2>&1 || info "Ad-hoc codesign failed; continuing with unsigned binary."
+  codesign --force --deep --sign - "$BUNDLE_DIR" >/dev/null 2>&1 || info "Ad-hoc codesign failed; continuing with unsigned binary."
 fi
 
 OLD_COMMAND=$(printf '%s%s' deep clean)
@@ -74,12 +76,17 @@ rm -f "$INSTALL_BIN_DIR/$OLD_COMMAND" 2>/dev/null || true
 rm -rf "$INSTALL_APP_DIR/$OLD_APP" 2>/dev/null || true
 if [ -n "$UV" ]; then "$UV" tool uninstall "$OLD_COMMAND" >/dev/null 2>&1 || true; fi
 
-info "Installing binary to $INSTALL_BIN_DIR/$BIN_NAME"
-install -m 755 "$BINARY" "$INSTALL_BIN_DIR/$BIN_NAME"
+info "Installing startup-optimized runtime to $INSTALL_RUNTIME_DIR"
+rm -rf "$INSTALL_RUNTIME_DIR"
+mkdir -p "$INSTALL_RUNTIME_DIR"
+cp -R "$BUNDLE_DIR/." "$INSTALL_RUNTIME_DIR/"
+ln -sfn "$INSTALL_RUNTIME_DIR/$BIN_NAME" "$INSTALL_BIN_DIR/$BIN_NAME"
 
 APP_ROOT=$INSTALL_APP_DIR/$APP_NAME.app
 APP_MACOS=$APP_ROOT/Contents/MacOS
 APP_RESOURCES=$APP_ROOT/Contents/Resources
+APP_RUNTIME=$APP_RESOURCES/runtime
+APP_FRAMEWORKS=$APP_ROOT/Contents/Frameworks
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 
 if [ -f "$LOGO_PNG" ]; then
@@ -123,7 +130,10 @@ cat > "$APP_ROOT/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
-install -m 755 "$BINARY" "$APP_MACOS/macmaid-bin"
+rm -rf "$APP_MACOS/_internal" "$APP_MACOS/_CodeSignature" "$APP_FRAMEWORKS" "$APP_RUNTIME"
+install -m 755 "$BUNDLE_DIR/$BIN_NAME" "$APP_MACOS/macmaid-bin"
+cp -R "$BUNDLE_DIR/_internal" "$APP_RUNTIME"
+ln -s Resources/runtime "$APP_FRAMEWORKS"
 
 SWIFT_APP_SRC="$ROOT/src/macmaid/native/MacMaidApp.swift"
 if command -v swiftc >/dev/null 2>&1 && [ -f "$SWIFT_APP_SRC" ]; then

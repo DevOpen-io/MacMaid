@@ -9,6 +9,43 @@ from macmaid import cleaner, web
 from macmaid.config import Config
 
 
+def test_static_assets_revalidate_without_retransferring_unchanged_content(monkeypatch, tmp_path):
+    home = (tmp_path / "home").resolve()
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setattr(web, "Config", lambda: Config(home=home))
+
+    server = web.MacMaidHTTPServer(("127.0.0.1", 0), web.WebState())
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+    headers = {"Host": f"127.0.0.1:{server.server_port}"}
+    try:
+        connection.request("GET", "/app.js", headers=headers)
+        first = connection.getresponse()
+        etag = first.getheader("ETag")
+        first.read()
+        assert first.status == 200
+        assert etag
+
+        connection.request("GET", "/app.js", headers={**headers, "If-None-Match": etag})
+        cached = connection.getresponse()
+        assert cached.status == 304
+        assert cached.read() == b""
+
+        # The session-bearing document must never return 304 with a stale token.
+        connection.request("GET", "/", headers={**headers, "If-None-Match": etag})
+        index = connection.getresponse()
+        index.read()
+        assert index.status == 200
+        assert index.getheader("Set-Cookie")
+    finally:
+        connection.close()
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
 def test_web_clean_scan_review_and_execute_use_the_same_safe_cleaner(monkeypatch, tmp_path):
     """Exercise the browser-facing HTTP flow rather than calling _route_post directly."""
     home = (tmp_path / "home").resolve()

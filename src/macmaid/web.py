@@ -231,13 +231,23 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 path = repo_file
             else:
                 self._json({"error": "File not found"}, 404); return
+        is_index = filename == "index.html"
+        stat = path.stat()
+        etag = f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
+        if not is_index and self.headers.get("If-None-Match") == etag:
+            self.send_response(HTTPStatus.NOT_MODIFIED)
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", "private, max-age=3600, must-revalidate")
+            self.end_headers()
+            return
         data = path.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", mimetypes.guess_type(str(path))[0] or "application/octet-stream")
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("ETag", etag)
+        self.send_header("Cache-Control", "no-store" if is_index else "private, max-age=3600, must-revalidate")
         self.send_header("X-Content-Type-Options", "nosniff")
-        if filename == "index.html":
+        if is_index:
             self.send_header("Set-Cookie", f"macmaid_session={self.server.state.token}; Path=/; HttpOnly; SameSite=Strict")
         self.end_headers()
         if not head:

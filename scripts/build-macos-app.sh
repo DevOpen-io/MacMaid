@@ -29,6 +29,8 @@ ENTRYPOINT=$BUILD_DIR/macmaid_entry.py
 APP_ROOT=${APP_ROOT:-$BUILD_DIR/$APP_NAME.app}
 APP_MACOS=$APP_ROOT/Contents/MacOS
 APP_RESOURCES=$APP_ROOT/Contents/Resources
+APP_RUNTIME=$APP_RESOURCES/runtime
+APP_FRAMEWORKS=$APP_ROOT/Contents/Frameworks
 LOGO_PNG=$ROOT/assets/MacMaid-Logo.png
 ICONSET=$BUILD_DIR/MacMaid.iconset
 ICON_FILE=MacMaid.icns
@@ -47,7 +49,7 @@ info "Building standalone MacMaid binary..."
 "$UV" run --python "$PYTHON_VERSION" --with pyinstaller pyinstaller \
   --noconfirm \
   --clean \
-  --onefile \
+  --onedir \
   --name "$BIN_NAME" \
   --distpath "$DIST_DIR" \
   --workpath "$WORK_DIR" \
@@ -57,8 +59,11 @@ info "Building standalone MacMaid binary..."
   --collect-all textual \
   "$ENTRYPOINT"
 
-[ -x "$DIST_DIR/$BIN_NAME" ] || fail "PyInstaller did not produce $DIST_DIR/$BIN_NAME"
-install -m 755 "$DIST_DIR/$BIN_NAME" "$APP_MACOS/macmaid-bin"
+BUNDLE_DIR=$DIST_DIR/$BIN_NAME
+[ -x "$BUNDLE_DIR/$BIN_NAME" ] || fail "PyInstaller did not produce $BUNDLE_DIR/$BIN_NAME"
+install -m 755 "$BUNDLE_DIR/$BIN_NAME" "$APP_MACOS/macmaid-bin"
+cp -R "$BUNDLE_DIR/_internal" "$APP_RUNTIME"
+ln -s Resources/runtime "$APP_FRAMEWORKS"
 
 SWIFT_APP_SRC="$ROOT/src/macmaid/native/MacMaidApp.swift"
 if command -v swiftc >/dev/null 2>&1 && [ -f "$SWIFT_APP_SRC" ]; then

@@ -23,11 +23,12 @@ class MacMaidWebView: WKWebView {
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate {
     var window: NSWindow!
     var webView: MacMaidWebView!
+    var launchOverlay: NSView?
     var serverProcess: Process?
     var targetURL = URL(string: "http://127.0.0.1:8123")!
     var isConnected = false
     var retryCount = 0
-    let maxRetries = 80 // 80 * 0.15s = 12 seconds max
+    let maxRetries = 300 // 300 * 0.04s = 12 seconds max
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let app = NSApplication.shared
@@ -36,7 +37,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         setupWindow()
         guard configureBackendPort() else { return }
         launchBackend()
-        connectToWeb()
+        probeBackend()
     }
 
     func setupMenu() {
@@ -132,6 +133,40 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) MacMaidApp/1.0"
         contentView.addSubview(webView)
 
+        let overlay = NSView(frame: contentView.bounds)
+        overlay.autoresizingMask = [.width, .height]
+        overlay.wantsLayer = true
+        overlay.layer?.backgroundColor = NSColor(red: 0.027, green: 0.039, blue: 0.063, alpha: 1.0).cgColor
+        let loadingLabel = NSTextField(labelWithString: "MacMaid")
+        loadingLabel.font = NSFont.systemFont(ofSize: 25, weight: .semibold)
+        loadingLabel.textColor = NSColor(red: 0.37, green: 0.91, blue: 0.91, alpha: 1.0)
+        loadingLabel.alignment = .center
+
+        let launchStack = NSStackView()
+        launchStack.orientation = .vertical
+        launchStack.alignment = .centerX
+        launchStack.spacing = 14
+        if let logoURL = Bundle.main.resourceURL?.appendingPathComponent("MacMaid-Logo.png"),
+           let logo = NSImage(contentsOf: logoURL) {
+            let logoView = NSImageView(image: logo)
+            logoView.imageScaling = .scaleProportionallyUpOrDown
+            logoView.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                logoView.widthAnchor.constraint(equalToConstant: 92),
+                logoView.heightAnchor.constraint(equalToConstant: 92),
+            ])
+            launchStack.addArrangedSubview(logoView)
+        }
+        launchStack.addArrangedSubview(loadingLabel)
+        launchStack.translatesAutoresizingMaskIntoConstraints = false
+        overlay.addSubview(launchStack)
+        NSLayoutConstraint.activate([
+            launchStack.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+            launchStack.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
+        ])
+        contentView.addSubview(overlay)
+        launchOverlay = overlay
+
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
@@ -208,21 +243,40 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         self.serverProcess = process
     }
 
+    func probeBackend() {
+        guard !isConnected && retryCount < maxRetries else { return }
+        retryCount += 1
+        var request = URLRequest(url: targetURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 0.25)
+        request.httpMethod = "HEAD"
+        URLSession.shared.dataTask(with: request) { [weak self] _, response, _ in
+            guard let self else { return }
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                DispatchQueue.main.async { self.connectToWeb() }
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { self.probeBackend() }
+            }
+        }.resume()
+    }
+
     func connectToWeb() {
-        let request = URLRequest(url: targetURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 5)
+        let request = URLRequest(url: targetURL, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 5)
         webView.load(request)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         isConnected = true
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.12
+            launchOverlay?.animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            self?.launchOverlay?.removeFromSuperview()
+            self?.launchOverlay = nil
+        }
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        if !isConnected && retryCount < maxRetries {
-            retryCount += 1
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-                self?.connectToWeb()
-            }
+        if !isConnected {
+            probeBackend()
         }
     }
 
