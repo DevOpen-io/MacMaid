@@ -3620,6 +3620,56 @@ async function saveWhitelist() {
 }
 
 // =========================================================
+// MacMaid Homebrew update
+// =========================================================
+
+async function checkMacMaidUpdate() {
+  const button = document.getElementById('btn-check-macmaid-update');
+  const status = document.getElementById('macmaid-update-status');
+  button.disabled = true;
+  status.textContent = 'Checking Homebrew…';
+  try {
+    const result = await readAPIResponse(await fetch('/api/macmaid/update/check', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+    }));
+    if (!result.installed) {
+      status.textContent = result.reason || 'MacMaid is not installed by Homebrew.';
+      return;
+    }
+    if (!result.available) {
+      status.textContent = result.reason || 'MacMaid is up to date.';
+      return;
+    }
+    status.textContent = `Update available: ${result.installedVersion || 'current'} → ${result.latestVersion || 'latest'}`;
+    const review = await requestOperationReview('/api/macmaid/update', {});
+    showModal(review.review.title, operationReviewHtml(review.review), [
+      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
+      { text: 'Update with Homebrew', class: 'btn-danger', onClick: async () => {
+        const payload = reviewedPayload({}, review);
+        if (!payload) return;
+        hideModal();
+        status.textContent = 'Updating with Homebrew…';
+        try {
+          const updated = await readAPIResponse(await fetch('/api/macmaid/update', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+          }));
+          status.textContent = updated.updated ? 'Update installed. Restart MacMaid.' : (updated.reason || 'MacMaid is up to date.');
+          showToast(status.textContent, 'success');
+        } catch (error) {
+          status.textContent = `Update failed: ${error.message}`;
+          showToast(status.textContent, 'error');
+        }
+      }}
+    ]);
+  } catch (error) {
+    status.textContent = `Update check failed: ${error.message}`;
+    showToast(status.textContent, 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+// =========================================================
 // Shared operation review
 // =========================================================
 
@@ -3984,6 +4034,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('dash-quick-scan-btn')?.addEventListener('click', () => {
     document.querySelector('.nav-item[data-tab="cleaner"]')?.click();
   });
+
+  document.getElementById('btn-check-macmaid-update')?.addEventListener('click', checkMacMaidUpdate);
 
   // Cleaner tab events
   document.getElementById('btn-start-scan')?.addEventListener('click', runSmartScan);

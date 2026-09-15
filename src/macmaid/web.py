@@ -22,7 +22,8 @@ from .cleaner import Cleaner
 from .config import Config
 from .features import (
     OPTIMIZATIONS, OPTIMIZATION_UNAVAILABLE_REASON, ApplicationManager, ProjectPurgeManager, RecoveryCenter,
-    doctor, history, list_snapshots, run_optimization, system_status, thin_snapshots,
+    apply_macmaid_brew_update, doctor, history, list_snapshots, macmaid_brew_update_status,
+    run_optimization, system_status, thin_snapshots,
 )
 from .developer import DeveloperInventory, DeveloperStorageCenter
 from .duplicates import DuplicateFinder
@@ -32,7 +33,7 @@ from .models import ActionType, CleanupProfile, RiskLevel, ScanResult
 from .reporting import FreeSpaceProbe
 from .review import (
     analyzer_trash_plan, application_plan, cleanup_plan, developer_plan, issue_review_token,
-    optimization_plan, purge_plan, snapshot_plan, validate_review_token,
+    macmaid_update_plan, optimization_plan, purge_plan, snapshot_plan, validate_review_token,
 )
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
 from .system import human_bytes, run_command, size_of
@@ -304,6 +305,8 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             regular = state.progress.snapshot()
             analyzer = state.analyzer.progress()
             return analyzer if analyzer.get("active") and not regular.get("active") else regular
+        if path == "/api/macmaid/update":
+            return macmaid_brew_update_status()
         if path == "/api/status":
             raw = system_status()
             return {"metrics": raw, "health": raw["healthIndicators"], "uptime": max(0, __import__("time").time() - raw["bootTime"]), "loadAverage": list(os.getloadavg()), "thermal": raw["thermal"], "battery": raw["battery"] or {}, "processes": raw["processes"]}
@@ -531,6 +534,13 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             if cancelled:
                 state.progress.finish("Tarama iptal ediliyor", percent=0)
             return {"success": True, "cancelled": cancelled, "service": service}
+        if path == "/api/macmaid/update/check":
+            return macmaid_brew_update_status(refresh=True)
+        if path == "/api/macmaid/update":
+            status = macmaid_brew_update_status()
+            plan = macmaid_update_plan(status)
+            if review := self._review_gate("macmaid-update", body, plan): return review
+            return dict(apply_macmaid_brew_update(), success=True)
         if path == "/api/clean":
             if state.scan is None: raise ValueError("Run a scan first")
             items = self._select_ids(state.scan, body.get("itemIds", []))

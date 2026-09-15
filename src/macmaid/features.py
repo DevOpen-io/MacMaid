@@ -637,6 +637,47 @@ OPTIMIZATION_UNAVAILABLE_REASON = "macOS bakım görevleri kararlılık inceleme
 OPTIMIZATIONS: list[dict[str, Any]] = []
 
 
+def macmaid_brew_update_status(*, refresh: bool = False) -> dict[str, Any]:
+    """Return the Homebrew Cask update state without guessing installation paths."""
+    brew = which("brew")
+    if not brew:
+        return {"available": False, "installed": False, "reason": "Homebrew is not available"}
+    if refresh:
+        refreshed = run_command(brew, ["update"], timeout=300)
+        if not refreshed.succeeded:
+            return {"available": False, "installed": False, "reason": refreshed.stderr or refreshed.stdout or "Homebrew update failed"}
+    installed = run_command(brew, ["list", "--cask", "macmaid"], timeout=30)
+    if not installed.succeeded:
+        return {"available": False, "installed": False, "reason": "MacMaid is not installed by Homebrew"}
+    outdated = run_command(brew, ["outdated", "--cask", "macmaid", "--json=v2"], timeout=60)
+    if not outdated.succeeded:
+        return {"available": False, "installed": True, "reason": outdated.stderr or outdated.stdout or "Could not check Homebrew updates"}
+    try:
+        data = json.loads(outdated.stdout or "{}")
+        casks = data.get("casks", [])
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {"available": False, "installed": True, "reason": "Homebrew returned an unreadable update result"}
+    update = next((item for item in casks if item.get("name") == "macmaid"), None)
+    return {
+        "available": update is not None, "installed": True,
+        "installedVersion": (update or {}).get("installed_versions", [None])[0],
+        "latestVersion": (update or {}).get("current_version"),
+        "reason": None if update else "MacMaid is up to date",
+    }
+
+
+def apply_macmaid_brew_update() -> dict[str, Any]:
+    status = macmaid_brew_update_status()
+    if not status["installed"] or not status["available"]:
+        return status
+    brew = which("brew")
+    assert brew is not None
+    result = run_command(brew, ["upgrade", "--cask", "macmaid"], timeout=900)
+    if not result.succeeded:
+        raise RuntimeError(result.stderr or result.stdout or "Homebrew upgrade failed")
+    return dict(status, updated=True)
+
+
 def run_optimization(task_id: str) -> dict[str, Any]:
     """Fail closed: no maintenance subprocess may run while this feature is disabled."""
     return {"success": False, "error": OPTIMIZATION_UNAVAILABLE_REASON}

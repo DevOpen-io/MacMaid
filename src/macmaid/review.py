@@ -148,6 +148,14 @@ def snapshot_plan(target_gb: int) -> ReviewPlan:
     return ReviewPlan("Thin Time Machine snapshots", (item,), "This may remove local recovery snapshots; backup history on the backup disk is not selected.")
 
 
+def macmaid_update_plan(status: Mapping[str, object]) -> ReviewPlan:
+    installed = str(status.get("installedVersion") or "installed version")
+    latest = str(status.get("latestVersion") or "latest available version")
+    item = ReviewItem("macmaid-brew-update", "Update MacMaid with Homebrew", "brew upgrade --cask macmaid",
+                      "Homebrew Cask upgrade", "MODERATE", f"Upgrade {installed} to {latest}")
+    return ReviewPlan("Update MacMaid", (item,), "Homebrew will replace the MacMaid application bundle. Restart MacMaid after the update completes.")
+
+
 def optimization_plan(tasks: Sequence[dict]) -> ReviewPlan:
     items = tuple(ReviewItem(str(task["id"]), str(task["title"]), str(task["id"]), "macOS maintenance command",
                              str(task["risk"]), "May refresh a visible macOS service", 0) for task in tasks)
