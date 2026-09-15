@@ -83,6 +83,54 @@ def test_permission_limited_scan_is_partial_not_clean(monkeypatch, tmp_path):
     assert result.issues and any("Full Disk Access" in note for note in result.notes)
 
 
+def test_user_cache_scan_skips_tcc_protected_apple_caches(monkeypatch, tmp_path):
+    cache_root = tmp_path / "Library" / "Caches"
+    regular = cache_root / "com.example.rebuildable"
+    regular.mkdir(parents=True)
+    (regular / "cache.bin").write_bytes(b"cache")
+    for name in ("CloudKit", "FamilyCircle", "com.apple.HomeKit"):
+        protected = cache_root / name
+        protected.mkdir()
+        (protected / "private.bin").write_bytes(b"private")
+
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    scanner = Scanner(Config(home=tmp_path))
+
+    items = scanner._user_caches(CleanupProfile.SAFE)
+
+    assert [item.path for item in items] == [regular]
+    assert not scanner._issues
+
+
+def test_browser_cache_scan_does_not_target_tcc_protected_safari_cache(monkeypatch, tmp_path):
+    safari = tmp_path / "Library" / "Caches" / "com.apple.Safari"
+    safari.mkdir(parents=True)
+    (safari / "private.bin").write_bytes(b"private")
+
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    scanner = Scanner(Config(home=tmp_path))
+
+    assert scanner._browser_caches(CleanupProfile.DEEP) == []
+    assert not scanner._issues
+
+
+def test_sandbox_cache_scan_skips_apple_containers(monkeypatch, tmp_path):
+    containers = tmp_path / "Library" / "Containers"
+    apple = containers / "com.apple.Notes" / "Data" / "Library" / "Caches"
+    third_party = containers / "com.example.editor" / "Data" / "Library" / "Caches"
+    for cache in (apple, third_party):
+        cache.mkdir(parents=True)
+        (cache / "cache.bin").write_bytes(b"cache")
+
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    scanner = Scanner(Config(home=tmp_path))
+
+    items = scanner._sandbox_caches(CleanupProfile.DEEP)
+
+    assert [item.path for item in items] == [third_party]
+    assert not scanner._issues
+
+
 def test_cancellation_terminates_waiting_subprocess_promptly():
     token = CancellationToken()
     timer = threading.Timer(0.1, token.cancel); timer.start()

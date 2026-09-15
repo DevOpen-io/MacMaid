@@ -1,4 +1,5 @@
 import Cocoa
+import Darwin
 import WebKit
 
 class MacMaidWebView: WKWebView {
@@ -33,7 +34,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         app.setActivationPolicy(.regular)
         setupMenu()
         setupWindow()
-        launchBackendIfNeeded()
+        guard configureBackendPort() else { return }
+        launchBackend()
         connectToWeb()
     }
 
@@ -135,27 +137,37 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
-    func launchBackendIfNeeded() {
-        let sock = socket(AF_INET, SOCK_STREAM, 0)
-        var addr = sockaddr_in()
-        addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = UInt16(8123).bigEndian
-        inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr)
+    func configureBackendPort() -> Bool {
+        let socketFD = socket(AF_INET, SOCK_STREAM, 0)
+        guard socketFD >= 0 else { return false }
+        defer { close(socketFD) }
 
-        var isListening = false
-        withUnsafePointer(to: &addr) { ptr in
-            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
-                if connect(sock, sa, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0 {
-                    isListening = true
-                }
+        var address = sockaddr_in()
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        address.sin_port = 0
+        let bound = withUnsafePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(socketFD, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
             }
         }
-        close(sock)
+        guard bound == 0 else { return false }
 
-        if isListening {
-            return
+        var assigned = sockaddr_in()
+        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let received = withUnsafeMutablePointer(to: &assigned) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.getsockname(socketFD, $0, &length)
+            }
         }
+        guard received == 0 else { return false }
+        let port = UInt16(bigEndian: assigned.sin_port)
+        targetURL = URL(string: "http://127.0.0.1:\(port)")!
+        return true
+    }
 
+    func launchBackend() {
+        let port = targetURL.port!
         let exeURL = URL(fileURLWithPath: CommandLine.arguments[0])
         let bundleDir = exeURL.deletingLastPathComponent()
         let binPath = bundleDir.appendingPathComponent("macmaid-bin").path
@@ -163,7 +175,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         let process = Process()
         if FileManager.default.isExecutableFile(atPath: binPath) {
             process.executableURL = URL(fileURLWithPath: binPath)
-            process.arguments = ["ui", "--no-open"]
+            process.arguments = ["ui", "--no-open", "--port", "\(port)"]
         } else {
             let home = FileManager.default.homeDirectoryForCurrentUser.path
             let localBin = "\(home)/.local/bin/macmaid"
@@ -172,16 +184,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
 
             if FileManager.default.isExecutableFile(atPath: localBin) {
                 process.executableURL = URL(fileURLWithPath: localBin)
-                process.arguments = ["ui", "--no-open"]
+                process.arguments = ["ui", "--no-open", "--port", "\(port)"]
             } else if FileManager.default.isExecutableFile(atPath: brewBin) {
                 process.executableURL = URL(fileURLWithPath: brewBin)
-                process.arguments = ["ui", "--no-open"]
+                process.arguments = ["ui", "--no-open", "--port", "\(port)"]
             } else if FileManager.default.isExecutableFile(atPath: usrLocalBin) {
                 process.executableURL = URL(fileURLWithPath: usrLocalBin)
-                process.arguments = ["ui", "--no-open"]
+                process.arguments = ["ui", "--no-open", "--port", "\(port)"]
             } else {
                 process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-                process.arguments = ["macmaid", "ui", "--no-open"]
+                process.arguments = ["macmaid", "ui", "--no-open", "--port", "\(port)"]
             }
         }
 

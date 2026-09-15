@@ -1694,7 +1694,8 @@ async function runSmartScan() {
       SoundEffects.playSuccess();
       showToast(`${t('toast.scan_completed', 'Scan completed: ')}${data.items.length} ${t('toast.items_found', 'items found')} (${data.humanTotal})`, 'success');
     } else {
-      showToast(`${t('clean.title', 'Scan')} ${data.status}: ${t('toast.results_incomplete', 'results incomplete, cleanup prevented.')} ${(data.notes || []).join(' ')}`, 'warning');
+      const issues = (data.issues || []).slice(0, 2).join(' ');
+      showToast(`${t('clean.title', 'Scan')} ${data.status}: ${t('toast.results_incomplete', 'results incomplete, cleanup prevented.')} ${issues || (data.notes || []).join(' ')}`, 'warning');
     }
   } catch (err) {
     showToast(`${t('toast.scan_error', 'Scan error: ')}${err.message}`, 'error');
@@ -1709,7 +1710,7 @@ function renderScanResults(scanData) {
   document.getElementById('res-total-bytes').textContent = scanData.humanTotal || formatBytes(scanData.totalBytes);
   document.getElementById('res-total-items').textContent = scanData.items.length;
   updateSelectedCleanStats();
-  const actionableCount = scanData.items.filter(item => item.risk !== 'MANUAL').length;
+  const actionableCount = cleanActionableItems().length;
   syncMasterCheckbox('master-clean-chk', actionableCount, state.selectedCleanItems.size);
 
   const tbody = document.getElementById('tbody-clean-items');
@@ -1748,14 +1749,32 @@ function renderScanResults(scanData) {
   });
 }
 
+function cleanActionableItems() {
+  if (!state.currentScan?.isComplete) return [];
+  return state.currentScan.items.filter(item => item.risk !== 'MANUAL');
+}
+
+function setCleanSelection(selectAll) {
+  const actionable = cleanActionableItems();
+  state.selectedCleanItems = selectAll ? new Set(actionable.map(item => item.id)) : new Set();
+  if (state.currentScan) renderScanResults(state.currentScan);
+  return state.currentScan?.isComplete === true;
+}
+
 function updateSelectedCleanStats() {
   if (!state.currentScan) return;
-  let selectedBytes = 0;
-  state.currentScan.items.forEach(item => {
-    if (state.selectedCleanItems.has(item.id)) selectedBytes += Number(item.estimatedBytes || 0);
-  });
+  const actionable = cleanActionableItems();
+  const actionableIds = new Set(actionable.map(item => item.id));
+  state.selectedCleanItems = new Set([...state.selectedCleanItems].filter(id => actionableIds.has(id)));
+  const selectedBytes = state.currentScan.items.reduce((total, item) => (
+    state.selectedCleanItems.has(item.id) ? total + Number(item.estimatedBytes || 0) : total
+  ), 0);
   document.getElementById('res-selected-bytes').textContent = formatBytes(selectedBytes);
-  syncMasterCheckbox('master-clean-chk', state.currentScan.items.filter(item => item.risk !== 'MANUAL').length, state.selectedCleanItems.size);
+  syncMasterCheckbox('master-clean-chk', actionable.length, state.selectedCleanItems.size);
+  const controlsDisabled = actionable.length === 0;
+  document.getElementById('btn-select-all').disabled = controlsDisabled;
+  document.getElementById('btn-deselect-all').disabled = controlsDisabled;
+  document.getElementById('btn-execute-clean').disabled = controlsDisabled;
 }
 
 async function executeClean() {
@@ -3970,22 +3989,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-start-scan')?.addEventListener('click', runSmartScan);
   document.getElementById('btn-execute-clean')?.addEventListener('click', executeClean);
   document.getElementById('btn-select-all')?.addEventListener('click', () => {
-    if (state.currentScan) {
-      state.selectedCleanItems = new Set(state.currentScan.items.filter(i => i.risk !== 'MANUAL').map(i => i.id));
-      document.querySelectorAll('#tbody-clean-items .item-chk:not(:disabled)').forEach(c => c.checked = true);
-      updateSelectedCleanStats();
+    if (!setCleanSelection(true)) {
+      showToast(t('toast.partial_scan_warn', 'Partial or cancelled scans cannot be cleaned. Please run a fresh, full scan.'), 'warning');
     }
   });
-  document.getElementById('btn-deselect-all')?.addEventListener('click', () => {
-    state.selectedCleanItems.clear();
-    document.querySelectorAll('#tbody-clean-items .item-chk').forEach(c => c.checked = false);
-    updateSelectedCleanStats();
-  });
+  document.getElementById('btn-deselect-all')?.addEventListener('click', () => { setCleanSelection(false); });
   document.getElementById('master-clean-chk')?.addEventListener('change', event => {
-    const enabled = state.currentScan?.items.filter(i => i.risk !== 'MANUAL') || [];
-    state.selectedCleanItems = event.target.checked ? new Set(enabled.map(i => i.id)) : new Set();
-    document.querySelectorAll('#tbody-clean-items .item-chk:not(:disabled)').forEach(c => { c.checked = event.target.checked; });
-    updateSelectedCleanStats();
+    if (!setCleanSelection(event.target.checked)) {
+      showToast(t('toast.partial_scan_warn', 'Partial or cancelled scans cannot be cleaned. Please run a fresh, full scan.'), 'warning');
+    }
   });
 
   // App tab events

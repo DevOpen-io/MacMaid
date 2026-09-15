@@ -120,7 +120,7 @@ class Scanner:
 
     def _user_caches(self, profile: CleanupProfile) -> list[CleanupItem]:
         root = Path.home() / "Library/Caches"
-        protected = ("com.apple.bird", "com.apple.cloudd", "com.apple.CloudDocs", "com.apple.nsurlsessiond", "com.apple.akd", "com.apple.accountsd")
+        protected_names = {"CloudKit", "FamilyCircle"}
         separate = {"Firefox", "com.apple.Safari", "com.apple.dt.Xcode", "CocoaPods", "org.swift.swiftpm", "org.carthage.CarthageKit"}
         specs = []
         try:
@@ -130,10 +130,9 @@ class Scanner:
             return []
         for child in children:
             self._check_cancelled()
-            if child.name in separate or child.name.startswith(protected):
+            if child.name in separate or child.name in protected_names or child.name.startswith("com.apple."):
                 continue
-            risk = RiskLevel.MODERATE if child.name.startswith("com.apple.") else RiskLevel.SAFE
-            specs.append((child.name, child, risk, "macOS cache location; contents should be recreatable.", ActionType.REMOVE_PATH, None))
+            specs.append((child.name, child, RiskLevel.SAFE, "Application cache location; contents should be recreatable.", ActionType.REMOVE_PATH, None))
         return self._candidates(specs, CleanupCategory.USER_CACHES, profile.maximum_risk)
 
     def _browser_caches(self, profile: CleanupProfile) -> list[CleanupItem]:
@@ -167,7 +166,6 @@ class Scanner:
                     specs.append(("Firefox profile cache", path, RiskLevel.SAFE, "Firefox cache domain, not profile data.", ActionType.REMOVE_PATH, "Firefox" if process_running("Firefox.app") else None))
             except OSError as exc:
                 self._issue(firefox, exc)
-        specs.append(("Safari cache", home / "Library/Caches/com.apple.Safari", RiskLevel.MODERATE, "Safari cache only; website data is excluded.", ActionType.REMOVE_PATH, "Safari" if process_running("Safari.app") else None))
         return self._candidates(specs, CleanupCategory.BROWSER_CACHES, profile.maximum_risk)
 
     def _application_caches(self, profile: CleanupProfile) -> list[CleanupItem]:
@@ -197,8 +195,9 @@ class Scanner:
         specs = []
         for container in containers:
             self._check_cancelled()
-            risk = RiskLevel.MODERATE if container.name.startswith("com.apple.") else RiskLevel.SAFE
-            specs.append((f"Sandbox cache · {container.name}", container / "Data/Library/Caches", risk, "Only Data/Library/Caches contents are removed.", ActionType.REMOVE_CHILDREN, None))
+            if container.name.startswith("com.apple."):
+                continue
+            specs.append((f"Sandbox cache · {container.name}", container / "Data/Library/Caches", RiskLevel.SAFE, "Only Data/Library/Caches contents are removed.", ActionType.REMOVE_CHILDREN, None))
         return self._candidates(specs, CleanupCategory.APP_CACHES, profile.maximum_risk)
 
     def _logs(self, profile: CleanupProfile) -> list[CleanupItem]:

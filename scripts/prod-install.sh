@@ -15,6 +15,7 @@ UV=${UV:-$(command -v uv 2>/dev/null || true)}
 [ -n "$UV" ] || fail "uv is required for production packaging. Run sh install.sh once or install uv manually."
 
 PYTHON_VERSION=${PYTHON_VERSION:-3.11}
+APP_VERSION=$("$UV" run --python "$PYTHON_VERSION" python -c 'from macmaid import __version__; print(__version__)')
 APP_NAME=${APP_NAME:-MacMaid}
 BIN_NAME=${BIN_NAME:-macmaid}
 INSTALL_BIN_DIR=${INSTALL_BIN_DIR:-$HOME/.local/bin}
@@ -116,8 +117,8 @@ cat > "$APP_ROOT/Contents/Info.plist" <<PLIST
   <key>CFBundleDisplayName</key><string>$APP_NAME</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleIconFile</key><string>$ICON_FILE</string>
-  <key>CFBundleShortVersionString</key><string>0.9.22</string>
-  <key>CFBundleVersion</key><string>0.9.22</string>
+  <key>CFBundleShortVersionString</key><string>$APP_VERSION</string>
+  <key>CFBundleVersion</key><string>$APP_VERSION</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
 </dict>
 </plist>

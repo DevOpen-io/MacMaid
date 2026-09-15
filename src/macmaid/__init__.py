@@ -1,6 +1,6 @@
 """MacMaid's Python implementation."""
 
-__version__ = "0.9.22"
+__version__ = "0.9.26"
 
 
 def main() -> None:
