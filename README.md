@@ -16,7 +16,7 @@ MacMaid helps you understand what is using space on your Mac and clean reviewed,
 
 ### Homebrew
 
-Once the Homebrew tap release workflow has published a version:
+After the release workflow has published a version to the Homebrew tap:
 
 ```sh
 # On Homebrew 6.0+, third-party taps must be trusted before tapping:
@@ -190,8 +190,10 @@ GitHub Actions are configured to:
 
 - run tests on code changes,
 - build an Apple Silicon DMG on `main` pushes,
-- create/update the GitHub Release from the version in `pyproject.toml`,
+- publish immutable GitHub Release assets for the version in `pyproject.toml`,
 - update the Homebrew tap when `HOMEBREW_TAP_TOKEN` is configured.
+
+The project version is the source of truth. CI creates an immutable matching release tag only to provide stable download URLs for GitHub Releases and Homebrew.
 
 Documentation-only changes such as `README.md` or other Markdown files do not trigger the CI/build workflows.
 

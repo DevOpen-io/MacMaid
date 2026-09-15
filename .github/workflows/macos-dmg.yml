@@ -45,17 +45,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-
       - name: Build app bundle
         run: |
           chmod +x scripts/build-macos-app.sh scripts/create-dmg.sh
           scripts/build-macos-app.sh
-
       - name: Build DMG
         run: |
           VERSION=$(uv run python - <<'PY'
@@ -63,9 +60,8 @@ jobs:
           print(__version__)
           PY
           )
-          VERSION_TAG="v$VERSION"
-          DMG="build/macos-app/MacMaid-$VERSION_TAG-$BUILD_ARCH.dmg"
-          CLI_TARBALL="build/macos-app/MacMaid-$VERSION_TAG-$BUILD_ARCH-cli.tar.gz"
+          DMG="build/macos-app/MacMaid-$VERSION-$BUILD_ARCH.dmg"
+          CLI_TARBALL="build/macos-app/MacMaid-$VERSION-$BUILD_ARCH-cli.tar.gz"
           scripts/create-dmg.sh build/macos-app/MacMaid.app "$DMG"
           mkdir -p artifacts build/macos-app/cli-package
           cp build/macos-app/MacMaid.app/Contents/MacOS/macmaid-bin build/macos-app/cli-package/macmaid
@@ -73,13 +69,7 @@ jobs:
           tar -C build/macos-app/cli-package -czf "$CLI_TARBALL" macmaid
           shasum -a 256 "$CLI_TARBALL" | awk '{print $1}' > "$CLI_TARBALL.sha256"
           cp "$DMG" "$DMG.sha256" "$CLI_TARBALL" "$CLI_TARBALL.sha256" artifacts/
-          ACTUAL_ARCH=$(uname -m)
-          if [ "$ACTUAL_ARCH" != "$BUILD_ARCH" ]; then
-            echo "Expected $BUILD_ARCH runner but got $ACTUAL_ARCH" >&2
-            exit 1
-          fi
-
-      - name: Upload DMG artifact
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: MacMaid-dmg-arm64
@@ -87,9 +77,8 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: GitHub Release from project version
+    name: Publish GitHub release
     needs: build-dmg
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -99,7 +88,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Read project version
         id: version
         run: |
@@ -111,22 +99,28 @@ jobs:
           )
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Create or update release tag
+      - name: Create immutable release tag
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          TAG="${{ steps.version.outputs.tag }}"
+          REMOTE_SHA=$(git ls-remote --refs origin "refs/tags/$TAG" | awk '{print $1}')
+          if [ -n "$REMOTE_SHA" ]; then
+            if [ "$REMOTE_SHA" != "$GITHUB_SHA" ]; then
+              echo "Release tag $TAG already points to a different commit; bump the project version." >&2
+              exit 1
+            fi
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "$TAG" "$GITHUB_SHA"
-          git push --force origin "refs/tags/$TAG"
-
+          git tag -a "$TAG" "$GITHUB_SHA" -m "MacMaid $TAG"
+          git push origin "refs/tags/$TAG"
       - name: Download DMG artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
-
-      - name: Publish or update release
+      - name: Publish release assets
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
@@ -134,15 +128,13 @@ jobs:
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" artifacts/* --clobber
-            gh release edit "$TAG" --title "MacMaid $VERSION" --latest
           else
-            gh release create "$TAG" artifacts/* --title "MacMaid $VERSION" --generate-notes --latest
+            gh release create "$TAG" artifacts/* --title "MacMaid $VERSION" --generate-notes
           fi
 
   update-homebrew-tap:
     name: Update Homebrew tap
     needs: release
-    if: needs.release.result == 'success'
     runs-on: ubuntu-latest
     env:
       TAP_REPOSITORY: DevOpen-io/homebrew-tap
@@ -150,29 +142,15 @@ jobs:
       VERSION: ${{ needs.release.outputs.version }}
       VERSION_TAG: ${{ needs.release.outputs.tag }}
     steps:
-      - name: Stop if tap token is not configured
-        if: env.TAP_TOKEN == ''
-        run: |
-          echo "HOMEBREW_TAP_TOKEN is not configured; skipping tap update."
-          exit 0
-
-      - name: Prepare tap checkout
+      - name: Update tap formulae
         if: env.TAP_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git clone "https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPOSITORY}.git" tap || true
-          if [ ! -d tap/.git ]; then
-            mkdir -p tap
-            git -C tap init -b main
-            git -C tap remote add origin "https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPOSITORY}.git"
-          fi
-          git -C tap checkout main 2>/dev/null || git -C tap checkout -b main
-
-      - name: Update Cask and Formula
-        if: env.TAP_TOKEN != ''
-        run: |
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPOSITORY}.git" tap
           BASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/$VERSION_TAG"
-          ARM_DMG="MacMaid-$VERSION_TAG-arm64.dmg"
-          ARM_CLI="MacMaid-$VERSION_TAG-arm64-cli.tar.gz"
+          ARM_DMG="MacMaid-$VERSION-arm64.dmg"
+          ARM_CLI="MacMaid-$VERSION-arm64-cli.tar.gz"
           curl -fsSL "$BASE_URL/$ARM_DMG" -o "$ARM_DMG"
           curl -fsSL "$BASE_URL/$ARM_CLI" -o "$ARM_CLI"
           ARM_DMG_SHA=$(sha256sum "$ARM_DMG" | awk '{print $1}')
@@ -182,51 +160,33 @@ jobs:
           cask "macmaid" do
             version "$VERSION"
             sha256 "$ARM_DMG_SHA"
-
             url "$BASE_URL/$ARM_DMG"
             name "MacMaid"
             desc "Safe macOS cleanup, disk analysis and developer-tool maintenance"
             homepage "https://github.com/${GITHUB_REPOSITORY}"
             depends_on arch: :arm64
-
             app "MacMaid.app"
-
-            zap trash: [
-              "~/.config/macmaid",
-              "~/Library/Logs/MacMaid",
-            ]
+            zap trash: ["~/.config/macmaid", "~/Library/Logs/MacMaid"]
           end
           RUBY
           cat > tap/Formula/macmaid.rb <<RUBY
           class Macmaid < Formula
             version "$VERSION"
             sha256 "$ARM_CLI_SHA"
-
             url "$BASE_URL/$ARM_CLI"
             desc "Safe macOS cleanup, disk analysis and developer-tool maintenance"
             homepage "https://github.com/${GITHUB_REPOSITORY}"
             depends_on arch: :arm64
-
             def install
               bin.install "macmaid"
             end
-
             test do
               assert_match version.to_s, shell_output("#{bin}/macmaid --version")
             end
           end
           RUBY
-
-      - name: Commit and push tap update
-        if: env.TAP_TOKEN != ''
-        working-directory: tap
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Casks/macmaid.rb Formula/macmaid.rb
-          if git diff --cached --quiet; then
-            echo "Tap is already up to date."
-            exit 0
-          fi
-          git commit -m "Update MacMaid to $VERSION_TAG"
-          git push origin HEAD:main
+          git -C tap config user.name "github-actions[bot]"
+          git -C tap config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C tap add Casks/macmaid.rb Formula/macmaid.rb
+          git -C tap diff --cached --quiet || git -C tap commit -m "Update MacMaid to $VERSION_TAG"
+          git -C tap push origin HEAD:main

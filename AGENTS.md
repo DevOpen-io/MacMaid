@@ -19,4 +19,6 @@ Keep every version surface synchronized:
 
 Do not hardcode the version in packaging scripts. `scripts/prod-install.sh` must read `macmaid.__version__` when writing the app bundle metadata.
 
+The project version remains the sole versioning source. Agents must never create, amend, force-update, or push local Git tags. The release CI job alone creates one immutable `v<project-version>` tag for GitHub Release asset URLs and Homebrew-tap downloads. If that tag already points to another commit, bump the project version; never move the tag.
+
 Add or update release-facing tests when version surfaces change, and verify the relevant test suite before reporting completion.
