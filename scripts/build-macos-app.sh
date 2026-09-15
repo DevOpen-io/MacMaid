@@ -35,8 +35,11 @@ LOGO_PNG=$ROOT/assets/MacMaid-Logo.png
 ICONSET=$BUILD_DIR/MacMaid.iconset
 ICON_FILE=MacMaid.icns
 
-rm -rf "$APP_ROOT" "$DIST_DIR" "$WORK_DIR" "$SPEC_DIR"
+CLI_DIR=$BUILD_DIR/cli
+
+rm -rf "$APP_ROOT" "$DIST_DIR" "$WORK_DIR" "$SPEC_DIR" "$CLI_DIR"
 mkdir -p "$BUILD_DIR" "$DIST_DIR" "$WORK_DIR" "$SPEC_DIR" "$APP_MACOS" "$APP_RESOURCES"
+
 
 cat > "$ENTRYPOINT" <<'PY'
 from macmaid import main
@@ -64,6 +67,10 @@ BUNDLE_DIR=$DIST_DIR/$BIN_NAME
 install -m 755 "$BUNDLE_DIR/$BIN_NAME" "$APP_MACOS/macmaid-bin"
 cp -R "$BUNDLE_DIR/_internal" "$APP_RUNTIME"
 ln -s Resources/runtime "$APP_FRAMEWORKS"
+
+mkdir -p "$CLI_DIR"
+install -m 755 "$BUNDLE_DIR/$BIN_NAME" "$CLI_DIR/$BIN_NAME"
+cp -R "$BUNDLE_DIR/_internal" "$CLI_DIR/_internal"
 
 SWIFT_APP_SRC="$ROOT/src/macmaid/native/MacMaidApp.swift"
 if command -v swiftc >/dev/null 2>&1 && [ -f "$SWIFT_APP_SRC" ]; then

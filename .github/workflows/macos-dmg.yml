@@ -64,9 +64,19 @@ jobs:
           CLI_TARBALL="build/macos-app/MacMaid-$VERSION-$BUILD_ARCH-cli.tar.gz"
           scripts/create-dmg.sh build/macos-app/MacMaid.app "$DMG"
           mkdir -p artifacts build/macos-app/cli-package
-          cp build/macos-app/MacMaid.app/Contents/MacOS/macmaid-bin build/macos-app/cli-package/macmaid
+          rm -rf build/macos-app/cli-package/*
+          if [ -d "build/macos-app/cli" ]; then
+            cp build/macos-app/cli/macmaid build/macos-app/cli-package/macmaid
+            cp -R build/macos-app/cli/_internal build/macos-app/cli-package/_internal
+          elif [ -d "build/macos-app/dist/macmaid" ]; then
+            cp build/macos-app/dist/macmaid/macmaid build/macos-app/cli-package/macmaid
+            cp -R build/macos-app/dist/macmaid/_internal build/macos-app/cli-package/_internal
+          else
+            cp build/macos-app/MacMaid.app/Contents/MacOS/macmaid-bin build/macos-app/cli-package/macmaid
+            cp -R build/macos-app/MacMaid.app/Contents/Resources/runtime build/macos-app/cli-package/_internal
+          fi
           chmod 755 build/macos-app/cli-package/macmaid
-          tar -C build/macos-app/cli-package -czf "$CLI_TARBALL" macmaid
+          tar -C build/macos-app/cli-package -czf "$CLI_TARBALL" macmaid _internal
           shasum -a 256 "$CLI_TARBALL" | awk '{print $1}' > "$CLI_TARBALL.sha256"
           cp "$DMG" "$DMG.sha256" "$CLI_TARBALL" "$CLI_TARBALL.sha256" artifacts/
       - name: Upload build artifacts
@@ -178,7 +188,8 @@ jobs:
             homepage "https://github.com/${GITHUB_REPOSITORY}"
             depends_on arch: :arm64
             def install
-              bin.install "macmaid"
+              libexec.install Dir["*"]
+              bin.install_symlink libexec/"macmaid"
             end
             test do
               assert_match version.to_s, shell_output("#{bin}/macmaid --version")
