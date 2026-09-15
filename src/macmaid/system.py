@@ -178,23 +178,40 @@ def remove_validated_path(path: Path, authorize: Callable[[], None]) -> None:
 
 
 def move_to_trash_exclusive(path: Path, destination: Path, authorize: Callable[[], None]) -> None:
-    """macOS atomic no-overwrite rename; unsupported/cross-volume moves fail closed."""
+    """macOS atomic no-overwrite rename; supports TCC-restricted ~/.Trash safely."""
     libc = ctypes.CDLL(None, use_errno=True)
     rename = getattr(libc, "renameatx_np", None)
     if rename is None:
         raise PermissionError("Atomic exclusive Trash moves are unavailable on this platform")
     rename.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
     rename.restype = ctypes.c_int
-    with directory_fd(path.parent) as source_fd, directory_fd(destination.parent) as trash_fd:
+
+    def rename_exclusive(source_fd: int, source_name: bytes, trash_fd: int, trash_name: bytes) -> None:
+        # RENAME_EXCL, documented in macOS sys/stdio.h. Never fall back to overwrite/copy.
+        if rename(source_fd, source_name, trash_fd, trash_name, 0x00000004):
+            code = ctypes.get_errno()
+            raise OSError(code, os.strerror(code), str(path))
+
+    with directory_fd(path.parent) as source_fd:
         authorize()
         source = os.stat(path.name, dir_fd=source_fd, follow_symlinks=False)
         if stat.S_ISLNK(source.st_mode) or source.st_uid != os.getuid():
             raise PermissionError("Trash target changed or is not owned by the current user")
-        # RENAME_EXCL, documented in macOS sys/stdio.h. Never fall back to overwrite/copy.
-        if rename(source_fd, os.fsencode(path.name), trash_fd, os.fsencode(destination.name), 0x00000004):
-            code = ctypes.get_errno()
-            raise OSError(code, os.strerror(code), str(path))
-        moved = os.stat(destination.name, dir_fd=trash_fd, follow_symlinks=False)
+        try:
+            trash_context = directory_fd(destination.parent)
+            trash_fd = trash_context.__enter__()
+        except PermissionError:
+            # macOS can permit an atomic rename into ~/.Trash while denying directory-descriptor opens
+            # through TCC. Keep the operation exclusive and verify the original source identity.
+            authorize()
+            rename_exclusive(-2, os.fsencode(str(path)), -2, os.fsencode(str(destination)))  # AT_FDCWD on macOS
+            moved = destination.lstat()
+        else:
+            try:
+                rename_exclusive(source_fd, os.fsencode(path.name), trash_fd, os.fsencode(destination.name))
+                moved = os.stat(destination.name, dir_fd=trash_fd, follow_symlinks=False)
+            finally:
+                trash_context.__exit__(None, None, None)
         if (source.st_dev, source.st_ino) != (moved.st_dev, moved.st_ino):
             raise RuntimeError("Trash target identity changed during move")
         try:

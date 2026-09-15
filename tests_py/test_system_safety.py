@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -76,6 +77,25 @@ def test_native_trash_move_refuses_missing_capability(tmp_path, monkeypatch):
     monkeypatch.setattr(system.ctypes, "CDLL", lambda *args, **kwargs: object())
     with pytest.raises(PermissionError): system.move_to_trash_exclusive(source, root / "destination", lambda: None)
     assert source.exists()
+
+
+def test_trash_move_uses_verified_atomic_fallback_when_tcc_blocks_trash_directory(tmp_path, monkeypatch):
+    root = tmp_path.resolve()
+    source, trash = root / "source", root / "trash"
+    source.write_text("reviewed")
+    trash.mkdir()
+    original = system.directory_fd
+
+    @contextmanager
+    def tcc_limited(path):
+        if path == trash:
+            raise PermissionError("Operation not permitted")
+        with original(path) as fd:
+            yield fd
+
+    monkeypatch.setattr(system, "directory_fd", tcc_limited)
+    system.move_to_trash_exclusive(source, trash / "source", lambda: None)
+    assert not source.exists() and (trash / "source").read_text() == "reviewed"
 
 
 def test_anchored_move_does_not_follow_replaced_parent(tmp_path):

@@ -388,7 +388,7 @@ class ProjectPurgeManager:
             raise PermissionError("run MacMaid as your normal user")
         targets = list(artifacts)
         free_space = FreeSpaceProbe.capture(artifact.path for artifact in targets)
-        moved, failed, processed = [], [], 0
+        moved, failed, failure_details, processed = [], [], [], 0
         for index, artifact in enumerate(targets, 1):
             if progress: progress(index, len(targets), artifact.path)
             def validate_artifact(raw: Path) -> Path:
@@ -399,8 +399,9 @@ class ProjectPurgeManager:
                 destination = Cleaner(self.config).move_reviewed_item_to_trash(artifact.path, validate_artifact, artifact.bytes)
                 moved.append(str(destination))
                 processed += max(0, artifact.bytes)
-            except (OSError, ValueError, RuntimeError):
+            except (OSError, ValueError, RuntimeError) as exc:
                 failed.append(str(artifact.path))
+                failure_details.append(f"{artifact.path}: {exc}")
         observed, notes = free_space.finish()
         Cleaner(self.config).log_space_summary(
             "project_purge_summary", scanned=sum(max(0, item.bytes) for item in targets),
@@ -410,7 +411,7 @@ class ProjectPurgeManager:
         return {"success": not failed, "freed": 0, "estimatedReclaimedBytes": 0,
                 "processedEstimatedBytes": processed, "trashMovedEstimatedBytes": processed,
                 "observedFreeBytesDelta": observed, "measurementNotes": notes,
-                "moved": moved, "failed": failed}
+                "moved": moved, "failed": failed, "details": failure_details}
 
 
 def analyze_directory(path: Path, top: int = 30, min_file_bytes: int = 100_000_000) -> dict[str, Any]:
