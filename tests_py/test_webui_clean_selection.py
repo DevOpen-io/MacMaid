@@ -10,6 +10,19 @@ def test_cleaner_does_not_enable_trash_scanning_by_default():
     assert '<input type="checkbox" id="chk-trash" checked>' not in html
 
 
+def test_webui_navigation_icons_use_lucide_set():
+    root = Path(__file__).parents[1]
+    html = (root / "src/macmaid/WebUI/index.html").read_text()
+    app_js = (root / "src/macmaid/WebUI/app.js").read_text()
+    obsolete_icon_glyphs = "📂📁📄✦⌫⚙◫⌁⌘▤▦◌▣◇↓▧◉⧉◷✚≡⋯●×"
+
+    assert "const LUCIDE_ICONS" in app_js
+    assert "function lucideIcon" in app_js
+    assert "data-lucide=\"sparkles\"" in html
+    assert "data-lucide=\"folder-open\"" in html
+    assert not any(glyph in html for glyph in obsolete_icon_glyphs)
+
+
 def test_clean_selection_never_marks_incomplete_scan_as_selected():
     source = (Path(__file__).parents[1] / "src/macmaid/WebUI/app.js").read_text()
     start = source.index("function cleanActionableItems()")

@@ -14,6 +14,71 @@ if (typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAge
   }
 }
 
+// Lucide icon primitives used by the Web UI. Keep all UI glyphs in this
+// single Lucide-compatible set instead of mixing emoji and platform symbols.
+const LUCIDE_ICONS = {
+  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  'app-window': '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><path d="M8 7h.01"/><path d="M12 7h.01"/>',
+  'arrow-down': '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+  'arrow-up': '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+  boxes: '<path d="M2.97 12.92 12 17.5l9.03-4.58"/><path d="M2.97 17.92 12 22.5l9.03-4.58"/><path d="M12 2.5 2.97 7.08 12 11.66l9.03-4.58L12 2.5Z"/>',
+  braces: '<path d="M8 3H7a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-4a2 2 0 0 1 2-2 2 2 0 0 1-2-2V7a2 2 0 0 0-2-2h-1"/>',
+  'chart-pie': '<path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951C12.449 1.995 12 2.448 12 3v9Z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  'circle-alert': '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+  'circle-dot': '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  'clock-3': '<circle cx="12" cy="12" r="10"/><path d="M12 6v6h6"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  cpu: '<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M9 2v2"/><path d="M9 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/>',
+  database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+  file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+  'file-search': '<path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M4 10V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2h-4"/><circle cx="9" cy="15" r="3"/><path d="m11.5 17.5 2.5 2.5"/>',
+  folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 4A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  'folder-code': '<path d="M10 10.5 8 13l2 2.5"/><path d="m14 10.5 2 2.5-2 2.5"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 4A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  'folder-open': '<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.8 2.9l-2.2 4.4A2 2 0 0 1 17.8 18H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.7.9l.8 1.2a2 2 0 0 0 1.7.9H20a2 2 0 0 1 2 2v2"/>',
+  gem: '<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>',
+  globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+  hammer: '<path d="m15 12-8.5 8.5a2.12 2.12 0 0 1-3-3L12 9"/><path d="M17.64 15 22 10.64"/><path d="m20.91 11.7-1.25-1.25c-.6-.6-.93-1.4-.93-2.25V7.6a2 2 0 0 0-.59-1.42l-1.32-1.32a2 2 0 0 0-1.42-.59h-.6c-.85 0-1.65-.33-2.25-.93L11.3 2.09"/>',
+  'hard-drive': '<line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  list: '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>',
+  'memory-stick': '<path d="M6 19v-3"/><path d="M10 19v-3"/><path d="M14 19v-3"/><path d="M18 19v-3"/><path d="M8 11V9"/><path d="M16 11V9"/><path d="M12 11V9"/><path d="M2 15h20"/><path d="M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8H2Z"/>',
+  'more-horizontal': '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  package: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  'panels-top-left': '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>',
+  save: '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8A2 2 0 0 1 21 8.8V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/>',
+  'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.8 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/>',
+  sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
+  stethoscope: '<path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  terminal: '<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
+  'trash-2': '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+  'triangle-alert': '<path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  'volume-2': '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+  'volume-x': '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  zap: '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14Z"/>',
+};
+
+function lucideIcon(name, className = '') {
+  const body = LUCIDE_ICONS[name] || LUCIDE_ICONS.info;
+  const classes = ['lucide', `lucide-${name}`, className].filter(Boolean).join(' ');
+  return `<svg class="${classes}" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+}
+
+function renderLucideIcons(root = document) {
+  root.querySelectorAll('[data-lucide]').forEach(el => {
+    el.innerHTML = lucideIcon(el.dataset.lucide);
+    el.setAttribute('aria-hidden', 'true');
+  });
+}
+
 // State Management
 const state = {
   activeTab: 'cleaner',
@@ -361,16 +426,16 @@ const I18N = {
     "more.th_risk": "Risk",
     "more.downloads_title": "Smart Downloads Analysis",
     "more.downloads_desc": "Categorizes Installers, Archives, Old Downloads, and Incomplete Downloads. Documents and source code are never classified as junk.",
-    "more.btn_scan_downloads": "↓ Scan Smart Downloads",
+    "more.btn_scan_downloads": "Scan Smart Downloads",
     "more.lbl_old_downloads": "Old Downloads:",
     "more.empty_downloads": "Click above to scan downloads.",
     "more.duplicates_title": "Duplicate File Finder",
     "more.duplicates_desc": "Verifies byte-for-byte matches via size, partial hash, and full SHA256. No files are auto-selected.",
-    "more.btn_scan_duplicates": "⧉ Scan Duplicates",
+    "more.btn_scan_duplicates": "Scan Duplicates",
     "more.empty_duplicates": "Click above to scan duplicate files.",
     "more.large_files_title": "Large & Old Files",
     "more.large_files_desc": "Filters by size (500MB - 10GB) and age (30 - 365 days). Personal files are never auto-selected.",
-    "more.btn_scan_large": "◫ Scan Large/Old",
+    "more.btn_scan_large": "Scan Large/Old",
     "more.lbl_min_size": "Min size:",
     "more.lbl_age": "Age:",
     "more.empty_large": "Click above to scan large and old files.",
@@ -908,16 +973,16 @@ const I18N = {
     "more.th_risk": "Risk",
     "more.downloads_title": "Akıllı İndirilenler Analizi",
     "more.downloads_desc": "Installers, Archives, Old Downloads, Incomplete Downloads ve Duplicates olarak sınıflandırır. Documents/photos/source code otomatik junk değildir.",
-    "more.btn_scan_downloads": "↓ Smart Downloads Tara",
+    "more.btn_scan_downloads": "Smart Downloads Tara",
     "more.lbl_old_downloads": "Eski İndirilenler:",
     "more.empty_downloads": "Smart Downloads taraması için yukarıdaki butona tıklayın.",
     "more.duplicates_title": "Yinelenen Dosya Taraması",
     "more.duplicates_desc": "Byte-for-byte eşleşmeleri size → partial hash → full hash ile doğrular. Hiçbir dosya otomatik seçilmez.",
-    "more.btn_scan_duplicates": "⧉ Duplicate Tara",
+    "more.btn_scan_duplicates": "Duplicate Tara",
     "more.empty_duplicates": "Duplicate taraması için yukarıdaki butona tıklayın.",
     "more.large_files_title": "Büyük ve Eski Dosyalar",
     "more.large_files_desc": "500 MB, 1 GB, 5 GB, 10 GB ve 30/90/180/365 gün filtreleri. User dosyaları otomatik seçilmez.",
-    "more.btn_scan_large": "◫ Large/Old Tara",
+    "more.btn_scan_large": "Large/Old Tara",
     "more.lbl_min_size": "Min boyut:",
     "more.lbl_age": "Yaş:",
     "more.empty_large": "Large/old file taraması için yukarıdaki butona tıklayın.",
@@ -1338,7 +1403,7 @@ function showToast(message, type = 'info') {
   const container = document.getElementById('toast-container');
   if (!container) return;
   const normalizedType = ['success', 'error', 'warning', 'info'].includes(type) ? type : 'info';
-  const icons = { success: '✓', error: '!', warning: '!', info: 'i' };
+  const icons = { success: 'check', error: 'circle-alert', warning: 'triangle-alert', info: 'info' };
   const titles = {
     success: t('toast.success_title', 'Completed'),
     error: t('toast.error_title', 'Action failed'),
@@ -1351,9 +1416,9 @@ function showToast(message, type = 'info') {
   toast.setAttribute('tabindex', '0');
   toast.setAttribute('aria-label', `${titles[normalizedType]}: ${message}. ${t('toast.close_tip', 'Dismiss notification')}`);
   toast.innerHTML = `
-    <span class="toast-icon" aria-hidden="true">${icons[normalizedType]}</span>
+    <span class="toast-icon" aria-hidden="true">${lucideIcon(icons[normalizedType])}</span>
     <span class="toast-copy"><strong>${escapeHtml(titles[normalizedType])}</strong><span class="toast-msg">${escapeHtml(message)}</span></span>
-    <button class="toast-close" type="button" aria-label="${escapeHtml(t('toast.close_tip', 'Dismiss notification'))}">×</button>
+    <button class="toast-close" type="button" aria-label="${escapeHtml(t('toast.close_tip', 'Dismiss notification'))}">${lucideIcon('x')}</button>
   `;
   toast.addEventListener('click', () => dismissToast(toast));
   toast.addEventListener('keydown', event => {
@@ -1526,7 +1591,7 @@ function showOperationOutcome(type, message) {
   const percent = document.getElementById('global-operation-percent');
   if (title) title.textContent = type === 'error' ? t('hud.failed', 'Operation failed') : t('hud.success', 'Operation completed');
   if (detail) detail.textContent = message || (type === 'error' ? t('hud.unknown_error', 'Unknown error') : t('hud.ok', 'Successful'));
-  if (percent) percent.textContent = type === 'error' ? '!' : '✓';
+  if (percent) percent.innerHTML = lucideIcon(type === 'error' ? 'circle-alert' : 'check');
   const health = hud.querySelector('.operation-health span');
   if (health) health.textContent = type === 'error'
     ? t('hud.finished_error', 'Stopped with an error')
@@ -2089,7 +2154,7 @@ function renderAppsList() {
 
   container.innerHTML = filtered.map(app => {
     const isSel = state.selectedApp && state.selectedApp.path === app.path ? 'selected' : '';
-    const initial = app.name ? app.name.charAt(0).toUpperCase() : '';
+    const initial = app.name ? app.name.charAt(0).toUpperCase() : '';
     const iconURL = `/api/apps/icon?path=${encodeURIComponent(app.path)}`;
     return `
       <div class="app-item-card ${isSel}" data-path="${escapeHtml(app.path)}" tabindex="0" role="button" aria-pressed="${isSel ? 'true' : 'false'}">
@@ -2117,7 +2182,7 @@ function renderAppsList() {
     });
   });
   container.querySelectorAll('.app-avatar img').forEach(img => {
-    img.addEventListener('error', () => { img.parentElement.textContent = img.dataset.fallback || ''; }, { once: true });
+    img.addEventListener('error', () => { img.parentElement.innerHTML = img.dataset.fallback ? escapeHtml(img.dataset.fallback) : lucideIcon('app-window'); }, { once: true });
   });
 }
 
@@ -2131,10 +2196,10 @@ async function selectApp(app) {
   view.classList.remove('hidden');
 
   const detailIcon = document.getElementById('detail-app-icon');
-  const initial = app.name ? app.name.charAt(0).toUpperCase() : '';
+  const initial = app.name ? app.name.charAt(0).toUpperCase() : '';
   detailIcon.innerHTML = `<img src="/api/apps/icon?path=${encodeURIComponent(app.path)}" alt="" data-fallback="${escapeHtml(initial)}">`;
   detailIcon.querySelector('img')?.addEventListener('error', event => {
-    event.currentTarget.parentElement.textContent = event.currentTarget.dataset.fallback || '';
+    event.currentTarget.parentElement.innerHTML = event.currentTarget.dataset.fallback ? escapeHtml(event.currentTarget.dataset.fallback) : lucideIcon('app-window');
   }, { once: true });
   document.getElementById('detail-app-name').textContent = app.name;
   document.getElementById('detail-app-bundle').textContent = app.bundleId || app.path;
@@ -2458,7 +2523,7 @@ function renderAnalyzerSnapshot(data, requestId) {
         <div class="folder-bar-item ${rowClass}" data-path="${escapeHtml(entry.path)}" data-directory="${entry.isDirectory}" tabindex="${entry.isDirectory ? '0' : '-1'}" ${entry.isDirectory ? 'role="button"' : ''} title="${entry.isDirectory ? t('analyzer.enter_dir', 'Enter this directory') : t('common.th_file', 'File')}">
           <div class="folder-bar-header">
             <span class="folder-name">
-              <span class="folder-icon">${entry.isDirectory ? '📁' : '📄'}</span>
+              <span class="folder-icon">${lucideIcon(entry.isDirectory ? 'folder' : 'file')}</span>
               ${escapeHtml(entry.name)}
             </span>
             <div class="folder-size-wrap">
@@ -3267,9 +3332,7 @@ function renderOptimizationTasks(tasks, unavailableReason = t('optimize.empty_ta
     <div class="task-card" data-task-id="${task.id}">
       <div class="task-head">
         <div class="task-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-          </svg>
+          ${lucideIcon('zap')}
         </div>
         <div class="task-info">
           <h4>${escapeHtml(task.title)}</h4>
@@ -4343,6 +4406,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Apply language on initial load
   applyLanguage(state.lang);
+  renderLucideIcons();
 
   // Profile pills in Smart Clean
   document.querySelectorAll('.profile-pill').forEach(pill => {

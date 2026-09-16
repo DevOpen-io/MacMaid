@@ -440,6 +440,42 @@ textarea,
   opacity: 0.8;
 }
 
+.lucide {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: -0.14em;
+}
+
+.inline-lucide {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+}
+
+.nav-symbol .lucide,
+.nav-submenu-symbol .lucide,
+.inpage-path-icon .lucide,
+.folder-icon .lucide,
+.toast-icon .lucide,
+.task-icon .lucide,
+.permissions-card-icon .lucide,
+.card-icon .lucide,
+.net-icon .lucide,
+.empty-selection-icon .lucide,
+.btn-icon .lucide {
+  width: 100%;
+  height: 100%;
+}
+
+.empty-selection-icon {
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+}
+
 /* In-page sub-navigation was moved into the left sidebar. Keep legacy markup hidden. */
 #pane-developer > .subnav-pill-group,
 #pane-more > .tool-category-group,

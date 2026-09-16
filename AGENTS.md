@@ -22,3 +22,7 @@ Do not hardcode the version in packaging scripts. `scripts/prod-install.sh` must
 The project version remains the sole versioning source. Agents must never create, amend, force-update, or push local Git tags. The release CI job alone creates one immutable `v<project-version>` tag for GitHub Release asset URLs and Homebrew-tap downloads. If that tag already points to another commit, bump the project version; never move the tag.
 
 Add or update release-facing tests when version surfaces change, and verify the relevant test suite before reporting completion.
+
+## Web UI Icons
+
+All user-interface icons must come from the Lucide icon set (`lucide-icons`). Do not mix emoji, SF Symbols, bespoke glyphs, or unrelated icon packs for UI actions/navigation/status indicators. When a new icon is needed in the Web UI, use the existing Lucide rendering helper and add the Lucide icon path there if it is not already available.
