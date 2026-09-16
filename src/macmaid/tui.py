@@ -36,7 +36,7 @@ from .review import (
     optimization_plan, purge_plan,
 )
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
-from .system import human_bytes
+from .system import human_bytes, macos_permission_report, run_command
 
 
 NAVIGATION = [
@@ -358,13 +358,14 @@ class MacMaidTUI(App[None]):
             ("more-installers", "↓  Installers", "Find old DMG, PKG, XIP, ISO and IPSW files"),
             ("more-snapshots", "◷  Snapshots", "List local Time Machine snapshots"),
             ("more-doctor", "+  Doctor", "Check MacMaid and macOS capabilities"),
+            ("more-permissions", "◉  Permissions", "Review readable, limited and unavailable cleanup locations"),
             ("more-history", "≡  History", "Show recent activity in a readable timeline"),
             ("more-whitelist", "✓  Whitelist", "Show the protected custom-path list"),
             ("back", "←  Back", "Return to the main menu"),
         ]), Static("↑↓ / j k  Navigate     Enter  Select     Esc/B  Back", classes="hint"))
 
     def _more_results_page(self) -> Vertical:
-        return self._page("more-results", "Araç Sonuçları", "Seçilen aracın ilerlemesi ve sonuçları bu ekranda gösterilir.", ProgressBar(total=None, show_eta=False, id="more-progress"), Static("Starting tool…", id="more-state", classes="state"), DataTable(id="more-table", zebra_stripes=True), Static("The selected result's safety reason appears here.", id="more-detail", classes="detail", markup=False), Static("", id="more-output", markup=False), Static("↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Back", classes="hint"))
+        return self._page("more-results", "Araç Sonuçları", "Seçilen aracın ilerlemesi ve sonuçları bu ekranda gösterilir.", ProgressBar(total=None, show_eta=False, id="more-progress"), Static("Starting tool…", id="more-state", classes="state"), DataTable(id="more-table", zebra_stripes=True), Static("The selected result's safety reason appears here.", id="more-detail", classes="detail", markup=False), Static("", id="more-output", markup=False), Static("↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Back", id="more-hint", classes="hint"))
 
     def _whitelist_editor_page(self) -> Vertical:
         return self._page(
@@ -538,6 +539,11 @@ class MacMaidTUI(App[None]):
                 self._authorize_review()
             elif answer in {"n", "enter"}:
                 self._cancel_review()
+            return
+        if self.current_page == "more-results" and self.more_kind == "permissions" and event.key.casefold() == "o":
+            event.prevent_default()
+            event.stop()
+            self._open_full_disk_access_settings()
             return
         if event.key != "enter":
             return
@@ -1580,6 +1586,38 @@ class MacMaidTUI(App[None]):
         self._update_static_if_present("#status-output", output)
         if self.current_page == "status-results": self._set_state("status", "Live metrics updated · health probes refresh at most every 30 seconds")
 
+    @staticmethod
+    def _permission_report_text(report: dict[str, Any]) -> str:
+        context = "Uygulama" if report.get("launchContext") == "app" else "Komut satırı"
+        full_disk_access = {
+            "granted": "kullanılabilir görünüyor",
+            "not_granted": "kullanılabilir değil",
+            "unknown": "belirlenemedi",
+        }.get(report.get("fullDiskAccess"), "belirlenemedi")
+        lines = [
+            f"Çalışma bağlamı: {context}",
+            f"Tam Disk Erişimi: {full_disk_access}",
+            str(report.get("note", "Bu yalnızca salt-okunur bir erişim kontrolüdür.")),
+            "",
+        ]
+        for group in report.get("checks", []):
+            status = str(group.get("status", "unavailable"))
+            lines.append(f"{group.get('id', 'Konumlar')}: {status} · {group.get('accessible', 0)}/{group.get('total', 0)} erişilebilir")
+            for entry in group.get("entries", []):
+                lines.append(f"  - {entry.get('name', 'Bilinmeyen konum')}: {entry.get('status', 'unavailable')}")
+        lines.append("\nO  macOS Tam Disk Erişimi ayarlarını aç")
+        return "\n".join(lines)
+
+    @work(thread=True, exclusive=True, group="permissions-open")
+    def _open_full_disk_access_settings(self) -> None:
+        result = run_command(
+            "/usr/bin/open",
+            ["x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"],
+            timeout=10,
+        )
+        message = "macOS Gizlilik ve Güvenlik ayarları açıldı." if result.succeeded else f"Ayarlar açılamadı: {result.stderr or 'bilinmeyen hata'}"
+        self.call_from_thread(self._set_activity, message)
+
     def _open_whitelist_editor(self) -> None:
         try:
             self.whitelist_lines = self.config.patterns(strict=True)
@@ -1769,6 +1807,7 @@ class MacMaidTUI(App[None]):
         self._reset_scan("more")
         self.more_kind = kind
         self.query_one("#more-progress", ProgressBar).update(total=None, progress=0)
+        self.query_one("#more-hint", Static).update("↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Back")
         self._set_state("more", f"{kind} yükleniyor…")
         token = CancellationToken(); self.scan_cancellations["more"] = token
         self._more_worker(kind, token)
@@ -1795,6 +1834,7 @@ class MacMaidTUI(App[None]):
                 self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "snapshots": text = "\n".join(list_snapshots()) or "Local snapshot bulunamadı."
             elif kind == "doctor": text = "\n".join(f"{x['name']:<30} {x['value']}" for x in doctor())
+            elif kind == "permissions": text = self._permission_report_text(macos_permission_report(self.config.home))
             elif kind == "history": text = self._history_text(RecoveryCenter(self.config).entries(100))
             else: text = f"Whitelist dosyası:\n{self.config.whitelist_file}\n\nHer satıra korunacak tam yol veya glob eklenebilir."
             token.check()
@@ -1806,6 +1846,8 @@ class MacMaidTUI(App[None]):
         self.scan_cancellations.pop("more", None)
         self.more_result = None; self.more_selected.clear(); self.query_one("#more-table", DataTable).clear(); self.query_one("#more-output", Static).update(text)
         self.query_one("#more-progress", ProgressBar).update(total=100, progress=100)
+        if kind == "permissions":
+            self.query_one("#more-hint", Static).update("O  Tam Disk Erişimi ayarlarını aç  ·  R Yenile  ·  Esc Geri")
         self._set_state("more", f"{kind} hazır")
 
     def _finish_more_scan(self, kind: str, result: ScanResult) -> None:

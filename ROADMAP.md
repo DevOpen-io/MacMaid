@@ -25,10 +25,10 @@ Discover → Classify → PathSafety → Whitelist → Preview → Confirmation 
 
 ### İzin Durumu
 
-- [ ] Okunabilen, sınırlı ve erişilemeyen cleanup konumlarının özetini göster.
-- [ ] Tam Disk Erişimi durumunu ve uygulama/CLI bağlamını göster.
-- [ ] Engellenen konumların ayrıntılarını açılabilir listede sun.
-- [ ] Kullanıcı isterse macOS Full Disk Access ayarlarını açan güvenli aksiyon ekle.
+- [x] Okunabilen, sınırlı ve erişilemeyen cleanup konumlarının özetini göster.
+- [x] Tam Disk Erişimi durumunu ve uygulama/CLI bağlamını göster.
+- [x] Engellenen konumların ayrıntılarını listede sun.
+- [x] Kullanıcı isterse macOS Full Disk Access ayarlarını açan güvenli aksiyon ekle.
 
 ### Güncelleme Yönetimi
 

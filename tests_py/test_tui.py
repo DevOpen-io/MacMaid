@@ -93,6 +93,26 @@ def test_textual_tui_navigation_and_page_tables(monkeypatch) -> None:
     asyncio.run(exercise())
 
 
+def test_tui_permission_report_exposes_context_access_and_details() -> None:
+    report = {
+        "launchContext": "app",
+        "fullDiskAccess": "not_granted",
+        "note": "Capability probe only.",
+        "checks": [{
+            "id": "protectedData", "status": "limited", "accessible": 1, "total": 2,
+            "entries": [{"name": "Safari", "status": "denied"}],
+        }],
+    }
+
+    text = tui.MacMaidTUI._permission_report_text(report)
+
+    assert "Çalışma bağlamı: Uygulama" in text
+    assert "Tam Disk Erişimi: kullanılabilir değil" in text
+    assert "protectedData: limited · 1/2 erişilebilir" in text
+    assert "Safari: denied" in text
+    assert "Tam Disk Erişimi ayarlarını aç" in text
+
+
 def test_tui_whitelist_editor_stages_and_saves_rules() -> None:
     async def exercise() -> None:
         app = tui.MacMaidTUI()
