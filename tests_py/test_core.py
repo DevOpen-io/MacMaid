@@ -15,6 +15,18 @@ from macmaid.safety import PathSafety, PathSafetyError, manual_cache_allowed
 from macmaid.system import human_bytes, run_command, sizes_of
 
 
+def test_config_persists_only_supported_interface_languages(tmp_path: Path) -> None:
+    config = Config(home=tmp_path)
+    config.ensure_files()
+
+    assert config.preferences() == {"language": "en"}
+    config.set_language("en")
+    assert config.preferences() == {"language": "en"}
+    with pytest.raises(ValueError, match="Unsupported"):
+        config.set_language("de")
+    assert config.preferences() == {"language": "en"}
+
+
 def test_config_replaces_whitelist_atomically_after_validating_all_entries(tmp_path: Path) -> None:
     config = Config(home=tmp_path)
     config.ensure_files()

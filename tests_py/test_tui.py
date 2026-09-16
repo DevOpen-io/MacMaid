@@ -93,6 +93,28 @@ def test_textual_tui_navigation_and_page_tables(monkeypatch) -> None:
     asyncio.run(exercise())
 
 
+def test_tui_settings_saves_and_applies_both_languages_live() -> None:
+    async def exercise() -> None:
+        app = tui.MacMaidTUI()
+        async with app.run_test(size=(120, 40)):
+            assert app.language == "en"
+            app._open_settings()
+            app._save_language("tr")
+            assert app.language == "tr"
+            assert app.config.preferences() == {"language": "tr"}
+            assert "Türkçe" in str(app.query_one("#settings-state", Static).content)
+            nav_copy = " ".join(str(widget.content) for widget in app.query("#page-dashboard Label"))
+            assert "Temizlik" in nav_copy and "Clean" not in nav_copy
+
+            app._save_language("en")
+            assert app.config.preferences() == {"language": "en"}
+            assert "English" in str(app.query_one("#settings-state", Static).content)
+            nav_copy = " ".join(str(widget.content) for widget in app.query("#page-dashboard Label"))
+            assert "Clean" in nav_copy and "Temizlik" not in nav_copy
+
+    asyncio.run(exercise())
+
+
 def test_tui_permission_report_exposes_context_access_and_details() -> None:
     report = {
         "launchContext": "app",
@@ -238,7 +260,7 @@ def test_tui_selection_change_invalidates_visible_review(monkeypatch) -> None:
             assert not called
             assert app.current_page == "clean-results"
             assert app.review_plan is None
-            assert "eski onay iptal" in str(app.query_one("#activity", Static).content)
+            assert "previous approval was cancelled" in str(app.query_one("#activity", Static).content)
     asyncio.run(exercise())
 
 
@@ -258,9 +280,9 @@ def test_operation_summary_returns_home_only_after_completion(monkeypatch) -> No
             assert app.query_one("#pages", ContentSwitcher).current == "page-operation"
             assert app.operation_done
             operation_summary = str(app.query_one("#operation-summary", Static).content)
-            assert "ÖNCE" in operation_summary and "SONRA" in operation_summary
-            assert "GÖZLENEN BOŞ ALAN FARKI" in operation_summary
-            assert "kesin atfedilemez" in operation_summary
+            assert "BEFORE" in operation_summary and "AFTER" in operation_summary
+            assert "OBSERVED FREE-SPACE DELTA" in operation_summary
+            assert "cannot be attributed solely" in operation_summary
 
             await pilot.press("enter")
             await pilot.pause()
@@ -433,7 +455,7 @@ def test_all_tools_keyboard_smoke(monkeypatch, size) -> None:
                     for action_id in action_ids:
                         app._run_menu_action(action_id.removeprefix("action-"))
                         await app.workers.wait_for_complete()
-                        expected_page = "whitelist-editor" if action_id == "action-more-whitelist" else f"{section}-results"
+                        expected_page = {"action-more-whitelist": "whitelist-editor", "action-more-settings": "settings"}.get(action_id, f"{section}-results")
                         assert app.current_page == expected_page
                         await pilot.press("escape")
                 await pilot.press("escape")

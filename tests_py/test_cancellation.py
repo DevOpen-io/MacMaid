@@ -248,7 +248,7 @@ def test_tui_cancel_key_requests_cooperative_stop_and_partial_result_cannot_clea
             token = CancellationToken(); app.scan_cancellations["clean"] = token
             await pilot.press("c")
             assert token.cancelled
-            assert "iptal ediliyor" in str(app.query_one("#activity", Static).content)
+            assert "Cancelling scan" in str(app.query_one("#activity", Static).content)
             partial = ScanResult([candidate(Path("/Users/test/Library/Caches/x"))], status="partial", issues=["denied"])
             app._finish_clean(partial)
             assert not app.clean_selected

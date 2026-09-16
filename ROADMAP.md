@@ -20,8 +20,8 @@ Discover → Classify → PathSafety → Whitelist → Preview → Confirmation 
 ### TUI Settings ekranı
 
 - [x] Whitelist'i sadece görüntülemek yerine TUI içinden güvenli biçimde düzenleme ve kaydetme.
-- [ ] Arayüz dili seçimi (Türkçe / English).
-- [ ] Ayarların kaydedildiğine veya hata oluştuğuna dair açık geri bildirim.
+- [x] Arayüz dili seçimi (Türkçe / English).
+- [x] Ayarların kaydedildiğine veya hata oluştuğuna dair açık geri bildirim.
 
 ### İzin Durumu
 

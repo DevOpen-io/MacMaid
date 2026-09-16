@@ -1,0 +1,280 @@
+"""Shared English/Turkish localization for MacMaid user interfaces."""
+
+from __future__ import annotations
+
+from typing import Final
+
+DEFAULT_LANGUAGE: Final = "en"
+SUPPORTED_LANGUAGES: Final = frozenset({"en", "tr"})
+
+
+class TranslationError(ValueError):
+    """Raised when a caller requests an unsupported locale."""
+
+
+def normalize_language(language: str | None) -> str:
+    if language is None:
+        return DEFAULT_LANGUAGE
+    if language not in SUPPORTED_LANGUAGES:
+        raise TranslationError(f"Unsupported interface language: {language}")
+    return language
+
+
+# Exact UI copy. Technical identifiers, paths, app names, manager names and file-system
+# categories intentionally remain unchanged in both languages.
+_EN: Final[dict[str, str]] = {
+    "ARAÇ SEÇ": "SELECT TOOL", "Ayarlar / Settings": "Settings", "Araç Sonuçları": "Tool Results",
+    "Uygulama Kaldırıcı": "App Uninstaller", "Disk Alanı Analizörü": "Disk Analyzer", "Mac Sağlığı": "Mac Health",
+    "Ayarlar": "Settings", "Dosyalar ve Depolama": "Files & Storage", "Sistem ve Geçmiş": "System & History",
+    "Choose cleanup profile": "Choose Cleanup Profile",
+    "Ayrı tarama ekranında app paketlerini ve exact bundle-ID bileşenlerini incele.": "Review application bundles and exact bundle-ID components in a dedicated scan view.",
+    "Başlangıç konumunu seç; analiz ve canlı boyut ölçümü ayrı ekranda açılır.": "Choose a starting location; analysis and live size measurement open in a dedicated view.",
+    "Doğrulanmış proje köklerinde yeniden üretilebilir artefakt taraması başlat.": "Scan verified project roots for reproducible artifacts.",
+    "Somut, salt-okunur macOS ölçümlerini ayrı görünümde aç.": "Open concrete, read-only macOS metrics in a dedicated view.",
+    "Seçilen aracın ilerlemesi ve sonuçları bu ekranda gösterilir.": "The selected tool's progress and results are shown here.",
+    "Arayüz dilini seçin. Seçim güvenli biçimde kaydedilir ve sonraki açılışlarda korunur.": "Choose the interface language. Your selection is saved safely and persists across launches.",
+    "Bu listedeki mutlak yollar ve globlar hiçbir cleanup işlemi tarafından değiştirilemez.": "Absolute paths and glob patterns in this list are protected from every cleanup operation.",
+    "Mevcut dil yükleniyor…": "Loading current language…", "Whitelist yükleniyor…": "Loading whitelist…",
+    "İşlem uygulansın mı? [y/N]": "Apply this operation? [y/N]", "Plan onaylansın mı? [y/N]": "Approve this plan? [y/N]",
+    "Uygulamaları tara": "Scan Applications", "Kurulu app paketlerini ve disk boyutlarını bul": "Find installed application bundles and their disk usage",
+    "Home dizinini analiz et": "Analyze Home Directory", "Kullanıcı home dizinini arka planda ölç": "Measure the user's home directory in the background",
+    "Başka bir yol seç": "Choose Another Path", "Yol girişinin bulunduğu analiz ekranını aç": "Open the analyzer with a custom path field",
+    "Projeleri tara": "Scan Projects", "Build ve dependency artefaktlarını salt-okunur keşfet": "Discover build and dependency artifacts without modifying them",
+    "Bakım görevleri devre dışı": "Maintenance Tasks Unavailable", "Kararlılık incelemesi tamamlanana kadar komut çalıştırılmaz": "No commands run until the stability review is complete",
+    "Mac sağlık ekranını aç": "Open Mac Health", "Disk, bellek baskısı, pil ve termal durumunu gerekçeleriyle göster": "Show disk, memory pressure, battery and thermal status with evidence",
+    "Türkçe arayüzü kullan": "Use the Turkish interface", "İngilizce": "English", "İngilizce arayüzü kullan": "Use the English interface",
+    "Mevcut arayüz dili:": "Current interface language:", "Ayar kaydedildi · arayüz dili:": "Setting saved · interface language:",
+    "Ayar kaydedilemedi:": "Could not save setting:", "Ayarlar açılamadı:": "Could not open Settings:",
+    "Uygulamaları tara": "Scan Applications", "Home dizinini analiz et": "Analyze Home Directory",
+    "Başka bir yol seç": "Choose Another Path", "Projeleri tara": "Scan Projects", "Mac sağlık ekranını aç": "Open Mac Health",
+    "Bakım görevleri devre dışı": "Maintenance Tasks Unavailable",
+    "macOS bakım görevleri kararlılık incelemesi tamamlanana kadar geçici olarak devre dışı.": "macOS maintenance tasks are temporarily unavailable until the stability review is complete.",
+    "Yol yaz; eşleşen konumlar aşağıda listelenir": "Type a path; matching locations appear below",
+    "Korunan yol veya glob": "Protected path or glob", "Eşleşen konumlar": "Matching locations",
+    "Yolu eklemek için Enter · öneriyi seçmek için ↓ ve Enter · seçili kuralı silmek için D · kaydetmek için Ctrl+S · Esc geri": "Enter Add · ↓ then Enter Select suggestion · D Remove rule · Ctrl+S Save · Esc Back",
+    "M Menü  ·  R Yenile  ·  Q Çıkış": "M Menu · R Refresh · Q Quit",
+    "Enter ile taramayı aç · Esc ile ana menü": "Enter Open scan · Esc Main menu",
+    "Enter ile analiz ekranını aç · Esc ile ana menü": "Enter Open analyzer · Esc Main menu",
+    "Enter ile görev ekranını aç · Esc ile ana menü": "Enter Open tasks · Esc Main menu",
+    "Enter ile canlı görünümü aç · Esc ile ana menü": "Enter Open live view · Esc Main menu",
+    "↑↓ Seç · Enter Kaydet · Esc Geri": "↑↓ Select · Enter Save · Esc Back",
+    "y  Onayla · n / Enter / Esc  İptal": "y Approve · n / Enter / Esc Cancel",
+    "y  Kesin onay · n / Enter / Esc  İptal": "y Confirm · n / Enter / Esc Cancel",
+    "O  Tam Disk Erişimi ayarlarını aç  ·  R Yenile  ·  Esc Geri": "O Open Full Disk Access Settings · R Refresh · Esc Back",
+    "O  macOS Tam Disk Erişimi ayarlarını aç": "O Open macOS Full Disk Access Settings",
+    "İptal/Çıkış": "Cancel/Quit", "Geri": "Back", "Menü": "Menu", "İçerik": "Content", "Aşağı": "Down", "Yukarı": "Up",
+    "Üst dizin": "Parent directory", "Yenile": "Refresh", "Taramayı durdur": "Stop scan", "Seç/Kaldır": "Toggle selection", "Kısayollar": "Shortcuts",
+    "Seç": "Select", "Boyut": "Size", "Bileşen": "Component", "Konum": "Location", "Durum": "Status", "Tür": "Type", "Ad": "Name",
+    "Sınıf": "Class", "Proje": "Project", "Artefakt": "Artifact", "Öğe": "Item", "Sürüm / Konum": "Version / Location",
+    "Görev": "Task", "Açıklama": "Description", "Erişilebilir": "Accessible",
+    "Tarama iptal edildi · sonuçlar eksik ve işlem yapılamaz": "Scan cancelled · results are incomplete and cannot be applied",
+    "İşlem tamamlandı": "Operation completed", "İşlem başarısız": "Operation failed", "İşlem sürüyor · lütfen terminali kapatma": "Operation in progress · do not close the terminal",
+    "Enter  Ana menüye dön  ·  Q  Çıkış": "Enter Main menu · Q Quit",
+    "Geçmiş boş.": "History is empty.", "Local snapshot bulunamadı.": "No local snapshot found.",
+    "Whitelist kaydedildi · sonraki işlemden önce yeniden denetlenecek": "Whitelist saved · it will be checked again before the next operation",
+    "Tamamlanacak konum önerisi yok": "No location suggestion to complete", "Eklemek için mutlak bir yol veya glob gir": "Enter an absolute path or glob to add",
+    "Silmek için bir whitelist kuralı seç": "Select a whitelist rule to remove", "Önce bir araç tara ve öğeleri elle seç": "Scan a tool and select items first",
+    "Önce envanter tara": "Scan the inventory first", "Önce tarama yap ve öğe seç": "Scan and select an item first",
+    "Durdurulabilecek aktif tarama yok": "There is no active scan to stop", "Çoklu seçim yalnız cache görünümünde": "Multiple selection is available only in the cache view",
+    "Trash için bir dosya satırı seç": "Select a file row to move to Trash", "Bu öğe korumalı": "This item is protected",
+    "Application bileşenini seç": "Select an application component", "Artefakt seç": "Select an artifact", "Cache seç": "Select a cache", "Görev seç": "Select a task",
+    "Tamamlandı": "Completed", "Başarısız": "Failed", "Atlandı": "Skipped", "Önerilen": "Recommended", "Varsayılan olarak seçilmez": "Not selected by default",
+    "kullanılabilir görünüyor": "appears available", "kullanılabilir değil": "is not available", "belirlenemedi": "unknown",
+    "Çalışma bağlamı:": "Launch context:", "Tam Disk Erişimi:": "Full Disk Access:", "Komut satırı": "Command line", "Uygulama": "Application",
+    "Bu yalnızca salt-okunur bir erişim kontrolüdür.": "This is a read-only access check.", "Bilinmeyen konum": "Unknown location",
+    "macOS Gizlilik ve Güvenlik ayarları açıldı.": "macOS Privacy & Security settings opened.",
+}
+
+_TR: Final[dict[str, str]] = {
+    "SELECT TOOL": "ARAÇ SEÇ", "Settings": "Ayarlar", "Ayarlar / Settings": "Ayarlar", "Tool Results": "Araç Sonuçları",
+    "Clean": "Temizlik", "Uninstall Apps": "Uygulama Kaldır", "Optimize": "Optimize Et", "Analyze": "Analiz",
+    "Project Purge": "Proje Temizliği", "Developer Tools": "Geliştirici Araçları", "Mac Health": "Mac Sağlığı",
+    "Files & Storage": "Dosyalar ve Depolama", "System & History": "Sistem ve Geçmiş", "App Uninstaller": "Uygulama Kaldırıcı",
+    "Disk Analyzer": "Disk Analizörü", "Developer Inventory": "Geliştirici Envanteri", "Review Cleanup": "Temizliği İncele",
+    "macOS Optimize": "macOS Optimize Et",
+    "Review operation": "İşlemi İncele", "Operation": "İşlem", "Choose Cleanup Profile": "Temizlik Profili Seç",
+    "Deep clean your Mac without touching your data.": "Verilerinize dokunmadan Mac'inizi derinlemesine temizleyin.",
+    "Scan safely, choose a profile, then reclaim space": "Güvenle tara, bir profil seç ve alan kazan.",
+    "Remove applications plus exact, reviewable leftovers": "Uygulamaları ve incelenebilir kesin kalıntılarını kaldır.",
+    "Refresh safe macOS caches and services": "Güvenli macOS önbelleklerini ve servislerini yenile.",
+    "Browse disk usage, search, multi-select and move items to Trash": "Disk kullanımını incele, ara, çoklu seç ve öğeleri Çöp Kutusu'na taşı.",
+    "Find old rebuildable project artifacts and dependency folders": "Eski yeniden üretilebilir proje çıktılarını ve bağımlılık klasörlerini bul.",
+    "Inspect runtimes, SDKs, global tools and package caches": "Çalışma zamanlarını, SDK'ları, global araçları ve paket önbelleklerini incele.",
+    "Evidence-based disk, memory-pressure, thermal and battery status": "Kanıta dayalı disk, bellek baskısı, termal ve pil durumu.",
+    "Large files, duplicates, downloads and browser storage": "Büyük dosyalar, kopyalar, indirmeler ve tarayıcı depolaması.",
+    "Leftovers, installers, snapshots, history and diagnostics": "Kalıntılar, yükleyiciler, snapshot'lar, geçmiş ve tanılama.",
+    "The profile controls how deep the scan goes. You will review the result before anything is deleted.": "Profil taramanın derinliğini belirler. Hiçbir şey silinmeden önce sonucu incelersiniz.",
+    "Safe items start enabled. Move with ↑↓ and press Space to exclude/include an item.": "Güvenli öğeler seçili başlar. ↑↓ ile gezip Space ile öğeyi dahil edin veya çıkarın.",
+    "Starting scan…": "Tarama başlatılıyor…", "Discovering applications…": "Uygulamalar keşfediliyor…", "Scanning projects…": "Projeler taranıyor…",
+    "Scanning developer inventory…": "Geliştirici envanteri taranıyor…", "Loading metrics…": "Ölçümler yükleniyor…", "Loading system metrics…": "Sistem ölçümleri yükleniyor…",
+    "Starting tool…": "Araç başlatılıyor…", "Preparing operation…": "İşlem hazırlanıyor…", "Preparing before-operation system metrics…": "İşlem öncesi sistem ölçümleri hazırlanıyor…",
+    "Choose a folder.": "Bir klasör seçin.", "English": "İngilizce", "Use the English interface": "İngilizce arayüzü kullan",
+    "Use the Turkish interface": "Türkçe arayüzü kullan", "Loading current language…": "Mevcut dil yükleniyor…",
+    "Return to the main menu": "Ana menüye dön", "Return to System & History": "Sistem ve Geçmiş'e dön", "←  Back": "←  Geri",
+    "Maintenance, diagnostics and audit tools": "Bakım, tanılama ve denetim araçları",
+    "Choose Turkish or English and save interface preferences": "Türkçe veya İngilizce seçip arayüz tercihini kaydet",
+    "Review readable, limited and unavailable cleanup locations": "Okunabilen, sınırlı ve erişilemeyen temizlik konumlarını incele",
+    "Show recent activity in a readable timeline": "Son etkinlikleri okunabilir bir zaman çizelgesinde göster",
+    "Show the protected custom-path list": "Korunan özel yol listesini göster",
+    "Nothing changes until you explicitly confirm this exact plan.": "Bu planı açıkça onaylayana kadar hiçbir şey değişmez.",
+    "Every reviewed target is revalidated immediately before execution.": "İncelenen her hedef çalıştırmadan hemen önce yeniden doğrulanır.",
+    "When complete, press Enter to return to MacMaid.": "Tamamlandığında MacMaid'e dönmek için Enter'a basın.",
+    "Selected": "Seçili", "Measured": "Ölçüldü", "Size": "Boyut", "Application": "Uygulama", "Version": "Sürüm", "Location": "Konum",
+    "Select": "Seç", "Risk": "Risk", "Item": "Öğe", "Attention": "Dikkat", "Status": "Durum", "Type": "Tür", "Name": "Ad",
+    "Class": "Sınıf", "Project": "Proje", "Artifact": "Artefakt", "Task": "Görev", "Description": "Açıklama",
+    "R Refresh · Q / Esc Back": "R Yenile · Q / Esc Geri",
+    "Safe items start enabled. Move with ↑↓ and press Space to exclude/include an item.": "Güvenli öğeler seçili başlar. ↑↓ ile gezip Boşluk tuşuyla öğeyi dahil edin veya çıkarın.",
+    "Process data unavailable.": "Süreç verisi kullanılamıyor.", "Top processes": "En yoğun süreçler", "Thermal": "Termal", "Battery": "Pil",
+    "Safe": "Güvenli", "Deep": "Derin", "Developer": "Geliştirici", "Aggressive": "Agresif", "Permissions": "İzinler",
+    "Browser Storage": "Tarayıcı Depolaması", "Smart Downloads": "Akıllı İndirmeler", "Duplicate Files": "Kopya Dosyalar",
+    "History": "Geçmiş", "Installers": "Yükleyiciler", "Leftovers": "Kalıntılar", "Doctor": "Tanılama",
+    "Whitelist Editor": "Koruma Listesi Düzenleyicisi",
+    "Absolute paths and glob patterns in this list are protected from every cleanup operation.": "Bu listedeki mutlak yollar ve glob kalıpları tüm temizlik işlemlerinden korunur.",
+    "Loading whitelist…": "Koruma listesi yükleniyor…", "Whitelist yükleniyor…": "Koruma listesi yükleniyor…",
+    "Type a path; matching locations appear below": "Bir yol yazın; eşleşen konumlar aşağıda görünür",
+    "Protected path or glob": "Korunan yol veya glob", "Matching locations": "Eşleşen konumlar",
+    "Enter Add · ↓ then Enter Select suggestion · D Remove rule · Ctrl+S Save · Esc Back": "Enter Ekle · ↓ ve Enter Öneriyi seç · D Kuralı kaldır · Ctrl+S Kaydet · Esc Geri",
+}
+
+_EN_EXTRA: Final[dict[str, str]] = {
+    "!  Seçim veya tarama değişti; eski onay iptal edildi": "!  Selection or scan changed; the previous approval was cancelled",
+    "!  Analiz iptal edildi · ölçülmemiş satırlar işlem için kullanılamaz": "!  Analysis cancelled · unmeasured rows cannot be used",
+    "!  Tarama iptal ediliyor · çalışan salt-okunur ölçüm güvenli noktada duracak": "!  Cancelling scan · the read-only measurement will stop safely",
+    "!  Yüksek etkili seçim için ikinci açık onay gerekli": "!  A second explicit approval is required for this high-impact selection",
+    "İşlem iptal edildi · hiçbir değişiklik yapılmadı": "Operation cancelled · no changes were made",
+    "İşlem sonucu ekranında Enter kullan": "Press Enter on the operation result screen",
+    "İşlem sürerken araç değiştirilemez": "Tools cannot be changed while an operation is running",
+    "İşlem sürerken ekran değiştirilemez": "The screen cannot be changed while an operation is running",
+    "İşlem sürerken yeniden tarama başlatılamaz": "A new scan cannot start while an operation is running",
+    "İşlem zaten başlatıldı; tamamlanmasını bekle": "The operation has already started; wait for it to complete",
+    "◌  İşlem halen devam ediyor": "◌  The operation is still running",
+    "◌  İşlem sürerken çıkış güvenlik nedeniyle engellendi": "◌  Exit is blocked while the operation is running",
+    "Dosya sistemi genelindeki bu fark MacMaid'e kesin atfedilemez; APFS clone/snapshot/sparse dosya ve eşzamanlı etkinlik etkileyebilir.": "This file-system-wide difference cannot be attributed solely to MacMaid; APFS clones, snapshots, sparse files and concurrent activity may affect it.",
+    "GÖZLENEN BOŞ ALAN FARKI: ölçülemedi": "OBSERVED FREE-SPACE DELTA: not measured",
+    "Sistem ölçümleri kullanılamıyor": "System metrics are unavailable",
+    "Yeni tarama bekleniyor…": "Waiting for a new scan…",
+    "Tarama kullanıcı tarafından iptal edildi.": "Scan cancelled by the user.",
+    "Trash taşıma son koşulu doğrulanamadı": "The Trash move post-condition could not be verified",
+    "İnceleme hazır · henüz hiçbir değişiklik yapılmadı": "Review ready · no changes have been made",
+    "USER DATA/MANUAL seçili. Kesin olarak devam edilsin mi? [y/N]": "USER DATA/MANUAL selected. Are you sure you want to continue? [y/N]",
+    "Geçerli işlem özeti yok": "No valid operation summary",
+    "Henüz kayıtlı kural yok · yol yazıp Enter ile ekleyebilirsin": "No saved rules yet · type a path and press Enter to add it",
+    "Kayıtlı whitelist kuralları · ↑↓ gezin · D sil · ↓ son satırda giriş alanına döner": "Saved whitelist rules · ↑↓ navigate · D remove · ↓ on the last row returns to input",
+    "Kural eklendi · kalıcılaştırmak için Ctrl+S": "Rule added · press Ctrl+S to save",
+    "Yazmaya devam et · Tab öneriyi tamamlar · ↓ önerilere geçer · Enter ekler · Esc kayıtlı kurallara döner.": "Keep typing · Tab completes · ↓ opens suggestions · Enter adds · Esc returns to saved rules.",
+    "Yol yaz · Tab tamamlar · ↓ önerilere geçer · Enter ekler": "Type a path · Tab completes · ↓ opens suggestions · Enter adds",
+    "Yol yaz · Tab öneriyi tamamlar · ↓ önerilere geçer · Enter ekler · Esc kayıtlı kurallara döner": "Type a path · Tab completes a suggestion · ↓ opens suggestions · Enter adds · Esc returns to saved rules",
+    "↑↓/j/k Gezin · Enter Aç · Space Seç · İncelemede y Onay / Enter İptal · R Yenile · Q Geri/Çıkış": "↑↓/j/k Navigate · Enter Open · Space Select · y Approve during review / Enter Cancel · R Refresh · Q Back/Quit",
+    "Filtreye uyan dosya bulunamadı. Large & Old varsayılan olarak HOME altında tarar, ~/Library ve symlinkleri atlar; farklı eşik için More menüsünden başka Large & Old filtresi seç.": "No file matched the filter. Large & Old scans HOME by default, skips ~/Library and symlinks; choose another threshold from the More menu.",
+    "Storage Center salt-okunur envanterdir; kaldırma için cache/runtime/tool/SDK sekmelerini kullan": "Storage Center is a read-only inventory; use cache/runtime/tool/SDK views for removal",
+}
+
+_TR_EXTRA: Final[dict[str, str]] = {
+    "Choose cleanup profile": "Temizlik profili seç", "App Uninstaller": "Uygulama Kaldırıcı",
+    "Exact bundle sizes and bundle-ID leftovers remain reviewable before removal.": "Kesin paket boyutları ve bundle-ID kalıntıları kaldırmadan önce incelenebilir.",
+    "Completed rows are usable immediately; you do not need to wait for the whole folder.": "Tamamlanan satırlar hemen kullanılabilir; tüm klasörün ölçülmesini beklemeniz gerekmez.",
+    "Trash is recoverable. Protected home anchors remain view-only.": "Çöp Kutusu geri alınabilir. Korunan ana dizin kökleri yalnızca görüntülenebilir.",
+    "Only proven rebuildable artifacts are shown; project source remains protected.": "Yalnızca yeniden üretilebilirliği doğrulanan çıktılar gösterilir; proje kaynakları korunur.",
+    "Developer storage with manager-aware removal and cache cleanup": "Yönetici farkındalıklı kaldırma ve önbellek temizliği içeren geliştirici depolaması",
+    "Only manager-owned items are removable. Active and protected items remain view-only.": "Yalnızca yöneticinin sahip olduğu öğeler kaldırılabilir. Etkin ve korunan öğeler salt okunurdur.",
+    "Active, base and manager-protected items cannot be removed.": "Etkin, temel ve yönetici tarafından korunan öğeler kaldırılamaz.",
+    "Refresh bounded macOS caches/services without deleting documents or resetting preferences.": "Belgeleri silmeden veya tercihleri sıfırlamadan sınırlı macOS önbelleklerini ve servislerini yenileyin.",
+    "Recommended tasks are preselected.": "Önerilen görevler önceden seçilidir.",
+    "Read-only indicators with evidence, freshness and safe recommendations; no health score or automatic action.": "Kanıt, güncellik ve güvenli öneriler içeren salt okunur göstergeler; sağlık puanı veya otomatik işlem yoktur.",
+    "User-file and browser inspection tools; nothing is removed without review": "Kullanıcı dosyası ve tarayıcı inceleme araçları; hiçbir şey incelenmeden kaldırılmaz",
+    "Maintenance, diagnostics and audit tools": "Bakım, tanılama ve denetim araçları",
+    "The selected item's reason, path and impact appear here.": "Seçili öğenin nedeni, yolu ve etkisi burada görünür.",
+    "User-data locations start disabled and require explicit opt-in.": "Kullanıcı verisi konumları kapalı başlar ve açık katılım gerektirir.",
+    "The selected artifact's rebuild class and exact path appear here.": "Seçili çıktının yeniden üretim sınıfı ve kesin yolu burada görünür.",
+    "The selected task's effect and possible interruption appear here.": "Seçili görevin etkisi ve olası kesintisi burada görünür.",
+    "The selected result's safety reason appears here.": "Seçili sonucun güvenlik nedeni burada görünür.",
+    "Safe items start enabled. Move with ↑↓ and press Space to exclude/include an item.": "Güvenli öğeler seçili başlar. ↑↓ ile gezip Space ile öğeyi dahil edin veya çıkarın.",
+    "Third-party caches, old logs and browser rendering/network caches.": "Üçüncü taraf önbellekleri, eski günlükler ve tarayıcı görüntüleme/ağ önbellekleri.",
+    "Adds Apple user caches and saved application state.": "Apple kullanıcı önbelleklerini ve kaydedilmiş uygulama durumunu ekler.",
+    "Deep-ish cleanup plus Xcode/package-manager/developer caches.": "Derin temizliğe ek olarak Xcode, paket yöneticisi ve geliştirici önbellekleri.",
+    "Adds expensive-to-regenerate dependency caches; still protects user data.": "Yeniden oluşturması maliyetli bağımlılık önbelleklerini ekler; kullanıcı verilerini yine korur.",
+    "Find safe remnants from removed applications": "Kaldırılmış uygulamaların güvenli kalıntılarını bul",
+    "Find old DMG, PKG, XIP, ISO and IPSW files": "Eski DMG, PKG, XIP, ISO ve IPSW dosyalarını bul",
+    "List local Time Machine snapshots": "Yerel Time Machine snapshot'larını listele",
+    "Check MacMaid and macOS capabilities": "MacMaid ve macOS yeteneklerini denetle",
+    "Inspect cache, site data, cookies and session boundaries": "Önbellek, site verisi, çerez ve oturum sınırlarını incele",
+    "Classify installers, archives, incomplete downloads and duplicates": "Yükleyicileri, arşivleri, yarım indirmeleri ve kopyaları sınıflandır",
+    "Find byte-for-byte matches; nothing is selected automatically": "Birebir eşleşmeleri bul; hiçbir şey otomatik seçilmez",
+    "Scan HOME except Library; no automatic selection": "Library dışında HOME'u tara; otomatik seçim yapma",
+    "Apply both size and age filters": "Boyut ve yaş filtrelerini birlikte uygula",
+    "Grouped Xcode, Node, Python, Rust, Android and Docker storage overview": "Gruplanmış Xcode, Node, Python, Rust, Android ve Docker depolama özeti",
+    "Find managed Python, Ruby, Rust, Node, Go, Java and other versions": "Yönetilen Python, Ruby, Rust, Node, Go, Java ve diğer sürümleri bul",
+    "Find Conda/Micromamba environments and virtualenv storage": "Conda/Micromamba ortamlarını ve virtualenv depolamasını bul",
+    "Find Homebrew leaves, pipx, uv, npm, pnpm, Cargo and related installs": "Homebrew leaves, pipx, uv, npm, pnpm, Cargo ve ilgili kurulumları bul",
+    "Inspect Android SDK/NDK/AVDs plus Xcode runtimes and devices": "Android SDK/NDK/AVD'leri, Xcode çalışma zamanlarını ve aygıtlarını incele",
+    "Measure and clean manager-owned package caches": "Yöneticinin sahip olduğu paket önbelleklerini ölç ve temizle",
+}
+
+# Fragments cover dynamic counters, paths and operation outcomes without translating paths,
+# application names or manager-owned identifiers.
+_EN_FRAGMENTS: Final[tuple[tuple[str, str], ...]] = tuple(sorted({
+    "macOS bakım görevleri kararlılık incelemesi tamamlanana kadar geçici olarak devre dışı.": "macOS maintenance tasks are temporarily unavailable until the stability review is complete.",
+    "Uygulamaları tara": "Scan Applications", "Home dizinini analiz et": "Analyze Home Directory",
+    "Başka bir yol seç": "Choose Another Path", "Projeleri tara": "Scan Projects", "Mac sağlık ekranını aç": "Open Mac Health",
+    "Bakım görevleri devre dışı": "Maintenance Tasks Unavailable",
+    "Ayar kaydedildi · arayüz dili: ": "Setting saved · interface language: ",
+    "Mevcut arayüz dili: ": "Current interface language: ", "Whitelist güvenli biçimde okunamadı: ": "Whitelist could not be read safely: ",
+    "Kural kaldırıldı: ": "Rule removed: ", "Öneri ": "Suggestion ", "Kısmi tarama · ": "Partial scan · ", "Kısmi cache taraması · ": "Partial cache scan · ",
+    " bileşen hazır": " components ready", " bölüm · ": " sections · ", " eksik sonuç salt-okunur": " incomplete result is read-only",
+    " erişim/ölçüm sorunu · işlem engellendi": " access/measurement issues · operation blocked", " erişim/ölçüm sorunu · temizlik engellendi": " access/measurement issues · cleanup blocked",
+    " eşleşen konum · Tab tamamlar · ↓ ile listeden seç · Enter ekler.": " matching locations · Tab completes · ↓ selects from list · Enter adds.",
+    " hazır": " ready", " kaldırılabilir": " removable", " korunan kural · Dosyalar bu kurallarla eşleştiğinde işlem engellenir.": " protected rules · matching files are blocked from operations.",
+    " uygulama · Enter ile bileşenleri aç": " applications · Enter opens components", " · Enter ile ana menü": " · Enter returns to main menu",
+    " · Seçimi değiştirmek için Enter'a basın.": " · Press Enter to change the selection.", " · kalıcılaştırmak için Ctrl+S": " · press Ctrl+S to save",
+    " önerilen görev seçildi": " recommended tasks selected",
+    " yükleniyor…": " loading…", " taranıyor…": " scanning…", " hazırlanıyor…": " preparing…",
+    " çalışıyor…": " running…", " kaldırılıyor": " is being removed", " taşınıyor": " is being moved",
+    " tamamlandı": " completed", " başarısız": " failed", " iptal edildi": " cancelled",
+    " öğe": " items", " hata": " errors", " atlandı": " skipped", " erişilebilir": " accessible",
+    " ölçüldü": " measured", " ölçülüyor…": " measuring…", " kısmi sonuç": " partial result",
+    "tahmini geri kazanım": "estimated reclaim", "işlenen hedef tahmini": "estimated processed targets",
+    "GÖZLENEN BOŞ ALAN FARKI": "OBSERVED FREE-SPACE DELTA",
+    "gözlenen boş alan farkı": "observed free-space delta", "manager etkisi bilinmiyor": "manager effect unknown",
+    "Dosya sistemi genelindeki bu fark MacMaid'e kesin atfedilemez; APFS clone/snapshot/sparse dosya ve eşzamanlı etkinlik etkileyebilir.": "This file-system-wide difference cannot be attributed solely to MacMaid; APFS clones, snapshots, sparse files and concurrent activity may affect it.",
+    "ÖNCE": "BEFORE", "SONRA": "AFTER", "Boş": "Free", "Termal": "Thermal",
+    "artış": "increase", "azalış": "decrease", "ölçülemedi": "not measured", "bilinmeyen hata": "unknown error",
+}.items(), key=lambda item: len(item[0]), reverse=True))
+
+_TR_FRAGMENTS: Final[tuple[tuple[str, str], ...]] = tuple(sorted({
+    "✦  Clean": "✦  Temizlik", "⌫  Uninstall Apps": "⌫  Uygulama Kaldır", "⚙  Optimize": "⚙  Optimize Et",
+    "◫  Analyze": "◫  Analiz", "⌁  Project Purge": "⌁  Proje Temizliği", "⌘  Developer Tools": "⌘  Geliştirici Araçları",
+    "●  Mac Health": "●  Mac Sağlığı", "▧  Files & Storage": "▧  Dosyalar ve Depolama", "⋯  System & History": "⋯  Sistem ve Geçmiş",
+    "○  Safe  [LOW RISK]": "○  Güvenli  [DÜŞÜK RİSK]", "◉  Deep  [BALANCED]": "◉  Derin  [DENGELİ]",
+    "◆  Developer  [RECOMMENDED]": "◆  Geliştirici  [ÖNERİLEN]", "▲  Aggressive  [MAX CLEAN]": "▲  Agresif  [MAKSİMUM TEMİZLİK]",
+    "▤  Storage Center": "▤  Depolama Merkezi", "{}  Runtimes & Languages": "{}  Çalışma Zamanları ve Diller",
+    "◌  Environments": "◌  Ortamlar", "⌁  Global CLI tools": "⌁  Global CLI araçları",
+    "▣  SDKs & simulators": "▣  SDK'lar ve simülatörler", "▦  Package-manager caches": "▦  Paket yöneticisi önbellekleri",
+    "◉  Browser Storage": "◉  Tarayıcı Depolaması", "↓  Smart Downloads": "↓  Akıllı İndirmeler",
+    "⧉  Duplicate Files": "⧉  Kopya Dosyalar", "◫  Large & Old": "◫  Büyük ve Eski", "◫  Old Large": "◫  Eski Büyük",
+    "◇  Leftovers": "◇  Kalıntılar", "↓  Installers": "↓  Yükleyiciler", "◷  Snapshots": "◷  Anlık Görüntüler",
+    "+  Doctor": "+  Tanılama", "◉  Permissions": "◉  İzinler", "⚙  Settings": "⚙  Ayarlar",
+    "≡  History": "≡  Geçmiş", "✓  Whitelist": "✓  Koruma Listesi",
+    " Navigate": " Gezin", " Select": " Seç", " Continue": " Devam", " Stop scan": " Taramayı durdur",
+    " Back": " Geri", " Cancel": " İptal", " Open": " Aç", " Remove": " Kaldır", " Rescan": " Yeniden tara",
+    " Enter  Run": " Enter  Çalıştır", " Scan": " Tara", " Jump": " Git", " Parent": " Üst dizin", " Review": " İncele",
+    " Include/exclude": " Dahil et/çıkar", "     Space  ": "     Boşluk  ", " Space Select": " Boşluk Seç", "Q  Quit": "Q  Çıkış",
+    "safety-first": "önce güvenlik", "scanning always shows live feedback": "tarama her zaman canlı geri bildirim gösterir",
+    " Trash": " Çöp Kutusu", " Purge": " Temizle", " Stop analysis": " Analizi durdur",
+    "No files": "Dosya yok", "No items": "Öğe yok", "available": "kullanılabilir", "unavailable": "kullanılamıyor",
+    "granted": "izinli", "denied": "engelli", "limited": "sınırlı", "not applicable": "uygulanamaz",
+}.items(), key=lambda item: len(item[0]), reverse=True))
+
+
+def translate(text: str, language: str) -> str:
+    """Translate user-facing text while preserving paths and technical identifiers."""
+    language = normalize_language(language)
+    exact = _EN if language == "en" else _TR
+    extra = _EN_EXTRA if language == "en" else _TR_EXTRA
+    translated = exact.get(text, extra.get(text))
+    if translated is not None:
+        return translated
+    fragments = _EN_FRAGMENTS if language == "en" else _TR_FRAGMENTS
+    result = text
+    for source, target in fragments:
+        result = result.replace(source, target)
+    return result

@@ -13,7 +13,10 @@ from textual.binding import Binding
 from textual.worker import get_current_worker
 from textual.containers import Horizontal, Vertical
 from textual.css.query import NoMatches
-from textual.widgets import ContentSwitcher, DataTable, Input, Label, ListItem, ListView, ProgressBar, Static
+from textual.widgets import (
+    ContentSwitcher, DataTable as TextualDataTable, Input as TextualInput,
+    Label as TextualLabel, ListItem, ListView, ProgressBar, Static as TextualStatic,
+)
 
 from . import __version__
 from .browser_storage import BrowserStorageInspector
@@ -24,6 +27,7 @@ from .config import Config
 from .developer import DeveloperInventory, DeveloperItem, DeveloperStorageCenter, DeveloperStorageSection
 from .duplicates import DuplicateFinder
 from .large_files import LargeOldFileScanner
+from .i18n import DEFAULT_LANGUAGE, translate
 from .smart_downloads import SmartDownloadsScanner
 from .features import (
     OPTIMIZATIONS, OPTIMIZATION_UNAVAILABLE_REASON, AppComponent, ApplicationManager, InstalledApplication,
@@ -67,6 +71,74 @@ WORDMARK = r""" __  __            __  __       _     _
 | |  | | (_| | (__| |  | | (_| | | (_| |
 |_|  |_|\__,_|\___|_|  |_|\__,_|_|\__,_|"""
 COMPACT_WORDMARK = WORDMARK
+
+_ACTIVE_LANGUAGE = DEFAULT_LANGUAGE
+
+
+def _widget_language(widget: object | None = None) -> str:
+    if widget is not None:
+        try:
+            return str(getattr(widget, "app").language)
+        except Exception:
+            pass
+    return _ACTIVE_LANGUAGE
+
+
+def _localized_renderable(value: object, language: str) -> object:
+    if isinstance(value, Text):
+        return Text(translate(value.plain, language), style=value.style)
+    if isinstance(value, str):
+        return translate(value, language)
+    return value
+
+
+class Static(TextualStatic):
+    """Static text that retains its source copy and localizes every update."""
+
+    def __init__(self, content: object = "", *args: Any, **kwargs: Any) -> None:
+        self._source_content = content
+        super().__init__(_localized_renderable(content, _widget_language()), *args, **kwargs)
+
+    def update(self, content: object = "") -> None:
+        self._source_content = content
+        super().update(_localized_renderable(content, _widget_language(self)))
+
+    def relocalize(self) -> None:
+        super().update(_localized_renderable(self._source_content, _widget_language(self)))
+
+
+class Label(TextualLabel):
+    def __init__(self, content: object = "", *args: Any, **kwargs: Any) -> None:
+        self._source_content = content
+        super().__init__(_localized_renderable(content, _widget_language()), *args, **kwargs)
+
+    def update(self, content: object = "") -> None:
+        self._source_content = content
+        super().update(_localized_renderable(content, _widget_language(self)))
+
+    def relocalize(self) -> None:
+        super().update(_localized_renderable(self._source_content, _widget_language(self)))
+
+
+class Input(TextualInput):
+    def __init__(self, *args: Any, placeholder: str | None = None, **kwargs: Any) -> None:
+        self._source_placeholder = placeholder
+        localized = translate(placeholder, _widget_language()) if placeholder else placeholder
+        super().__init__(*args, placeholder=localized, **kwargs)
+
+    def relocalize(self) -> None:
+        if self._source_placeholder is not None:
+            self.placeholder = translate(self._source_placeholder, _widget_language(self))
+
+
+class DataTable(TextualDataTable):
+    def add_columns(self, *labels: object, **kwargs: Any) -> list[Any]:
+        localized = [_localized_renderable(label, _widget_language(self)) for label in labels]
+        return super().add_columns(*localized, **kwargs)
+
+    def add_row(self, *cells: object, **kwargs: Any) -> Any:
+        localized = [_localized_renderable(cell, _widget_language(self)) for cell in cells]
+        return super().add_row(*localized, **kwargs)
 
 
 class ReviewPrompt(Static):
@@ -162,6 +234,12 @@ class MacMaidTUI(App[None]):
             raise PermissionError("MacMaid must never run as root")
         self._mutation_requested = False
         super().__init__(); self.config = Config(); self.config.ensure_files(); self.current_page = "dashboard"
+        try:
+            self.language = self.config.preferences()["language"]
+        except (OSError, PermissionError, ValueError):
+            self.language = DEFAULT_LANGUAGE
+        global _ACTIVE_LANGUAGE
+        _ACTIVE_LANGUAGE = self.language
         self.clean_profile = CleanupProfile.SAFE
         self.clean_result: ScanResult | None = None; self.clean_selected: set[int] = set()
         self.apps: list[InstalledApplication] = []; self.current_app: InstalledApplication | None = None
@@ -200,12 +278,14 @@ class MacMaidTUI(App[None]):
             yield self._developer_page(); yield self._developer_results_page()
             yield self._optimize_page(); yield self._optimize_results_page()
             yield self._status_page(); yield self._status_results_page()
-            yield self._files_page(); yield self._more_page(); yield self._more_results_page(); yield self._whitelist_editor_page()
+            yield self._files_page(); yield self._more_page(); yield self._more_results_page(); yield self._whitelist_editor_page(); yield self._settings_page()
             yield self._review_page(); yield self._operation_page()
         yield Static("", id="activity")
 
-    @staticmethod
-    def _page(key: str, title: str, desc: str, *children: Any) -> Vertical:
+    def _ui(self, text: str) -> str:
+        return translate(text, self.language)
+
+    def _page(self, key: str, title: str, desc: str, *children: Any) -> Vertical:
         heading = Horizontal(
             Static(title, classes="page-title"),
             Static("M Menü  ·  R Yenile  ·  Q Çıkış", classes="page-shortcuts"),
@@ -234,7 +314,7 @@ class MacMaidTUI(App[None]):
         return Vertical(
             Static(WORDMARK, id="wordmark", markup=False),
             Static("Deep clean your Mac without touching your data.", id="tagline", markup=False),
-            Static("ARAÇ SEÇ", id="menu-title"),
+            Static("SELECT TOOL", id="menu-title"),
             menu,
             Static("Loading system metrics…", id="system-strip"),
             Static(f"↑↓  Navigate     Enter  Select     Q  Quit\nv{__version__}  •  safety-first  •  scanning always shows live feedback", id="menu-help"),
@@ -252,15 +332,14 @@ class MacMaidTUI(App[None]):
             text.stylize(color, badge_start, len(text))
         return text
 
-    @staticmethod
-    def _action_menu(menu_id: str, entries: list[tuple[str, str, str]]) -> ListView:
+    def _action_menu(self, menu_id: str, entries: list[tuple[str, str, str]]) -> ListView:
         return ListView(
             *[
                 ListItem(
                     Vertical(
                         Horizontal(
                             Label("➤", classes="menu-marker"),
-                            Label(MacMaidTUI._menu_title(index, title), classes="action-title"),
+                            Label(self._menu_title(index, title), classes="action-title"),
                             classes="menu-line",
                         ),
                         Label(description, classes="action-desc"),
@@ -359,6 +438,7 @@ class MacMaidTUI(App[None]):
             ("more-snapshots", "◷  Snapshots", "List local Time Machine snapshots"),
             ("more-doctor", "+  Doctor", "Check MacMaid and macOS capabilities"),
             ("more-permissions", "◉  Permissions", "Review readable, limited and unavailable cleanup locations"),
+            ("more-settings", "⚙  Settings", "Choose Turkish or English and save interface preferences"),
             ("more-history", "≡  History", "Show recent activity in a readable timeline"),
             ("more-whitelist", "✓  Whitelist", "Show the protected custom-path list"),
             ("back", "←  Back", "Return to the main menu"),
@@ -366,6 +446,18 @@ class MacMaidTUI(App[None]):
 
     def _more_results_page(self) -> Vertical:
         return self._page("more-results", "Araç Sonuçları", "Seçilen aracın ilerlemesi ve sonuçları bu ekranda gösterilir.", ProgressBar(total=None, show_eta=False, id="more-progress"), Static("Starting tool…", id="more-state", classes="state"), DataTable(id="more-table", zebra_stripes=True), Static("The selected result's safety reason appears here.", id="more-detail", classes="detail", markup=False), Static("", id="more-output", markup=False), Static("↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Back", id="more-hint", classes="hint"))
+
+    def _settings_page(self) -> Vertical:
+        return self._page(
+            "settings", "Ayarlar / Settings", "Arayüz dilini seçin. Seçim güvenli biçimde kaydedilir ve sonraki açılışlarda korunur.",
+            Static("Mevcut dil yükleniyor…", id="settings-state", classes="state", markup=False),
+            self._action_menu("settings-actions", [
+                ("settings-language-tr", "Türkçe", "Türkçe arayüzü kullan"),
+                ("settings-language-en", "English", "Use the English interface"),
+                ("back", "←  Back", "Return to System & History"),
+            ]),
+            Static("↑↓ Seç · Enter Kaydet · Esc Geri", classes="hint"),
+        )
 
     def _whitelist_editor_page(self) -> Vertical:
         return self._page(
@@ -696,7 +788,7 @@ class MacMaidTUI(App[None]):
 
     def _run_menu_action(self, action: str) -> None:
         if action == "back":
-            self.open_page("dashboard")
+            self.open_page("more" if self.current_page == "settings" else "dashboard")
             return
         if action.startswith("clean-profile-"):
             self.clean_profile = CleanupProfile(action.removeprefix("clean-profile-"))
@@ -716,6 +808,12 @@ class MacMaidTUI(App[None]):
             return
         if action == "more-whitelist":
             self._open_whitelist_editor()
+            return
+        if action == "more-settings":
+            self._open_settings()
+            return
+        if action.startswith("settings-language-"):
+            self._save_language(action.removeprefix("settings-language-"))
             return
         if action.startswith("more-") and action not in {"more-apply", "more-reload"}:
             self.more_origin = "more"
@@ -890,7 +988,7 @@ class MacMaidTUI(App[None]):
             self._warn("İşlem sonucu ekranında Enter kullan")
         elif self.current_page == "review":
             self._cancel_review()
-        elif self.current_page == "whitelist-editor":
+        elif self.current_page in {"whitelist-editor", "settings"}:
             self.open_page("more")
         elif self.current_page.endswith("-results"):
             section = self.current_page.removesuffix("-results")
@@ -1617,6 +1715,40 @@ class MacMaidTUI(App[None]):
         )
         message = "macOS Gizlilik ve Güvenlik ayarları açıldı." if result.succeeded else f"Ayarlar açılamadı: {result.stderr or 'bilinmeyen hata'}"
         self.call_from_thread(self._set_activity, message)
+
+    def _open_settings(self) -> None:
+        self._leave_results()
+        self.current_page = "settings"
+        self.query_one("#pages", ContentSwitcher).current = "page-settings"
+        self._render_settings()
+        menu = self.query_one("#settings-actions", ListView)
+        menu.index = 0 if self.language == "tr" else 1
+        menu.focus()
+
+    def _render_settings(self) -> None:
+        language_name = "Türkçe" if self.language == "tr" else "English"
+        self.query_one("#settings-state", Static).update(
+            f"Mevcut arayüz dili: {language_name} · Seçimi değiştirmek için Enter'a basın."
+        )
+
+    def _save_language(self, language: str) -> None:
+        try:
+            self.config.set_language(language)
+        except (OSError, PermissionError, ValueError) as exc:
+            self.query_one("#settings-state", Static).update(f"Ayar kaydedilemedi: {exc}")
+            self._warn(f"Ayar kaydedilemedi: {exc}")
+            return
+        self.language = language
+        global _ACTIVE_LANGUAGE
+        _ACTIVE_LANGUAGE = language
+        for widget in self.query("Static, Label, Input"):
+            relocalize = getattr(widget, "relocalize", None)
+            if relocalize:
+                relocalize()
+        self._render_optimize()
+        self._render_settings()
+        language_name = "Türkçe" if language == "tr" else "English"
+        self._set_activity(f"Ayar kaydedildi · arayüz dili: {language_name}")
 
     def _open_whitelist_editor(self) -> None:
         try:

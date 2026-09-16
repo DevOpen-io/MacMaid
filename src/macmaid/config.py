@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import fnmatch
+import json
 import os
 import secrets
 import stat
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from .i18n import DEFAULT_LANGUAGE, normalize_language
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +22,10 @@ class Config:
     @property
     def whitelist_file(self) -> Path:
         return self.config_dir / "whitelist"
+
+    @property
+    def preferences_file(self) -> Path:
+        return self.config_dir / "preferences.json"
 
     @property
     def log_dir(self) -> Path:
@@ -68,6 +75,43 @@ class Config:
         else:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 handle.write("# One absolute path or glob per line.\n# ~/Library/Caches/com.example.keep\n")
+        try:
+            fd = os.open(self.preferences_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        except FileExistsError:
+            self._require_owned_regular_file(self.preferences_file)
+        else:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump({"language": DEFAULT_LANGUAGE}, handle)
+                handle.write("\n")
+
+    def preferences(self) -> dict[str, str]:
+        self._require_owned_regular_file(self.preferences_file)
+        fd = os.open(self.preferences_file, os.O_RDONLY | os.O_NOFOLLOW)
+        try:
+            with os.fdopen(fd, "r", encoding="utf-8", closefd=False) as handle:
+                value = json.load(handle)
+        finally:
+            os.close(fd)
+        if not isinstance(value, dict):
+            raise ValueError("Invalid MacMaid preferences")
+        return {"language": normalize_language(value.get("language"))}
+
+    def set_language(self, language: str) -> None:
+        language = normalize_language(language)
+        self._require_owned_regular_file(self.preferences_file)
+        temporary = self.config_dir / f".preferences.{os.getpid()}.{secrets.token_hex(8)}.tmp"
+        try:
+            fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump({"language": language}, handle)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            self._require_owned_regular_file(self.preferences_file)
+            os.replace(temporary, self.preferences_file)
+            self._require_owned_regular_file(self.preferences_file)
+        finally:
+            temporary.unlink(missing_ok=True)
 
     def validate_whitelist(self, lines: list[str]) -> list[str]:
         """Validate and normalize user-maintained whitelist entries without writing them."""
