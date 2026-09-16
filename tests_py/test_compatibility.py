@@ -145,6 +145,9 @@ def test_settings_ui_exposes_read_only_permission_status() -> None:
     assert 'id="global-operation-count"' in web_ui
     assert 'id="global-operation-elapsed"' in web_ui
     assert "p.path || p.activity || p.detail" in javascript
+    assert "toast.addEventListener('click', () => dismissToast(toast))" in javascript
+    assert "hud.onclick = dismissOperationOutcome" in javascript
+    assert "user-select: none" in styles
     assert "max-height: calc(100vh - 32px)" in styles
     assert ".modal-body" in styles and "overflow-y: auto" in styles
 

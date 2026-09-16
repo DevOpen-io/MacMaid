@@ -1344,14 +1344,23 @@ function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = `toast toast-${normalizedType}`;
   toast.setAttribute('role', normalizedType === 'error' ? 'alert' : 'status');
+  toast.setAttribute('tabindex', '0');
+  toast.setAttribute('aria-label', `${titles[normalizedType]}: ${message}. ${t('toast.close_tip', 'Dismiss notification')}`);
   toast.innerHTML = `
     <span class="toast-icon" aria-hidden="true">${icons[normalizedType]}</span>
     <span class="toast-copy"><strong>${escapeHtml(titles[normalizedType])}</strong><span class="toast-msg">${escapeHtml(message)}</span></span>
     <button class="toast-close" type="button" aria-label="${escapeHtml(t('toast.close_tip', 'Dismiss notification'))}">Ã—</button>
   `;
-  toast.querySelector('.toast-close')?.addEventListener('click', () => dismissToast(toast));
+  toast.addEventListener('click', () => dismissToast(toast));
+  toast.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape') {
+      event.preventDefault();
+      dismissToast(toast);
+    }
+  });
   container.appendChild(toast);
-  toast.dismissTimer = setTimeout(() => dismissToast(toast), normalizedType === 'error' ? 8000 : 5000);
+  const lifetime = normalizedType === 'success' ? 3500 : normalizedType === 'error' ? 7000 : 4500;
+  toast.dismissTimer = setTimeout(() => dismissToast(toast), lifetime);
 }
 
 // Format bytes
@@ -1440,6 +1449,12 @@ function startLiveProgressPolling(label = t('hud.starting', 'Starting operationâ
   state.operationStartedAt = Date.now();
   const hud = document.getElementById('global-operation-hud');
   hud?.classList.remove('hidden', 'is-success', 'is-error');
+  if (hud) {
+    hud.removeAttribute('tabindex');
+    hud.setAttribute('role', 'status');
+    hud.onclick = null;
+    hud.onkeydown = null;
+  }
   document.getElementById('global-operation-spinner')?.classList.remove('hidden');
   const title = document.getElementById('global-operation-title');
   const detail = document.getElementById('global-operation-detail');
@@ -1480,11 +1495,26 @@ function stopLiveProgressPolling() {
   }, 1000);
 }
 
+function dismissOperationOutcome() {
+  const hud = document.getElementById('global-operation-hud');
+  if (!hud || state.isOperationRunning) return;
+  hud.classList.add('hidden');
+}
+
 function showOperationOutcome(type, message) {
   const hud = document.getElementById('global-operation-hud');
   if (!hud) return;
   hud.classList.remove('hidden', 'is-success', 'is-error');
   hud.classList.add(type === 'error' ? 'is-error' : 'is-success');
+  hud.setAttribute('role', 'button');
+  hud.setAttribute('tabindex', '0');
+  hud.onclick = dismissOperationOutcome;
+  hud.onkeydown = event => {
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape') {
+      event.preventDefault();
+      dismissOperationOutcome();
+    }
+  };
   document.getElementById('global-operation-spinner')?.classList.add('hidden');
   document.getElementById('global-scan-cancel')?.classList.add('hidden');
   const title = document.getElementById('global-operation-title');

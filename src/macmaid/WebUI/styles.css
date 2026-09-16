@@ -92,6 +92,15 @@ body {
   overflow: hidden;
   position: relative;
   -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Custom modern scrollbars */
@@ -1763,6 +1772,7 @@ body:has(.global-operation-hud:not(.hidden)) .toast-container { bottom: 190px; }
   box-shadow: var(--window-shadow);
   color: var(--text-main);
   animation: slideToast 0.3s ease-out;
+  cursor: pointer;
   pointer-events: auto;
   transition: opacity 0.3s ease, transform 0.3s ease, border-color 0.2s ease;
 }
@@ -3009,6 +3019,10 @@ input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.42; }
 }
 #global-operation-count { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #global-operation-elapsed { margin-left: auto; white-space: nowrap; }
+.global-operation-hud.is-success,
+.global-operation-hud.is-error { cursor: pointer; }
+.global-operation-hud.is-success:focus-visible,
+.global-operation-hud.is-error:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .global-operation-hud.is-success { border-color: rgba(16, 185, 129, 0.38); }
 .global-operation-hud.is-success .global-operation-percent { color: var(--green); }
 .global-operation-hud.is-error { border-color: rgba(239, 68, 68, 0.48); }
