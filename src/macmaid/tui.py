@@ -89,7 +89,7 @@ class MacMaidTUI(App[None]):
         ("q", "quit_or_back", "İptal/Çıkış"), ("escape", "back", "Geri"),
         ("ctrl+n", "focus_navigation", "Menü"), ("m", "focus_navigation", "Menü"), ("h", "focus_navigation", "Menü"), ("l", "focus_content", "İçerik"),
         ("j", "cursor_down", "Aşağı"), ("k", "cursor_up", "Yukarı"), ("backspace", "analyzer_parent", "Üst dizin"), ("left", "analyzer_parent", "Üst dizin"), ("t", "trash_file", "Trash"), ("d", "context_destructive", "Remove/Trash"),
-        ("r", "refresh", "Yenile"), ("c", "cancel_scan", "Taramayı durdur"),
+        ("r", "refresh", "Yenile"), ("c", "cancel_scan", "Taramayı durdur"), ("ctrl+s", "save_whitelist", "Whitelist'i kaydet"),
         ("space", "toggle_selected", "Seç/Kaldır"), ("question_mark", "help", "Kısayollar"),
     ]
 
@@ -153,6 +153,7 @@ class MacMaidTUI(App[None]):
     #operation-summary { height: 8; color: #b6bbc1; padding: 1 2; }
     #operation-hint { height: 2; color: #8fcf8b; text-style: bold; }
     #more-table { height: 1fr; }
+    #whitelist-suggestions { height: 7; min-height: 3; }
     #activity { height: 1; dock: bottom; background: transparent; color: #d5d7da; padding: 0 1; content-align: left middle; }
     """
 
@@ -170,6 +171,11 @@ class MacMaidTUI(App[None]):
         self.developer_items: list[DeveloperItem] = []; self.developer_storage: list[DeveloperStorageSection] = []; self.dev_cache_result: ScanResult | None = None; self.dev_selected: set[int] = set()
         self.more_kind: str | None = None; self.more_origin = "more"
         self.more_result: ScanResult | None = None; self.more_selected: set[int] = set()
+        self.whitelist_lines: list[str] = []
+        self.whitelist_suggestions: list[Path] = []
+        self.whitelist_suggestion_generation = 0
+        self.whitelist_suggestion_index = -1
+        self._suppress_whitelist_suggestions = False
         self.optimize_selected = {i for i, task in enumerate(OPTIMIZATIONS) if task["recommended"]}
         self.analyzer = IncrementalAnalyzer(); self.analyzer_path = Path.home(); self.analyzer_focus = 0
         self.scan_cancellations: dict[str, CancellationToken] = {}
@@ -194,7 +200,7 @@ class MacMaidTUI(App[None]):
             yield self._developer_page(); yield self._developer_results_page()
             yield self._optimize_page(); yield self._optimize_results_page()
             yield self._status_page(); yield self._status_results_page()
-            yield self._files_page(); yield self._more_page(); yield self._more_results_page()
+            yield self._files_page(); yield self._more_page(); yield self._more_results_page(); yield self._whitelist_editor_page()
             yield self._review_page(); yield self._operation_page()
         yield Static("", id="activity")
 
@@ -360,6 +366,16 @@ class MacMaidTUI(App[None]):
     def _more_results_page(self) -> Vertical:
         return self._page("more-results", "Araç Sonuçları", "Seçilen aracın ilerlemesi ve sonuçları bu ekranda gösterilir.", ProgressBar(total=None, show_eta=False, id="more-progress"), Static("Starting tool…", id="more-state", classes="state"), DataTable(id="more-table", zebra_stripes=True), Static("The selected result's safety reason appears here.", id="more-detail", classes="detail", markup=False), Static("", id="more-output", markup=False), Static("↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Back", classes="hint"))
 
+    def _whitelist_editor_page(self) -> Vertical:
+        return self._page(
+            "whitelist-editor", "Whitelist Editor", "Bu listedeki mutlak yollar ve globlar hiçbir cleanup işlemi tarafından değiştirilemez.",
+            Static("Whitelist yükleniyor…", id="whitelist-state", classes="state", markup=False),
+            DataTable(id="whitelist-table", zebra_stripes=True),
+            Input(placeholder="Yol yaz; eşleşen konumlar aşağıda listelenir", id="whitelist-input"),
+            DataTable(id="whitelist-suggestions", zebra_stripes=True),
+            Static("Yolu eklemek için Enter · öneriyi seçmek için ↓ ve Enter · seçili kuralı silmek için D · kaydetmek için Ctrl+S · Esc geri", classes="hint"),
+        )
+
     def _review_page(self) -> Vertical:
         return self._page(
             "review", "Review operation", "Nothing changes until you explicitly confirm this exact plan.",
@@ -386,6 +402,8 @@ class MacMaidTUI(App[None]):
             "purge-table": ("Seç", "Boyut", "Sınıf", "Proje", "Artefakt", "Konum"), "developer-table": ("Seç", "Boyut", "Durum", "Manager", "Öğe", "Sürüm / Konum"),
             "optimize-table": ("Seç", "Risk", "Görev", "Açıklama"),
             "more-table": ("Seç", "Risk", "Boyut", "Öğe", "Konum"),
+            "whitelist-table": ("Korunan yol veya glob",),
+            "whitelist-suggestions": ("Eşleşen konumlar",),
         }
         for table_id, labels in columns.items():
             table = self.query_one(f"#{table_id}", DataTable)
@@ -498,6 +516,8 @@ class MacMaidTUI(App[None]):
         self._set_activity(f"{'✕' if failed else '✓'}  {summary} · Enter ile ana menü")
 
     def on_key(self, event: events.Key) -> None:
+        if self.current_page == "whitelist-editor" and self._handle_whitelist_editor_key(event):
+            return
         if self.current_page == "dashboard" and event.key.isdigit():
             index = int(event.key) - 1
             if 0 <= index < len(NAVIGATION):
@@ -653,6 +673,20 @@ class MacMaidTUI(App[None]):
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "analyzer-input":
             self._request_analysis(Path(event.value))
+        elif event.input.id == "whitelist-input":
+            self._stage_whitelist_entry(event.value)
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id != "whitelist-input":
+            return
+        if self._suppress_whitelist_suggestions:
+            return
+        self.whitelist_suggestion_index = -1
+        self.whitelist_suggestion_generation += 1
+        self._find_whitelist_suggestions(event.value, self.whitelist_suggestion_generation)
+        self.query_one("#whitelist-state", Static).update(
+            "Yazmaya devam et · Tab öneriyi tamamlar · ↓ önerilere geçer · Enter ekler · Esc kayıtlı kurallara döner."
+        )
 
     def _run_menu_action(self, action: str) -> None:
         if action == "back":
@@ -673,6 +707,9 @@ class MacMaidTUI(App[None]):
             self.more_kind = action.removeprefix("files-")
             self._show_results("more")
             self._load_more(self.more_kind)
+            return
+        if action == "more-whitelist":
+            self._open_whitelist_editor()
             return
         if action.startswith("more-") and action not in {"more-apply", "more-reload"}:
             self.more_origin = "more"
@@ -827,6 +864,9 @@ class MacMaidTUI(App[None]):
 
     def action_review_yes(self) -> None: self._authorize_review()
     def action_review_no(self) -> None: self._cancel_review()
+    def action_save_whitelist(self) -> None:
+        if self.current_page == "whitelist-editor":
+            self._save_whitelist()
     def action_open_page(self, key: str) -> None: self.open_page(key)
     def action_dashboard(self) -> None: self.open_page("dashboard")
     def action_quit_or_back(self) -> None:
@@ -844,6 +884,8 @@ class MacMaidTUI(App[None]):
             self._warn("İşlem sonucu ekranında Enter kullan")
         elif self.current_page == "review":
             self._cancel_review()
+        elif self.current_page == "whitelist-editor":
+            self.open_page("more")
         elif self.current_page.endswith("-results"):
             section = self.current_page.removesuffix("-results")
             if section == "more":
@@ -866,7 +908,7 @@ class MacMaidTUI(App[None]):
             else:
                 self._warn("İşlem sürerken ekran değiştirilemez")
             return
-        section = self.current_page.removesuffix("-results")
+        section = "more" if self.current_page == "whitelist-editor" else self.current_page.removesuffix("-results")
         index = next(i for i, item in enumerate(NAVIGATION) if item[0] == section)
         self.current_page = "dashboard"
         self.query_one("#pages", ContentSwitcher).current = "page-dashboard"
@@ -882,10 +924,16 @@ class MacMaidTUI(App[None]):
             if widget.can_focus:
                 widget.focus(); break
     def action_cursor_down(self) -> None:
+        if self.current_page == "whitelist-editor" and self.focused and self.focused.id == "whitelist-input" and self.whitelist_suggestions:
+            self.query_one("#whitelist-suggestions", DataTable).focus()
+            return
         focused = self.focused
         action = getattr(focused, "action_cursor_down", None)
         if action: action()
     def action_cursor_up(self) -> None:
+        if self.current_page == "whitelist-editor" and self.focused and self.focused.id == "whitelist-suggestions":
+            self.query_one("#whitelist-input", Input).focus()
+            return
         focused = self.focused
         action = getattr(focused, "action_cursor_up", None)
         if action: action()
@@ -895,6 +943,7 @@ class MacMaidTUI(App[None]):
     def action_context_destructive(self) -> None:
         if self.current_page == "analyzer-results": self.key_t()
         elif self.current_page == "developer-results": self._confirm_developer_remove()
+        elif self.current_page == "whitelist-editor": self._remove_whitelist_entry()
     def action_help(self) -> None: self._set_activity("↑↓/j/k Gezin · Enter Aç · Space Seç · İncelemede y Onay / Enter İptal · R Yenile · Q Geri/Çıkış")
 
     def action_cancel_scan(self) -> None:
@@ -930,6 +979,8 @@ class MacMaidTUI(App[None]):
         row = table.cursor_row; selected, render = mapping[table.id]; selected.symmetric_difference_update({row}); render(row)
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        if event.data_table.id in {"whitelist-table", "whitelist-suggestions"}:
+            return
         self._update_row_detail(event.data_table.id or "", event.cursor_row)
 
     def _update_row_detail(self, table_id: str, row: int) -> None:
@@ -971,6 +1022,9 @@ class MacMaidTUI(App[None]):
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         row = event.cursor_row; table_id = event.data_table.id
+        if table_id == "whitelist-suggestions" and 0 <= row < len(self.whitelist_suggestions):
+            self._stage_whitelist_entry(str(self.whitelist_suggestions[row]))
+            return
         if table_id == "clean-table": self._confirm_clean()
         elif table_id == "apps-table": self._select_app(row)
         elif table_id == "components-table": self._confirm_app_remove()
@@ -1525,6 +1579,170 @@ class MacMaidTUI(App[None]):
             output.append("  Process data unavailable.", style="#777b83")
         self._update_static_if_present("#status-output", output)
         if self.current_page == "status-results": self._set_state("status", "Live metrics updated · health probes refresh at most every 30 seconds")
+
+    def _open_whitelist_editor(self) -> None:
+        try:
+            self.whitelist_lines = self.config.patterns(strict=True)
+        except PermissionError as exc:
+            self._warn(f"Whitelist güvenli biçimde okunamadı: {exc}")
+            return
+        self._leave_results()
+        self.current_page = "whitelist-editor"
+        self.query_one("#pages", ContentSwitcher).current = "page-whitelist-editor"
+        self._render_whitelist_editor()
+        self.query_one("#whitelist-input", Input).focus()
+        self._set_activity("Yol yaz · Tab öneriyi tamamlar · ↓ önerilere geçer · Enter ekler · Esc kayıtlı kurallara döner")
+
+    def _render_whitelist_editor(self) -> None:
+        table = self.query_one("#whitelist-table", DataTable)
+        cursor = table.cursor_row if table.row_count else None
+        table.clear()
+        for line in self.whitelist_lines:
+            table.add_row(line)
+        if cursor is not None and table.row_count:
+            table.move_cursor(row=min(cursor, table.row_count - 1))
+        self.query_one("#whitelist-state", Static).update(
+            f"{len(self.whitelist_lines)} korunan kural · Dosyalar bu kurallarla eşleştiğinde işlem engellenir."
+        )
+
+    @work(thread=True, exclusive=True, group="whitelist-suggestions")
+    def _find_whitelist_suggestions(self, value: str, generation: int) -> None:
+        value = value.strip()
+        candidates: list[Path] = []
+        if value.startswith(("/", "~")):
+            expanded = Path(value).expanduser()
+            parent = expanded if value.endswith("/") else expanded.parent
+            needle = "" if value.endswith("/") else expanded.name.casefold()
+            try:
+                parent_info = parent.lstat()
+                if not parent.is_symlink() and parent_info and parent.is_dir():
+                    with os.scandir(parent) as entries:
+                        for entry in entries:
+                            if needle in entry.name.casefold():
+                                candidates.append(parent / entry.name)
+                                if len(candidates) == 50:
+                                    break
+            except OSError:
+                pass
+        candidates.sort(key=lambda path: (path.name.casefold(), str(path)))
+        self.call_from_thread(self._render_whitelist_suggestions, candidates, generation)
+
+    def _render_whitelist_suggestions(self, candidates: list[Path], generation: int) -> None:
+        if generation != self.whitelist_suggestion_generation:
+            return
+        self.whitelist_suggestions = candidates
+        self.whitelist_suggestion_index = -1
+        table = self.query_one("#whitelist-suggestions", DataTable)
+        table.clear()
+        for path in candidates:
+            table.add_row(str(path))
+        if candidates:
+            self.query_one("#whitelist-state", Static).update(
+                f"{len(candidates)} eşleşen konum · Tab tamamlar · ↓ ile listeden seç · Enter ekler."
+            )
+
+    def _complete_whitelist_suggestion(self, step: int = 1) -> None:
+        if not self.whitelist_suggestions:
+            self._warn("Tamamlanacak konum önerisi yok")
+            return
+        self.whitelist_suggestion_index = (self.whitelist_suggestion_index + step) % len(self.whitelist_suggestions)
+        field = self.query_one("#whitelist-input", Input)
+        self._suppress_whitelist_suggestions = True
+        try:
+            field.value = str(self.whitelist_suggestions[self.whitelist_suggestion_index])
+        finally:
+            self._suppress_whitelist_suggestions = False
+        self.query_one("#whitelist-state", Static).update(
+            f"Öneri {self.whitelist_suggestion_index + 1}/{len(self.whitelist_suggestions)} tamamlandı · Tab ile sonraki · Enter ile ekle."
+        )
+
+    def _focus_whitelist_rules(self) -> None:
+        table = self.query_one("#whitelist-table", DataTable)
+        if table.row_count:
+            table.focus()
+            self._set_activity("Kayıtlı whitelist kuralları · ↑↓ gezin · D sil · ↓ son satırda giriş alanına döner")
+        else:
+            self.query_one("#whitelist-input", Input).focus()
+            self._set_activity("Henüz kayıtlı kural yok · yol yazıp Enter ile ekleyebilirsin")
+
+    def _handle_whitelist_editor_key(self, event: events.Key) -> bool:
+        focused_id = self.focused.id if self.focused else None
+        rules = self.query_one("#whitelist-table", DataTable)
+        suggestions = self.query_one("#whitelist-suggestions", DataTable)
+        field = self.query_one("#whitelist-input", Input)
+        if focused_id == "whitelist-input":
+            if event.key == "tab":
+                event.prevent_default(); event.stop()
+                self._complete_whitelist_suggestion()
+                return True
+            if event.key in {"down", "up"} and self.whitelist_suggestions:
+                event.prevent_default(); event.stop()
+                suggestions.focus()
+                suggestions.move_cursor(row=0 if event.key == "down" else len(self.whitelist_suggestions) - 1)
+                return True
+            if event.key == "escape" and rules.row_count:
+                event.prevent_default(); event.stop()
+                self._focus_whitelist_rules()
+                return True
+        elif focused_id == "whitelist-table":
+            if event.key == "down" and rules.row_count and rules.cursor_row >= rules.row_count - 1:
+                event.prevent_default(); event.stop()
+                field.focus()
+                self._set_activity("Yol yaz · Tab tamamlar · ↓ önerilere geçer · Enter ekler")
+                return True
+            if event.key == "enter":
+                event.prevent_default(); event.stop()
+                field.focus()
+                self._set_activity("Yol yaz · Tab tamamlar · ↓ önerilere geçer · Enter ekler")
+                return True
+        elif focused_id == "whitelist-suggestions":
+            if event.key == "down" and suggestions.cursor_row >= suggestions.row_count - 1:
+                event.prevent_default(); event.stop()
+                field.focus()
+                return True
+            if event.key == "up" and suggestions.cursor_row <= 0:
+                event.prevent_default(); event.stop()
+                field.focus()
+                return True
+        return False
+
+    def _stage_whitelist_entry(self, value: str) -> None:
+        entry = value.strip()
+        field = self.query_one("#whitelist-input", Input)
+        if not entry:
+            self._warn("Eklemek için mutlak bir yol veya glob gir")
+            return
+        try:
+            normalized = self.config.validate_whitelist([*self.whitelist_lines, entry])
+        except ValueError as exc:
+            self._warn(f"Kural eklenemedi: {exc}")
+            return
+        self.whitelist_lines = normalized
+        field.value = ""
+        self.whitelist_suggestion_generation += 1
+        self._render_whitelist_suggestions([], self.whitelist_suggestion_generation)
+        self._render_whitelist_editor()
+        self._focus_whitelist_rules()
+        self._set_activity("Kural eklendi · kalıcılaştırmak için Ctrl+S")
+
+    def _remove_whitelist_entry(self) -> None:
+        table = self.query_one("#whitelist-table", DataTable)
+        row = table.cursor_row
+        if not 0 <= row < len(self.whitelist_lines):
+            self._warn("Silmek için bir whitelist kuralı seç")
+            return
+        removed = self.whitelist_lines.pop(row)
+        self._render_whitelist_editor()
+        table.focus()
+        self._set_activity(f"Kural kaldırıldı: {removed} · kalıcılaştırmak için Ctrl+S")
+
+    def _save_whitelist(self) -> None:
+        try:
+            self.config.replace_whitelist(self.whitelist_lines)
+        except (PermissionError, ValueError, OSError) as exc:
+            self._warn(f"Whitelist kaydedilemedi: {exc}")
+            return
+        self._set_activity("Whitelist kaydedildi · sonraki işlemden önce yeniden denetlenecek")
 
     @staticmethod
     def _history_text(records: list[dict[str, Any]]) -> str:

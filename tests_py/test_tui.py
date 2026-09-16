@@ -93,6 +93,46 @@ def test_textual_tui_navigation_and_page_tables(monkeypatch) -> None:
     asyncio.run(exercise())
 
 
+def test_tui_whitelist_editor_stages_and_saves_rules() -> None:
+    async def exercise() -> None:
+        app = tui.MacMaidTUI()
+        async with app.run_test(size=(120, 40)) as pilot:
+            app._open_whitelist_editor()
+            await pilot.pause()
+            candidate = app.config.home / "Library/Caches/keep-cache"
+            candidate.parent.mkdir(parents=True)
+            candidate.mkdir()
+            app._find_whitelist_suggestions(str(candidate.parent / "keep"), app.whitelist_suggestion_generation)
+            await app.workers.wait_for_complete()
+            assert app.whitelist_suggestions == [candidate]
+
+            field = app.query_one("#whitelist-input", tui.Input)
+            field.focus()
+            await pilot.press("down")
+            assert app.focused is app.query_one("#whitelist-suggestions", DataTable)
+            await pilot.press("up")
+            assert app.focused is field
+            await pilot.press("tab")
+            assert field.value == str(candidate)
+            await pilot.press("enter")
+            path = str(candidate)
+            assert app.whitelist_lines == [path]
+            rules = app.query_one("#whitelist-table", DataTable)
+            assert app.focused is rules
+            field.focus()
+            await pilot.press("escape")
+            assert app.focused is rules
+            await pilot.press("down")
+            assert app.focused is field
+            assert app.config.patterns(strict=True) == []
+
+            app._save_whitelist()
+            assert app.config.patterns(strict=True) == [path]
+            assert app.query_one("#whitelist-table", DataTable).row_count == 1
+
+    asyncio.run(exercise())
+
+
 def test_tui_keyboard_submenus_replace_dropdowns(monkeypatch) -> None:
     monkeypatch.setattr(tui, "system_status", _metrics)
 
@@ -373,7 +413,8 @@ def test_all_tools_keyboard_smoke(monkeypatch, size) -> None:
                     for action_id in action_ids:
                         app._run_menu_action(action_id.removeprefix("action-"))
                         await app.workers.wait_for_complete()
-                        assert app.current_page == f"{section}-results"
+                        expected_page = "whitelist-editor" if action_id == "action-more-whitelist" else f"{section}-results"
+                        assert app.current_page == expected_page
                         await pilot.press("escape")
                 await pilot.press("escape")
                 assert app.current_page == "dashboard"

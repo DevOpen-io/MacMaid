@@ -15,6 +15,20 @@ from macmaid.safety import PathSafety, PathSafetyError, manual_cache_allowed
 from macmaid.system import human_bytes, run_command, sizes_of
 
 
+def test_config_replaces_whitelist_atomically_after_validating_all_entries(tmp_path: Path) -> None:
+    config = Config(home=tmp_path)
+    config.ensure_files()
+    keep = tmp_path / "Library/Caches/keep"
+    important = tmp_path / "Developer/important-*"
+    config.replace_whitelist([str(keep), str(important)])
+
+    assert config.patterns(strict=True) == [str(keep), str(important)]
+
+    with pytest.raises(ValueError, match="absolute paths"):
+        config.replace_whitelist(["relative/path"])
+    assert config.patterns(strict=True) == [str(keep), str(important)]
+
+
 def test_cli_refuses_root(monkeypatch: pytest.MonkeyPatch) -> None:
     from macmaid import cli
     monkeypatch.setattr(cli.os, "geteuid", lambda: 0)

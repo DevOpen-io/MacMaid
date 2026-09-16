@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fnmatch
 import os
+import secrets
 import stat
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -67,6 +68,45 @@ class Config:
         else:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 handle.write("# One absolute path or glob per line.\n# ~/Library/Caches/com.example.keep\n")
+
+    def validate_whitelist(self, lines: list[str]) -> list[str]:
+        """Validate and normalize user-maintained whitelist entries without writing them."""
+        sanitized: list[str] = []
+        for raw_line in lines:
+            if not isinstance(raw_line, str):
+                raise ValueError("Whitelist entries must be text")
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "\x00" in line or "\n" in line or "\r" in line:
+                raise ValueError("Whitelist entries must be one line each")
+            path = Path(line).expanduser()
+            if not path.is_absolute() or ".." in path.parts:
+                raise ValueError("Whitelist entries must be absolute paths without '..'")
+            sanitized.append(str(path))
+        return sanitized
+
+    def replace_whitelist(self, lines: list[str]) -> None:
+        """Atomically replace user-maintained whitelist entries after validation."""
+        sanitized = self.validate_whitelist(lines)
+        self._require_owned_regular_file(self.whitelist_file)
+        temporary = self.config_dir / f".whitelist.{os.getpid()}.{secrets.token_hex(8)}.tmp"
+        payload = ("\n".join(sanitized) + "\n").encode("utf-8")
+        try:
+            fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            try:
+                with os.fdopen(fd, "wb") as handle:
+                    handle.write(payload)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+            except BaseException:
+                temporary.unlink(missing_ok=True)
+                raise
+            self._require_owned_regular_file(self.whitelist_file)
+            os.replace(temporary, self.whitelist_file)
+            self._require_owned_regular_file(self.whitelist_file)
+        finally:
+            temporary.unlink(missing_ok=True)
 
     def patterns(self, *, strict: bool = False) -> list[str]:
         try:

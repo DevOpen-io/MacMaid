@@ -872,7 +872,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
         if path == "/api/whitelist":
             lines = body.get("lines")
             if not isinstance(lines, list) or not all(isinstance(line, str) for line in lines): raise ValueError("Invalid lines array")
-            state.config.whitelist_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            state.config.replace_whitelist(lines)
             with state.lock:
                 state.review_tokens.clear()
                 for scope in list(state.generations): state.generations[scope] += 1
