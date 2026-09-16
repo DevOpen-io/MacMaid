@@ -54,7 +54,7 @@ def test_textual_tui_navigation_and_page_tables(monkeypatch) -> None:
             assert len(nav.children) == len(tui.NAVIGATION)
             assert nav.children[0].id == "nav-clean"
 
-            for key, expected in (("1", "page-clean"), ("4", "page-analyzer-results"), ("6", "page-developer"), ("7", "page-status-results")):
+            for key, expected in (("1", "page-clean"), ("4", "page-analyzer-results"), ("6", "page-developer"), ("7", "page-status-results"), ("0", "page-update-results")):
                 await pilot.press("m", key); await pilot.pause()
                 assert switcher.current == expected
 
@@ -524,3 +524,93 @@ def test_analyzer_navigation_clears_previous_directory(monkeypatch, tmp_path) ->
             assert not app.analyzer_views
 
     asyncio.run(exercise())
+
+
+def test_tui_update_page_lifecycle_and_actions(monkeypatch) -> None:
+    async def exercise() -> None:
+        app = tui.MacMaidTUI()
+        async with app.run_test(size=(120, 40)) as pilot:
+            # 1. Open update page via shortcut '0' from dashboard
+            await pilot.press("0")
+            await pilot.pause()
+            assert app.current_page == "update-results"
+            assert app.query_one("#pages", ContentSwitcher).current == "page-update-results"
+
+            # 2. Update check when Homebrew is not installed
+            app._finish_macmaid_update_check(
+                {"available": False, "installed": False, "reason": "MacMaid is not installed by Homebrew"},
+                None,
+            )
+            assert "Homebrew update unavailable" in str(app.query_one("#update-state", Static).content)
+            assert "MacMaid is not installed by Homebrew" in str(app.query_one("#update-output", Static).content)
+
+            # 3. Update check when update is available
+            app._finish_macmaid_update_check(
+                {
+                    "available": True,
+                    "installed": True,
+                    "installedVersion": "0.11.18",
+                    "latestVersion": "0.12.0",
+                },
+                None,
+            )
+            assert "Update available" in str(app.query_one("#update-state", Static).content)
+            output = str(app.query_one("#update-output", Static).content)
+            assert "0.11.18" in output
+            assert "0.12.0" in output
+            actions_menu = app.query_one("#update-actions", ListView)
+            assert actions_menu.index == 0
+
+            # 4. Review and confirm update
+            app._confirm_macmaid_update()
+            assert app.current_page == "review"
+            assert app.review_plan is not None
+            assert app.review_plan.title == "Update MacMaid"
+            assert "brew upgrade --cask macmaid" in app.review_plan.items[0].target
+
+            # 5. Apply update
+            applied = []
+            monkeypatch.setattr(tui, "apply_macmaid_brew_update", lambda: applied.append(True) or {"updated": True})
+            await pilot.press("y")
+            await app.workers.wait_for_complete()
+            assert applied == [True]
+            assert app.current_page == "operation"
+            assert app.operation_done
+
+            # 6. Up to date state
+            app.open_page("update")
+            app._finish_macmaid_update_check(
+                {"available": False, "installed": True, "reason": "MacMaid is up to date"},
+                None,
+            )
+            assert "MacMaid is up to date" in str(app.query_one("#update-state", Static).content)
+
+            # 7. Error state
+            app._finish_macmaid_update_check(None, "Homebrew network failure")
+            assert "Update check failed" in str(app.query_one("#update-state", Static).content)
+            assert "Homebrew network failure" in str(app.query_one("#update-output", Static).content)
+
+            # 8. Turkish localization check
+            app._open_settings()
+            app._save_language("tr")
+            app.open_page("dashboard")
+            dashboard_labels = " ".join(str(w.content) for w in app.query("#page-dashboard Label"))
+            assert "Güncellemeleri Denetle" in dashboard_labels
+
+            app.open_page("update")
+            app._finish_macmaid_update_check(
+                {
+                    "available": True,
+                    "installed": True,
+                    "installedVersion": "0.11.18",
+                    "latestVersion": "0.12.0",
+                },
+                None,
+            )
+            assert "Güncelleme mevcut" in str(app.query_one("#update-state", Static).content)
+            tr_output = str(app.query_one("#update-output", Static).content)
+            assert "Mevcut sürüm: 0.11.18" in tr_output
+            assert "Mevcut güncelleme sürümü: 0.12.0" in tr_output
+
+    asyncio.run(exercise())
+

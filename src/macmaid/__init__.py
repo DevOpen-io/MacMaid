@@ -1,6 +1,6 @@
-"""MacMaid's Python implementation."""
+"""MacMaid - fast, safe macOS system cleanup and maintenance toolkit."""
 
-__version__ = "0.11.18"
+__version__ = "0.11.19"
 
 
 def main() -> None:

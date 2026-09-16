@@ -32,10 +32,10 @@ Discover → Classify → PathSafety → Whitelist → Preview → Confirmation 
 
 ### Güncelleme Yönetimi
 
-- [ ] Homebrew kurulumu için güncelleme denetimi ekle.
-- [ ] Yeni sürüm varsa mevcut ve hedef sürümü göster.
-- [ ] Yalnızca açık onay sonrası Homebrew ile güncelleme başlat.
-- [ ] Homebrew ile kurulmayan uygulamalarda anlaşılır, salt-okunur durum mesajı göster.
+- [x] Homebrew kurulumu için güncelleme denetimi ekle.
+- [x] Yeni sürüm varsa mevcut ve hedef sürümü göster.
+- [x] Yalnızca açık onay sonrası Homebrew ile güncelleme başlat.
+- [x] Homebrew ile kurulmayan uygulamalarda anlaşılır, salt-okunur durum mesajı göster.
 
 ## Öncelik 2 — Görsel Disk Keşfi ve Snapshot Yönetimi
 

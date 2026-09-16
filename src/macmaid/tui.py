@@ -31,13 +31,13 @@ from .i18n import DEFAULT_LANGUAGE, translate
 from .smart_downloads import SmartDownloadsScanner
 from .features import (
     OPTIMIZATIONS, OPTIMIZATION_UNAVAILABLE_REASON, AppComponent, ApplicationManager, InstalledApplication,
-    ProjectArtifact, ProjectPurgeManager, RecoveryCenter, doctor, history, list_snapshots,
-    run_optimization, system_status,
+    ProjectArtifact, ProjectPurgeManager, RecoveryCenter, apply_macmaid_brew_update,
+    doctor, history, list_snapshots, macmaid_brew_update_status, run_optimization, system_status,
 )
 from .models import CleanupItem, CleanupProfile, RiskLevel, ScanResult
 from .review import (
     ReviewPlan, analyzer_trash_plan, application_plan, cleanup_plan, developer_plan,
-    optimization_plan, purge_plan,
+    macmaid_update_plan, optimization_plan, purge_plan,
 )
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
 from .system import human_bytes, macos_permission_report, run_command
@@ -53,6 +53,7 @@ NAVIGATION = [
     ("status", "●", "Mac Health", "Evidence-based disk, memory-pressure, thermal and battery status"),
     ("files", "▧", "Files & Storage", "Large files, duplicates, downloads and browser storage"),
     ("more", "⋯", "System & History", "Leftovers, installers, snapshots, history and diagnostics"),
+    ("update", "↑", "Check for Updates", "Check Homebrew for a newer MacMaid release"),
 ]
 
 OPTIMIZATION_HELP = {
@@ -180,7 +181,7 @@ class MacMaidTUI(App[None]):
     #system-strip { height: 2; color: #d5d7da; }
     #menu-title { display: none; }
     #menu-help { height: 2; color: #6f737b; }
-    #nav { height: 16; background: transparent; }
+    #nav { height: 1fr; min-height: 10; background: transparent; }
     #nav ListItem, .action-menu ListItem { height: 2; padding: 0; background: transparent; }
     .menu-line { height: 1; }
     #nav ListItem:hover, .action-menu ListItem:hover { background: transparent; }
@@ -249,6 +250,7 @@ class MacMaidTUI(App[None]):
         self.developer_items: list[DeveloperItem] = []; self.developer_storage: list[DeveloperStorageSection] = []; self.dev_cache_result: ScanResult | None = None; self.dev_selected: set[int] = set()
         self.more_kind: str | None = None; self.more_origin = "more"
         self.more_result: ScanResult | None = None; self.more_selected: set[int] = set()
+        self.update_status: dict[str, Any] | None = None
         self.whitelist_lines: list[str] = []
         self.whitelist_suggestions: list[Path] = []
         self.whitelist_suggestion_generation = 0
@@ -279,7 +281,7 @@ class MacMaidTUI(App[None]):
             yield self._optimize_page(); yield self._optimize_results_page()
             yield self._status_page(); yield self._status_results_page()
             yield self._files_page(); yield self._more_page(); yield self._more_results_page(); yield self._whitelist_editor_page(); yield self._settings_page()
-            yield self._review_page(); yield self._operation_page()
+            yield self._update_page(); yield self._review_page(); yield self._operation_page()
         yield Static("", id="activity")
 
     def _ui(self, text: str) -> str:
@@ -300,7 +302,7 @@ class MacMaidTUI(App[None]):
                     Vertical(
                         Horizontal(
                             Label("➤", classes="menu-marker"),
-                            Label(f"{index}.  {icon}  {title}", classes="nav-title"),
+                            Label(f"{0 if index == 10 else index}.  {icon}  {title}", classes="nav-title"),
                             classes="menu-line",
                         ),
                         Label(desc, classes="nav-desc"),
@@ -446,6 +448,20 @@ class MacMaidTUI(App[None]):
 
     def _more_results_page(self) -> Vertical:
         return self._page("more-results", "Araç Sonuçları", "Seçilen aracın ilerlemesi ve sonuçları bu ekranda gösterilir.", ProgressBar(total=None, show_eta=False, id="more-progress"), Static("Starting tool…", id="more-state", classes="state"), DataTable(id="more-table", zebra_stripes=True), Static("The selected result's safety reason appears here.", id="more-detail", classes="detail", markup=False), Static("", id="more-output", markup=False), Static("↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Back", id="more-hint", classes="hint"))
+
+    def _update_page(self) -> Vertical:
+        return self._page(
+            "update-results", "Check for Updates", "Check Homebrew for a newer release. Installation always requires explicit approval.",
+            ProgressBar(total=None, show_eta=False, id="update-progress"),
+            Static("Checking Homebrew for updates…", id="update-state", classes="state busy", markup=False),
+            Static("", id="update-output", markup=False),
+            self._action_menu("update-actions", [
+                ("update-install", "Install Update", "Review and install the available Homebrew Cask update"),
+                ("update-check", "Check Again", "Refresh Homebrew metadata and check again"),
+                ("back", "←  Back", "Return to the main menu"),
+            ]),
+            Static("↑↓ Select · Enter Continue · R Check again · Esc Back", id="update-hint", classes="hint"),
+        )
 
     def _settings_page(self) -> Vertical:
         return self._page(
@@ -612,7 +628,7 @@ class MacMaidTUI(App[None]):
         if self.current_page == "whitelist-editor" and self._handle_whitelist_editor_key(event):
             return
         if self.current_page == "dashboard" and event.key.isdigit():
-            index = int(event.key) - 1
+            index = 9 if event.key == "0" else int(event.key) - 1
             if 0 <= index < len(NAVIGATION):
                 event.stop()
                 self.open_page(NAVIGATION[index][0])
@@ -658,11 +674,18 @@ class MacMaidTUI(App[None]):
 
     def _set_state(self, page: str, text: str) -> None:
         lowered = text.casefold()
-        busy_words = ("taranıyor", "yükleniyor", "çalışıyor", "uygulanıyor", "listeleniyor", "ölçülüyor", "kaldırılıyor", "taşınıyor", "doğrulanıyor", "scanning", "loading", "working", "measuring", "removing", "moving", "validating")
+        busy_words = (
+            "taranıyor", "yükleniyor", "çalışıyor", "uygulanıyor", "listeleniyor", "ölçülüyor",
+            "kaldırılıyor", "taşınıyor", "doğrulanıyor", "denetleniyor", "güncelleniyor",
+            "scanning", "loading", "working", "measuring", "removing", "moving", "validating",
+            "checking", "updating",
+        )
         has_error = (
             lowered.startswith("hata")
             or "hatası" in lowered
             or "başarısız" in lowered
+            or "failed" in lowered
+            or "error" in lowered
             or re.search(r"\b[1-9]\d* hata\b", lowered) is not None
         )
         has_warning = (
@@ -670,6 +693,9 @@ class MacMaidTUI(App[None]):
             or "bulunamadı" in lowered
             or "iptal" in lowered
             or "kısmi" in lowered
+            or "unavailable" in lowered
+            or "cancelled" in lowered
+            or "canceled" in lowered
             or re.search(r"\b[1-9]\d* atlandı\b", lowered) is not None
         )
         if has_error:
@@ -815,6 +841,12 @@ class MacMaidTUI(App[None]):
         if action.startswith("settings-language-"):
             self._save_language(action.removeprefix("settings-language-"))
             return
+        if action == "update-check":
+            self._check_macmaid_update()
+            return
+        if action == "update-install":
+            self._confirm_macmaid_update()
+            return
         if action.startswith("more-") and action not in {"more-apply", "more-reload"}:
             self.more_origin = "more"
             self.more_kind = action.removeprefix("more-")
@@ -935,6 +967,7 @@ class MacMaidTUI(App[None]):
             "analyzer": lambda: self._request_analysis(Path.home()),
             "purge": self._scan_projects,
             "status": self._load_status,
+            "update": self._check_macmaid_update,
         }
         if key in direct:
             nav = self.query_one("#nav", ListView)
@@ -995,7 +1028,7 @@ class MacMaidTUI(App[None]):
             if section == "more":
                 self.open_page(self.more_origin)
             else:
-                self.open_page("dashboard" if section in {"apps", "optimize", "analyzer", "purge", "status"} else section)
+                self.open_page("dashboard" if section in {"apps", "optimize", "analyzer", "purge", "status", "update"} else section)
         elif self.current_page != "dashboard":
             self.open_page("dashboard")
 
@@ -1012,7 +1045,7 @@ class MacMaidTUI(App[None]):
             else:
                 self._warn("İşlem sürerken ekran değiştirilemez")
             return
-        section = "more" if self.current_page == "whitelist-editor" else self.current_page.removesuffix("-results")
+        section = "more" if self.current_page in {"whitelist-editor", "settings"} else self.current_page.removesuffix("-results")
         index = next(i for i, item in enumerate(NAVIGATION) if item[0] == section)
         self.current_page = "dashboard"
         self.query_one("#pages", ContentSwitcher).current = "page-dashboard"
@@ -1069,7 +1102,7 @@ class MacMaidTUI(App[None]):
         if self._mutation_requested:
             self._warn("İşlem sürerken yeniden tarama başlatılamaz")
             return
-        actions = {"dashboard": self._load_status, "status-results": self._load_status, "clean-results": self._start_clean_scan, "apps-results": self._scan_apps, "analyzer-results": lambda: self._request_analysis(self.analyzer_path, True), "purge-results": self._scan_projects, "developer-results": self._scan_developer, "more-results": lambda: self._load_more(self.more_kind) if self.more_kind else None}
+        actions = {"dashboard": self._load_status, "status-results": self._load_status, "clean-results": self._start_clean_scan, "apps-results": self._scan_apps, "analyzer-results": lambda: self._request_analysis(self.analyzer_path, True), "purge-results": self._scan_projects, "developer-results": self._scan_developer, "more-results": lambda: self._load_more(self.more_kind) if self.more_kind else None, "update-results": self._check_macmaid_update}
         action = actions.get(self.current_page)
         if action: action()
 
@@ -1683,6 +1716,90 @@ class MacMaidTUI(App[None]):
             output.append("  Process data unavailable.", style="#777b83")
         self._update_static_if_present("#status-output", output)
         if self.current_page == "status-results": self._set_state("status", "Live metrics updated · health probes refresh at most every 30 seconds")
+
+    def _check_macmaid_update(self) -> None:
+        self.update_status = None
+        self.query_one("#update-progress", ProgressBar).update(total=None, progress=0)
+        self._set_state("update", "Checking Homebrew for updates…")
+        self.query_one("#update-output", Static).update("This check is read-only. No update will be installed without your approval.")
+        self._check_macmaid_update_worker()
+
+    @work(thread=True, exclusive=True, group="macmaid-update-check")
+    def _check_macmaid_update_worker(self) -> None:
+        try:
+            status = macmaid_brew_update_status(refresh=True)
+        except (OSError, RuntimeError, ValueError) as exc:
+            self.call_from_thread(self._finish_macmaid_update_check, None, str(exc))
+            return
+        self.call_from_thread(self._finish_macmaid_update_check, status, None)
+
+    def _finish_macmaid_update_check(self, status: dict[str, Any] | None, error: str | None) -> None:
+        self.query_one("#update-progress", ProgressBar).update(total=100, progress=100)
+        menu = self.query_one("#update-actions", ListView)
+        if error is not None or status is None:
+            self.update_status = None
+            self._set_state("update", "Update check failed")
+            self.query_one("#update-output", Static).update(error or "Unknown update-check error")
+            menu.index = 1
+            menu.focus()
+            return
+        self.update_status = status
+        if not status.get("installed"):
+            self._set_state("update", "Homebrew update unavailable")
+            self.query_one("#update-output", Static).update(
+                str(status.get("reason") or "MacMaid is not installed by Homebrew. No changes were made.")
+            )
+            menu.index = 1
+        elif status.get("available"):
+            current = status.get("installedVersion") or __version__
+            latest = status.get("latestVersion") or "unknown"
+            self._set_state("update", "Update available")
+            self.query_one("#update-output", Static).update(
+                f"Current version: {current}\nAvailable version: {latest}\n\nSelect Install Update to review the exact Homebrew operation."
+            )
+            menu.index = 0
+        else:
+            self._set_state("update", "MacMaid is up to date")
+            self.query_one("#update-output", Static).update(
+                str(status.get("reason") or f"Installed version: {__version__}")
+            )
+            menu.index = 1
+        menu.focus()
+
+    def _current_macmaid_update_plan(self) -> ReviewPlan:
+        status = self.update_status
+        if not status or not status.get("installed") or not status.get("available"):
+            raise ValueError("No reviewed Homebrew update is currently available")
+        return macmaid_update_plan(status)
+
+    def _confirm_macmaid_update(self) -> None:
+        try:
+            plan = self._current_macmaid_update_plan()
+        except ValueError as exc:
+            self._warn(str(exc))
+            return
+        self._confirm(plan, self._apply_macmaid_update, self._current_macmaid_update_plan)
+
+    @work(thread=True, exclusive=True, group="macmaid-update-apply")
+    def _apply_macmaid_update(self) -> None:
+        before = self._system_snapshot()
+        self.call_from_thread(self._begin_operation, "Updating MacMaid with Homebrew", 1, before)
+        try:
+            result = apply_macmaid_brew_update()
+            if not result.get("updated"):
+                raise RuntimeError(str(result.get("reason") or "Homebrew did not install an update"))
+            self.call_from_thread(self._operation_item, 1, 1, "Homebrew Cask: macmaid", "success")
+            after = self._system_snapshot()
+            self.call_from_thread(
+                self._complete_operation,
+                "MacMaid update installed",
+                "Restart MacMaid to use the new version.",
+                before,
+                after,
+            )
+        except (OSError, RuntimeError, ValueError) as exc:
+            after = self._system_snapshot()
+            self.call_from_thread(self._complete_operation, "MacMaid update failed", str(exc), before, after, failed=True)
 
     @staticmethod
     def _permission_report_text(report: dict[str, Any]) -> str:
