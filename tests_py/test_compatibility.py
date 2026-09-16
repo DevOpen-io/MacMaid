@@ -119,6 +119,7 @@ def test_settings_ui_exposes_read_only_permission_status() -> None:
     root = Path(__file__).resolve().parents[1]
     web_ui = (root / "src/macmaid/WebUI/index.html").read_text()
     javascript = (root / "src/macmaid/WebUI/app.js").read_text()
+    styles = (root / "src/macmaid/WebUI/styles.css").read_text()
 
     assert 'id="btn-manage-permissions"' in web_ui
     assert 'id="permission-summary"' in web_ui
@@ -127,6 +128,8 @@ def test_settings_ui_exposes_read_only_permission_status() -> None:
     assert "settings.permissions_show_details" in javascript
     assert "fetch('/api/permissions')" in javascript
     assert "fetch('/api/permissions/open-full-disk-access'" in javascript
+    assert "max-height: calc(100vh - 32px)" in styles
+    assert ".modal-body" in styles and "overflow-y: auto" in styles
 
 
 def test_release_version_is_consistent_across_metadata_and_web_ui() -> None:

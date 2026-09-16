@@ -1688,6 +1688,8 @@ body {
   left: 0;
   width: 100vw;
   height: 100vh;
+  padding: 16px;
+  box-sizing: border-box;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(12px);
   display: flex;
@@ -1696,7 +1698,10 @@ body {
   z-index: 9999;
 }
 .glass-modal {
-  width: 540px;
+  width: min(640px, 100%);
+  max-height: calc(100vh - 32px);
+  box-sizing: border-box;
+  overflow: hidden;
   background: #0f172a;
   border: 1px solid var(--border-glass-strong);
   border-radius: var(--radius-lg);
@@ -1715,12 +1720,21 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex: 0 0 auto;
 }
 .modal-header h3 { font-size: 17px; font-weight: 700; }
+.modal-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
 .modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
 }
 
 /* Toast Notifications */

@@ -3762,7 +3762,7 @@ function populatePermissionModal(report) {
     const entries = Array.isArray(check.entries) ? [...check.entries] : [];
     if (entries.length) {
       const detailsButton = document.createElement('button');
-      detailsButton.className = 'btn btn-secondary btn-sm';
+      detailsButton.className = 'btn btn-secondary btn-sm permission-details-toggle';
       detailsButton.textContent = t('settings.permissions_show_details', 'Show locations');
       actions.appendChild(detailsButton);
       const details = document.createElement('div');
@@ -3784,6 +3784,12 @@ function populatePermissionModal(report) {
       });
       detailsButton.addEventListener('click', () => {
         const opening = details.classList.contains('hidden');
+        if (opening) {
+          list.querySelectorAll('.permission-detail-list').forEach(other => other.classList.add('hidden'));
+          list.querySelectorAll('.permission-details-toggle').forEach(otherButton => {
+            otherButton.textContent = t('settings.permissions_show_details', 'Show locations');
+          });
+        }
         details.classList.toggle('hidden', !opening);
         detailsButton.textContent = t(
           opening ? 'settings.permissions_hide_details' : 'settings.permissions_show_details',
