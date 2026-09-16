@@ -66,6 +66,27 @@ def test_measurement_error_marks_scan_partial(monkeypatch, tmp_path):
     assert result.status == "partial" and result.issues
 
 
+def test_optional_tcc_protected_cache_measurement_is_skipped(monkeypatch, tmp_path):
+    root = tmp_path / "cache"; root.mkdir()
+    scanner = Scanner(Config(home=tmp_path))
+
+    def failed_measure(paths, **kwargs):
+        listed = list(paths)
+        kwargs["on_error"](listed[0], "Operation not permitted")
+        return {}
+
+    monkeypatch.setattr("macmaid.scanner.sizes_of", failed_measure)
+    items = scanner._candidates(
+        [("cache", root, RiskLevel.SAFE, "test", ActionType.REMOVE_PATH, None)],
+        CleanupCategory.APP_CACHES,
+        RiskLevel.SAFE,
+        skip_permission_denied=True,
+    )
+
+    assert items == []
+    assert not scanner._issues
+
+
 def test_permission_limited_scan_is_partial_not_clean(monkeypatch, tmp_path):
     scanner = Scanner(Config(home=tmp_path))
 
@@ -88,7 +109,7 @@ def test_user_cache_scan_skips_tcc_protected_apple_caches(monkeypatch, tmp_path)
     regular = cache_root / "com.example.rebuildable"
     regular.mkdir(parents=True)
     (regular / "cache.bin").write_bytes(b"cache")
-    for name in ("CloudKit", "FamilyCircle", "com.apple.HomeKit"):
+    for name in ("CloudKit", "FamilyCircle", "familycircled", "com.apple.HomeKit"):
         protected = cache_root / name
         protected.mkdir()
         (protected / "private.bin").write_bytes(b"private")
@@ -99,6 +120,25 @@ def test_user_cache_scan_skips_tcc_protected_apple_caches(monkeypatch, tmp_path)
     items = scanner._user_caches(CleanupProfile.SAFE)
 
     assert [item.path for item in items] == [regular]
+    assert not scanner._issues
+
+
+def test_browser_cache_scan_skips_tcc_protected_profile_root(monkeypatch, tmp_path):
+    brave = tmp_path / "Library" / "Application Support" / "BraveSoftware" / "Brave-Browser"
+    brave.mkdir(parents=True)
+    original_iterdir = Path.iterdir
+
+    def protected_iterdir(path):
+        if path == brave:
+            raise PermissionError("Operation not permitted")
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr(Path, "iterdir", protected_iterdir)
+    monkeypatch.setattr("macmaid.scanner.process_running", lambda process: False)
+    scanner = Scanner(Config(home=tmp_path))
+
+    assert scanner._browser_caches(CleanupProfile.SAFE) == []
     assert not scanner._issues
 
 

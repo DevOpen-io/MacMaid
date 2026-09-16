@@ -29,6 +29,14 @@ def test_build_macos_app_script_stages_cli_directory_with_internal() -> None:
     assert 'cp -R "$BUNDLE_DIR/_internal" "$CLI_DIR/_internal"' in content
 
 
+def test_native_launchers_explicitly_target_supported_macos() -> None:
+    root = Path(__file__).resolve().parents[1]
+    for relative_path in ("scripts/build-macos-app.sh", "scripts/prod-install.sh"):
+        content = (root / relative_path).read_text()
+        assert "MACOS_DEPLOYMENT_TARGET=${MACOS_DEPLOYMENT_TARGET:-13.0}" in content
+        assert '-target "$(uname -m)-apple-macosx$MACOS_DEPLOYMENT_TARGET"' in content
+
+
 def test_homebrew_libexec_symlink_structure_resolution(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
     dist_dir = root / "build/prod/dist/macmaid"

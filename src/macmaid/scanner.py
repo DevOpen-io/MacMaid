@@ -106,13 +106,24 @@ class Scanner:
         specs: Iterable[tuple[str, Path, RiskLevel, str, ActionType, str | None]],
         category: CleanupCategory,
         maximum: RiskLevel,
+        *,
+        skip_permission_denied: bool = False,
     ) -> list[CleanupItem]:
         accepted = []
         for spec in specs:
             self._check_cancelled()
             if spec[2] <= maximum and spec[1].exists() and not self.config.is_whitelisted(spec[1]):
                 accepted.append(spec)
-        measured = sizes_of((spec[1] for spec in accepted), cancel=self._check_cancelled, on_error=self._measurement_issue)
+        def measurement_issue(path: Path, message: str) -> None:
+            permission_denied = "Operation not permitted" in message or "Permission denied" in message
+            if not (skip_permission_denied and permission_denied):
+                self._measurement_issue(path, message)
+
+        measured = sizes_of(
+            (spec[1] for spec in accepted),
+            cancel=self._check_cancelled,
+            on_error=measurement_issue,
+        )
         return [
             CleanupItem(category, label, path, measured.get(path, 0), risk, reason, CleanupAction(action), app)
             for label, path, risk, reason, action, app in accepted if measured.get(path, 0) > 0
@@ -120,7 +131,7 @@ class Scanner:
 
     def _user_caches(self, profile: CleanupProfile) -> list[CleanupItem]:
         root = Path.home() / "Library/Caches"
-        protected_names = {"CloudKit", "FamilyCircle"}
+        protected_names = {"cloudkit", "familycircle", "familycircled"}
         separate = {"Firefox", "com.apple.Safari", "com.apple.dt.Xcode", "CocoaPods", "org.swift.swiftpm", "org.carthage.CarthageKit"}
         specs = []
         try:
@@ -130,7 +141,7 @@ class Scanner:
             return []
         for child in children:
             self._check_cancelled()
-            if child.name in separate or child.name in protected_names or child.name.startswith("com.apple."):
+            if child.name in separate or child.name.casefold() in protected_names or child.name.startswith("com.apple."):
                 continue
             specs.append((child.name, child, RiskLevel.SAFE, "Application cache location; contents should be recreatable.", ActionType.REMOVE_PATH, None))
         return self._candidates(specs, CleanupCategory.USER_CACHES, profile.maximum_risk)
@@ -151,6 +162,11 @@ class Scanner:
             running = name if process_running(process) else None
             try:
                 profiles = [p for p in root.iterdir() if p.name in ("Default", "Guest Profile", "System Profile") or p.name.startswith("Profile ")]
+            except PermissionError:
+                # Browser profile roots may be TCC-protected on newer macOS releases.
+                # They are optional scan sources, so skip them rather than blocking
+                # cleanup of independently scanned, accessible cache locations.
+                continue
             except OSError as exc:
                 self._issue(root, exc)
                 continue
@@ -166,7 +182,12 @@ class Scanner:
                     specs.append(("Firefox profile cache", path, RiskLevel.SAFE, "Firefox cache domain, not profile data.", ActionType.REMOVE_PATH, "Firefox" if process_running("Firefox.app") else None))
             except OSError as exc:
                 self._issue(firefox, exc)
-        return self._candidates(specs, CleanupCategory.BROWSER_CACHES, profile.maximum_risk)
+        return self._candidates(
+            specs,
+            CleanupCategory.BROWSER_CACHES,
+            profile.maximum_risk,
+            skip_permission_denied=True,
+        )
 
     def _application_caches(self, profile: CleanupProfile) -> list[CleanupItem]:
         home = Path.home()
@@ -198,7 +219,12 @@ class Scanner:
             if container.name.startswith("com.apple."):
                 continue
             specs.append((f"Sandbox cache · {container.name}", container / "Data/Library/Caches", RiskLevel.SAFE, "Only Data/Library/Caches contents are removed.", ActionType.REMOVE_CHILDREN, None))
-        return self._candidates(specs, CleanupCategory.APP_CACHES, profile.maximum_risk)
+        return self._candidates(
+            specs,
+            CleanupCategory.APP_CACHES,
+            profile.maximum_risk,
+            skip_permission_denied=True,
+        )
 
     def _logs(self, profile: CleanupProfile) -> list[CleanupItem]:
         cutoff = time.time() - (7 if profile is CleanupProfile.SAFE else 1) * 86400

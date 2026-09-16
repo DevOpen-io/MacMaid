@@ -82,6 +82,11 @@ def test_unicode_and_spaces_remain_one_subprocess_argument(monkeypatch) -> None:
 def test_release_version_is_consistent_across_metadata_and_web_ui() -> None:
     root = Path(__file__).resolve().parents[1]
     metadata = tomllib.loads((root / "pyproject.toml").read_text())
+    lock = tomllib.loads((root / "uv.lock").read_text())
     web_ui = (root / "src/macmaid/WebUI/index.html").read_text()
+    locked_project = next(package for package in lock["package"] if package["name"] == "macmaid")
+
     assert metadata["project"]["version"] == __version__
+    assert locked_project["version"] == __version__
     assert f"v{__version__} Python" in web_ui
+    assert f">{__version__} (Python 3.11+)<" in web_ui
