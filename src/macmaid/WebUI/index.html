@@ -36,7 +36,7 @@
             </div>
             <div class="brand-text-wrap">
               <span class="brand-name">MacMaid <span class="badge-pro">PRO</span></span>
-              <span class="version-tag">v0.11.4 Python</span>
+              <span class="version-tag">v0.11.9 Python</span>
             </div>
           </div>
         </div>
@@ -1890,23 +1890,23 @@
             </button>
           </div>
 
-          <div class="settings-grid">
+          <div class="settings-grid settings-grid-premium">
             <!-- Card 1: Language Selection -->
-            <div class="glass-card">
-              <div class="card-header">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span class="inline-lucide" data-lucide="globe" style="color: var(--primary);"></span>
+            <div class="glass-card settings-card settings-card-compact">
+              <div class="settings-card-topline">
+                <span class="settings-card-icon" data-lucide="globe"></span>
+                <div>
                   <h3 data-i18n="settings.language_title">Language / Dil</h3>
+                  <p class="card-desc" data-i18n="settings.language_desc">Select the primary interface language. (Default: English)</p>
                 </div>
               </div>
-              <p class="card-desc" data-i18n="settings.language_desc">Select the primary interface language. (Default: English)</p>
               <div class="settings-options">
-                <div class="setting-row">
+                <div class="setting-row setting-row-premium">
                   <div>
                     <strong data-i18n="settings.language_label">Interface Language</strong>
                     <p class="text-muted" data-i18n="settings.language_sub">Choose between English and Türkçe.</p>
                   </div>
-                  <select id="setting-lang-select" class="select-box" style="min-width: 150px;">
+                  <select id="setting-lang-select" class="select-box settings-select">
                     <option value="en">English (US)</option>
                     <option value="tr">Türkçe (TR)</option>
                   </select>
@@ -1915,33 +1915,33 @@
             </div>
 
             <!-- Card 2: Appearance & Sound -->
-            <div class="glass-card">
-              <div class="card-header">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span class="inline-lucide" data-lucide="settings" style="color: var(--primary);"></span>
+            <div class="glass-card settings-card settings-card-compact">
+              <div class="settings-card-topline">
+                <span class="settings-card-icon" data-lucide="sparkles"></span>
+                <div>
                   <h3 data-i18n="settings.appearance_title">Appearance & Sound</h3>
+                  <p class="card-desc" data-i18n="settings.appearance_desc">Customize color themes and audio feedback.</p>
                 </div>
               </div>
-              <p class="card-desc" data-i18n="settings.appearance_desc">Customize color themes and audio feedback.</p>
-              <div class="settings-options">
-                <div class="setting-row">
+              <div class="settings-options settings-options-surface">
+                <div class="setting-row setting-row-premium">
                   <div>
                     <strong data-i18n="settings.theme_label">Color Theme</strong>
                     <p class="text-muted" data-i18n="settings.theme_sub">Select your preferred macOS aesthetic palette.</p>
                   </div>
-                  <select id="main-theme-selector" class="select-box" style="min-width: 150px;">
+                  <select id="main-theme-selector" class="select-box settings-select">
                     <option value="dark">Obsidian (Dark)</option>
                     <option value="midnight">Midnight Indigo</option>
                     <option value="cyber">Emerald Noir</option>
                     <option value="light">Porcelain (Light)</option>
                   </select>
                 </div>
-                <div class="setting-row">
+                <div class="setting-row setting-row-premium">
                   <div>
                     <strong data-i18n="settings.sound_label">Sound Effects</strong>
                     <p class="text-muted" data-i18n="settings.sound_sub">Audio cues on scan completion and button clicks.</p>
                   </div>
-                  <label class="switch-item">
+                  <label class="switch-item settings-switch">
                     <input type="checkbox" id="chk-main-sound-setting" checked>
                     <span class="switch-toggle"></span>
                   </label>
@@ -1950,9 +1950,9 @@
             </div>
 
             <!-- Card 3: Filesystem Access & Permissions -->
-            <div class="glass-card permissions-card" style="grid-column: 1 / -1;">
+            <div class="glass-card settings-card permissions-card settings-card-wide">
               <div class="permissions-card-main">
-                <div class="permissions-card-icon" aria-hidden="true" data-lucide="lock"></div>
+                <span class="settings-card-icon permissions-card-icon" aria-hidden="true" data-lucide="shield-check"></span>
                 <div class="permissions-card-copy">
                   <h3 data-i18n="settings.permissions_title">Access & Permissions</h3>
                   <p class="card-desc" data-i18n="settings.permissions_desc">Review which cleanup locations MacMaid can read and manage access through macOS Privacy & Security.</p>
@@ -1966,32 +1966,34 @@
             </div>
 
             <!-- Card 4: About & System Integration -->
-            <div class="glass-card" style="grid-column: 1 / -1;">
-              <div class="card-header">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <img src="/assets/MacMaid-Logo.png" alt="MacMaid" style="width: 22px; height: 22px; border-radius: 5px;">
-                  <h3 data-i18n="settings.about_title">About MacMaid</h3>
+            <div class="glass-card settings-card settings-card-wide about-settings-card">
+              <div class="settings-card-topline about-settings-topline">
+                <img src="/assets/MacMaid-Logo.png" alt="MacMaid" class="settings-logo-mark">
+                <div class="about-settings-copy">
+                  <div class="settings-title-line">
+                    <h3 data-i18n="settings.about_title">About MacMaid</h3>
+                    <span class="badge-pro settings-pro-badge">PRO</span>
+                  </div>
+                  <p class="card-desc" data-i18n="settings.about_desc">System maintenance, disk optimization and developer environment cleaner built exclusively for macOS.</p>
                 </div>
-                <span class="badge-pro">PRO</span>
-              </div>
-              <p class="card-desc" data-i18n="settings.about_desc">System maintenance, disk optimization and developer environment cleaner built exclusively for macOS.</p>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 14px;">
-                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 10px 14px;">
-                  <div style="font-size: 11px; color: var(--text-dim);" data-i18n="settings.version_label">Version</div>
-                  <div style="font-size: 13px; font-weight: 600; color: var(--text-main); font-family: var(--font-mono); margin-top: 2px;">0.11.4 (Python 3.11+)</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 10px 14px;">
-                  <div style="font-size: 11px; color: var(--text-dim);" data-i18n="settings.safety_label">Safety Model</div>
-                  <div style="font-size: 13px; font-weight: 600; color: var(--green); margin-top: 2px;">SIP Safe & PathSafety Guard</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 10px 14px;">
-                  <div style="font-size: 11px; color: var(--text-dim);" data-i18n="settings.arch_label">Architecture</div>
-                  <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-top: 2px;">Apple Silicon & Intel (Universal)</div>
+                <div class="settings-update-row">
+                  <button class="btn btn-secondary" id="btn-check-macmaid-update" data-i18n="settings.check_updates">Check for Updates</button>
+                  <span class="text-muted" id="macmaid-update-status" role="status"></span>
                 </div>
               </div>
-              <div style="display:flex; align-items:center; gap:10px; margin-top:16px;">
-                <button class="btn btn-secondary" id="btn-check-macmaid-update" data-i18n="settings.check_updates">Check for Updates</button>
-                <span class="text-muted" id="macmaid-update-status" role="status"></span>
+              <div class="settings-info-grid">
+                <div class="settings-info-tile">
+                  <div class="settings-info-label" data-i18n="settings.version_label">Version</div>
+                  <div class="settings-info-value settings-info-mono">0.11.9 (Python 3.11+)</div>
+                </div>
+                <div class="settings-info-tile">
+                  <div class="settings-info-label" data-i18n="settings.safety_label">Safety Model</div>
+                  <div class="settings-info-value settings-info-safe">SIP Safe & PathSafety Guard</div>
+                </div>
+                <div class="settings-info-tile">
+                  <div class="settings-info-label" data-i18n="settings.arch_label">Architecture</div>
+                  <div class="settings-info-value">Apple Silicon & Intel (Universal)</div>
+                </div>
               </div>
             </div>
           </div>

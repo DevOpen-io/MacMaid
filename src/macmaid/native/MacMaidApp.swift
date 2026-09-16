@@ -99,12 +99,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
     }
 
     func setupWindow() {
-        let width: CGFloat = 1200
-        let height: CGFloat = 800
-        let screenRect = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: width, height: height)
-        let x = screenRect.midX - (width / 2)
-        let y = screenRect.midY - (height / 2)
-        let frame = NSRect(x: x, y: y, width: width, height: height)
+        // Use the visible frame so the initial window stays clear of the Dock and menu bar.
+        let fallbackSize = NSSize(width: 1200, height: 800)
+        let screenRect = NSScreen.main?.visibleFrame
+            ?? NSRect(origin: .zero, size: fallbackSize)
+        let width = screenRect.width * 0.8
+        let height = screenRect.height * 0.8
+        let frame = NSRect(
+            x: screenRect.midX - (width / 2),
+            y: screenRect.midY - (height / 2),
+            width: width,
+            height: height
+        ).integral
 
         window = NSWindow(
             contentRect: frame,
@@ -116,7 +122,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = false
-        window.minSize = NSSize(width: 960, height: 640)
+        // Never require a size larger than this display's initial 80% frame.
+        window.minSize = NSSize(width: min(960, width), height: min(640, height))
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.appearance = NSAppearance(named: .darkAqua)
