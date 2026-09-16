@@ -22,6 +22,7 @@ const state = {
   progressTimer: null,
   isOperationRunning: false,
   operationObservedActive: false,
+  operationStartedAt: 0,
   soundEnabled: localStorage.getItem('macmaid_sound') !== 'off',
   currentScan: null,
   selectedCleanItems: new Set(),
@@ -441,7 +442,11 @@ const I18N = {
     "toast.lang_tr": "Dil Türkçe olarak ayarlandı.",
     "toast.lang_en": "Language switched to English.",
     "toast.settings_saved": "Settings saved successfully.",
-    "toast.close_tip": "Click to dismiss",
+    "toast.close_tip": "Dismiss notification",
+    "toast.success_title": "Completed",
+    "toast.error_title": "Action failed",
+    "toast.warning_title": "Attention required",
+    "toast.info_title": "MacMaid",
     "toast.scan_cancelling": "Scan is cancelling safely.",
     "toast.no_active_scan": "No active scan found.",
     "toast.scan_cancel_failed": "Failed to stop scan: ",
@@ -471,6 +476,13 @@ const I18N = {
     "toast.uninstall_failed": "Uninstall failed: ",
     "toast.uninstalled": "uninstalled",
     "hud.waiting_server": "Waiting for server response",
+    "hud.active_healthy": "Active · responding normally",
+    "hud.finished_healthy": "Finished normally",
+    "hud.finished_error": "Stopped with an error",
+    "hud.preparing_items": "Preparing items…",
+    "hud.items_progress": "{completed} of {total} items",
+    "hud.current_item": "Current item",
+    "hud.elapsed": "Elapsed {seconds}s",
     "hud.completed": "Completed",
     "hud.failed": "Operation failed",
     "hud.success": "Operation completed",
@@ -975,7 +987,11 @@ const I18N = {
     "toast.lang_tr": "Dil Türkçe olarak ayarlandı.",
     "toast.lang_en": "Language switched to English.",
     "toast.settings_saved": "Ayarlar başarıyla kaydedildi.",
-    "toast.close_tip": "Kapatmak için tıklayın",
+    "toast.close_tip": "Bildirimi kapat",
+    "toast.success_title": "Tamamlandı",
+    "toast.error_title": "İşlem başarısız",
+    "toast.warning_title": "Dikkat gerekiyor",
+    "toast.info_title": "MacMaid",
     "toast.scan_cancelling": "Tarama güvenli durma noktasında iptal ediliyor.",
     "toast.no_active_scan": "Aktif tarama bulunamadı.",
     "toast.scan_cancel_failed": "Tarama durdurulamadı: ",
@@ -1005,6 +1021,13 @@ const I18N = {
     "toast.uninstall_failed": "Kaldırma başarısız: ",
     "toast.uninstalled": "kaldırıldı",
     "hud.waiting_server": "Sunucu yanıtı bekleniyor",
+    "hud.active_healthy": "Aktif · normal yanıt veriyor",
+    "hud.finished_healthy": "Normal şekilde tamamlandı",
+    "hud.finished_error": "Bir hatayla durdu",
+    "hud.preparing_items": "Öğeler hazırlanıyor…",
+    "hud.items_progress": "{total} öğeden {completed} tamamlandı",
+    "hud.current_item": "Geçerli öğe",
+    "hud.elapsed": "Geçen {seconds} sn",
     "hud.completed": "Tamamlandı",
     "hud.failed": "İşlem başarısız",
     "hud.success": "İşlem tamamlandı",
@@ -1310,25 +1333,25 @@ function showToast(message, type = 'info') {
   if (type === 'error' && state.isOperationRunning) showOperationOutcome('error', message);
   const container = document.getElementById('toast-container');
   if (!container) return;
+  const normalizedType = ['success', 'error', 'warning', 'info'].includes(type) ? type : 'info';
+  const icons = { success: '✓', error: '!', warning: '!', info: 'i' };
+  const titles = {
+    success: t('toast.success_title', 'Completed'),
+    error: t('toast.error_title', 'Action failed'),
+    warning: t('toast.warning_title', 'Attention required'),
+    info: t('toast.info_title', 'MacMaid'),
+  };
   const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.setAttribute('role', 'button');
-  toast.setAttribute('tabindex', '0');
-  toast.setAttribute('aria-label', `${message}. Bildirimi kapat`);
-  toast.title = t('toast.close_tip', 'Click to dismiss');
+  toast.className = `toast toast-${normalizedType}`;
+  toast.setAttribute('role', normalizedType === 'error' ? 'alert' : 'status');
   toast.innerHTML = `
-    <span class="toast-icon">⚡</span>
-    <span class="toast-msg">${escapeHtml(message)}</span>
+    <span class="toast-icon" aria-hidden="true">${icons[normalizedType]}</span>
+    <span class="toast-copy"><strong>${escapeHtml(titles[normalizedType])}</strong><span class="toast-msg">${escapeHtml(message)}</span></span>
+    <button class="toast-close" type="button" aria-label="${escapeHtml(t('toast.close_tip', 'Dismiss notification'))}">×</button>
   `;
-  toast.addEventListener('click', () => dismissToast(toast));
-  toast.addEventListener('keydown', event => {
-    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape') {
-      event.preventDefault();
-      dismissToast(toast);
-    }
-  });
+  toast.querySelector('.toast-close')?.addEventListener('click', () => dismissToast(toast));
   container.appendChild(toast);
-  toast.dismissTimer = setTimeout(() => dismissToast(toast), 3500);
+  toast.dismissTimer = setTimeout(() => dismissToast(toast), normalizedType === 'error' ? 8000 : 5000);
 }
 
 // Format bytes
@@ -1414,15 +1437,29 @@ function setGauge(circleId, percent) {
 function startLiveProgressPolling(label = t('hud.starting', 'Starting operation…')) {
   state.isOperationRunning = true;
   state.operationObservedActive = false;
+  state.operationStartedAt = Date.now();
   const hud = document.getElementById('global-operation-hud');
   hud?.classList.remove('hidden', 'is-success', 'is-error');
   document.getElementById('global-operation-spinner')?.classList.remove('hidden');
   const title = document.getElementById('global-operation-title');
   const detail = document.getElementById('global-operation-detail');
   const percent = document.getElementById('global-operation-percent');
+  const phase = document.getElementById('global-operation-phase');
+  const count = document.getElementById('global-operation-count');
+  const elapsed = document.getElementById('global-operation-elapsed');
+  const bar = document.getElementById('global-operation-bar');
+  const health = hud?.querySelector('.operation-health span');
+  if (health) health.textContent = t('hud.active_healthy', 'Active · responding normally');
   if (title) title.textContent = label;
   if (detail) detail.textContent = t('hud.waiting_server', 'Waiting for server response');
+  if (phase) phase.textContent = t('clean.preparing', 'Preparing');
+  if (count) count.textContent = t('hud.preparing_items', 'Preparing items…');
+  if (elapsed) elapsed.textContent = t('hud.elapsed', 'Elapsed {seconds}s').replace('{seconds}', '0');
   if (percent) percent.textContent = '…';
+  if (bar) {
+    bar.style.width = '35%';
+    bar.classList.add('indeterminate');
+  }
   if (state.progressTimer) clearInterval(state.progressTimer);
   state.progressTimer = setInterval(pollLiveProgress, 200);
   pollLiveProgress();
@@ -1449,12 +1486,22 @@ function showOperationOutcome(type, message) {
   hud.classList.remove('hidden', 'is-success', 'is-error');
   hud.classList.add(type === 'error' ? 'is-error' : 'is-success');
   document.getElementById('global-operation-spinner')?.classList.add('hidden');
+  document.getElementById('global-scan-cancel')?.classList.add('hidden');
   const title = document.getElementById('global-operation-title');
   const detail = document.getElementById('global-operation-detail');
   const percent = document.getElementById('global-operation-percent');
   if (title) title.textContent = type === 'error' ? t('hud.failed', 'Operation failed') : t('hud.success', 'Operation completed');
   if (detail) detail.textContent = message || (type === 'error' ? t('hud.unknown_error', 'Unknown error') : t('hud.ok', 'Successful'));
   if (percent) percent.textContent = type === 'error' ? '!' : '✓';
+  const health = hud.querySelector('.operation-health span');
+  if (health) health.textContent = type === 'error'
+    ? t('hud.finished_error', 'Stopped with an error')
+    : t('hud.finished_healthy', 'Finished normally');
+  const bar = document.getElementById('global-operation-bar');
+  if (bar) {
+    bar.classList.remove('indeterminate');
+    bar.style.width = '100%';
+  }
   setTimeout(() => {
     if (!state.isOperationRunning) hud.classList.add('hidden');
   }, type === 'error' ? 7000 : 3500);
@@ -1497,6 +1544,10 @@ function renderInPageProgress(p) {
     const hudTitle = document.getElementById('global-operation-title');
     const hudDetail = document.getElementById('global-operation-detail');
     const hudPercent = document.getElementById('global-operation-percent');
+    const hudPhase = document.getElementById('global-operation-phase');
+    const hudBar = document.getElementById('global-operation-bar');
+    const hudCount = document.getElementById('global-operation-count');
+    const hudElapsed = document.getElementById('global-operation-elapsed');
     const cancelButton = document.getElementById('global-scan-cancel');
     const cancellable = service === 'cleaner' || service === 'analyzer';
     cancelButton?.classList.toggle('hidden', !cancellable);
@@ -1505,8 +1556,27 @@ function renderInPageProgress(p) {
       cancelButton.onclick = cancelActiveScan;
     }
     if (hudTitle) hudTitle.textContent = p.action || t('hud.in_progress', 'Operation in progress…');
-    if (hudDetail) hudDetail.textContent = p.phase || p.path || t('clean.phase_working', 'WORKING');
-    if (hudPercent) hudPercent.textContent = p.percent >= 0 ? `${p.percent}%` : '…';
+    const currentPath = p.path || p.activity || p.detail || t('hud.waiting_server', 'Waiting for server response');
+    if (hudDetail) {
+      hudDetail.textContent = currentPath;
+      hudDetail.title = currentPath;
+    }
+    if (hudPhase) hudPhase.textContent = p.phase || t('clean.phase_working', 'WORKING');
+    const progressPercent = Number.isFinite(p.percent) && p.percent >= 0 ? Math.max(0, Math.min(100, p.percent)) : -1;
+    if (hudPercent) hudPercent.textContent = progressPercent >= 0 ? `${progressPercent}%` : '…';
+    if (hudBar) {
+      hudBar.classList.toggle('indeterminate', progressPercent < 0);
+      hudBar.style.width = progressPercent >= 0 ? `${progressPercent}%` : '35%';
+    }
+    if (hudCount) {
+      hudCount.textContent = p.total > 0
+        ? t('hud.items_progress', '{completed} of {total} items').replace('{completed}', String(p.completed || 0)).replace('{total}', String(p.total))
+        : t('hud.preparing_items', 'Preparing items…');
+    }
+    if (hudElapsed) {
+      const seconds = Math.max(0, Math.floor((Date.now() - state.operationStartedAt) / 1000));
+      hudElapsed.textContent = t('hud.elapsed', 'Elapsed {seconds}s').replace('{seconds}', String(seconds));
+    }
   } else if (state.isOperationRunning && state.operationObservedActive) {
     document.getElementById('global-scan-cancel')?.classList.add('hidden');
     showOperationOutcome('success', p.phase || t('hud.completed', 'Completed'));

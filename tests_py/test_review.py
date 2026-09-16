@@ -22,7 +22,7 @@ def cleanup_item(label="Cache", risk=RiskLevel.SAFE):
 
 def state(**values):
     defaults = dict(token="secret", generations={"clean": 1}, review_tokens={}, lock=threading.RLock(),
-                    config=Config(home=Path("/tmp/macmaid-review-test")))
+                    config=Config(home=Path("/tmp/macmaid-review-test")), progress=web.ProgressState())
     defaults.update(values)
     return SimpleNamespace(**defaults)
 

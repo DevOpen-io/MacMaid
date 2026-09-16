@@ -91,6 +91,19 @@ def test_web_permissions_endpoint_uses_configured_home(monkeypatch, tmp_path) ->
     report.assert_called_once_with(tmp_path)
 
 
+def test_web_progress_reports_current_item_and_real_item_counts() -> None:
+    progress = web.ProgressState()
+    progress.start("cleaner", "Cleaning selected items")
+    progress.update_items(2, 5, "Cleaning", "/Users/test/Library/Caches/current")
+
+    snapshot = progress.snapshot()
+    assert snapshot["active"] is True
+    assert snapshot["completed"] == 2
+    assert snapshot["total"] == 5
+    assert snapshot["percent"] == 40
+    assert snapshot["path"].endswith("/current")
+
+
 def test_web_doctor_does_not_present_unknown_or_failed_checks_as_ok(monkeypatch) -> None:
     monkeypatch.setattr(web, "doctor", lambda: [
         {"name": "macOS", "value": "26.2", "ok": True},
@@ -128,6 +141,10 @@ def test_settings_ui_exposes_read_only_permission_status() -> None:
     assert "settings.permissions_show_details" in javascript
     assert "fetch('/api/permissions')" in javascript
     assert "fetch('/api/permissions/open-full-disk-access'" in javascript
+    assert 'id="global-operation-bar"' in web_ui
+    assert 'id="global-operation-count"' in web_ui
+    assert 'id="global-operation-elapsed"' in web_ui
+    assert "p.path || p.activity || p.detail" in javascript
     assert "max-height: calc(100vh - 32px)" in styles
     assert ".modal-body" in styles and "overflow-y: auto" in styles
 

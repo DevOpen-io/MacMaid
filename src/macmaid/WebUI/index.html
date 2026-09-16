@@ -36,7 +36,7 @@
             </div>
             <div class="brand-text-wrap">
               <span class="brand-name">MacMaid <span class="badge-pro">PRO</span></span>
-              <span class="version-tag">v0.10.3 Python</span>
+              <span class="version-tag">v0.11.0 Python</span>
             </div>
           </div>
         </div>
@@ -2047,7 +2047,7 @@
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 14px;">
                 <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 10px 14px;">
                   <div style="font-size: 11px; color: var(--text-dim);" data-i18n="settings.version_label">Version</div>
-                  <div style="font-size: 13px; font-weight: 600; color: var(--text-main); font-family: var(--font-mono); margin-top: 2px;">0.10.3 (Python 3.11+)</div>
+                  <div style="font-size: 13px; font-weight: 600; color: var(--text-main); font-family: var(--font-mono); margin-top: 2px;">0.11.0 (Python 3.11+)</div>
                 </div>
                 <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 10px 14px;">
                   <div style="font-size: 11px; color: var(--text-dim);" data-i18n="settings.safety_label">Safety Model</div>
@@ -2093,14 +2093,25 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Persistent feedback for every scan, cleanup and uninstall operation -->
-  <div class="global-operation-hud hidden" id="global-operation-hud" role="status" aria-live="polite" aria-atomic="true">
-    <span class="operation-spinner" id="global-operation-spinner" aria-hidden="true"></span>
-    <div class="global-operation-copy">
-      <strong id="global-operation-title" data-i18n="hud.starting">Starting operation…</strong>
-      <span id="global-operation-detail" data-i18n="clean.preparing">Preparing</span>
+  <div class="global-operation-hud hidden" id="global-operation-hud" role="status" aria-live="polite" aria-atomic="false">
+    <div class="operation-hud-head">
+      <span class="operation-spinner" id="global-operation-spinner" aria-hidden="true"></span>
+      <div class="global-operation-copy">
+        <strong id="global-operation-title" data-i18n="hud.starting">Starting operation…</strong>
+        <span class="operation-health"><i aria-hidden="true"></i><span data-i18n="hud.active_healthy">Active · responding normally</span></span>
+      </div>
+      <span class="global-operation-percent" id="global-operation-percent">…</span>
     </div>
-    <button class="btn btn-secondary btn-sm hidden" id="global-scan-cancel" type="button" data-i18n="hud.cancel_scan">Stop scan</button>
-    <span class="global-operation-percent" id="global-operation-percent">…</span>
+    <div class="operation-hud-activity">
+      <span class="operation-phase-badge" id="global-operation-phase" data-i18n="clean.preparing">Preparing</span>
+      <span class="operation-current-path" id="global-operation-detail" data-i18n="hud.waiting_server">Waiting for server response</span>
+    </div>
+    <div class="operation-hud-track" aria-hidden="true"><span id="global-operation-bar"></span></div>
+    <div class="operation-hud-footer">
+      <span id="global-operation-count" data-i18n="hud.preparing_items">Preparing items…</span>
+      <span id="global-operation-elapsed">0s</span>
+      <button class="btn btn-secondary btn-sm hidden" id="global-scan-cancel" type="button" data-i18n="hud.cancel_scan">Stop scan</button>
+    </div>
   </div>
 
   <script src="/app.js"></script>

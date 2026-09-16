@@ -22,6 +22,9 @@ class Scanner:
         self._progress: Progress | None = None
         self._cancellation: CancellationToken | None = None
         self._issues: list[str] = []
+        self._phase_index = 0
+        self._phase_total = 1
+        self._phase_name = "Scanning"
 
     def scan(
         self,
@@ -58,6 +61,9 @@ class Scanner:
         try:
             for index, (name, operation) in enumerate(phases):
                 self._check_cancelled()
+                self._phase_index = index
+                self._phase_total = len(phases)
+                self._phase_name = name
                 self._emit(index, len(phases), name, "")
                 result.items.extend(operation())
                 self._check_cancelled()
@@ -119,10 +125,21 @@ class Scanner:
             if not (skip_permission_denied and permission_denied):
                 self._measurement_issue(path, message)
 
+        measured_count = 0
+
+        def measurement_result(path: Path, _size: int) -> None:
+            nonlocal measured_count
+            measured_count += 1
+            if self._progress:
+                phase_fraction = measured_count / max(1, len(accepted))
+                percent = min(99, int((self._phase_index + phase_fraction) / self._phase_total * 100))
+                self._progress(percent, self._phase_name, str(path))
+
         measured = sizes_of(
             (spec[1] for spec in accepted),
             cancel=self._check_cancelled,
             on_error=measurement_issue,
+            on_result=measurement_result,
         )
         return [
             CleanupItem(category, label, path, measured.get(path, 0), risk, reason, CleanupAction(action), app)

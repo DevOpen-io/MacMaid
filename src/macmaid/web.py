@@ -69,6 +69,23 @@ class ProgressState:
             if path and (not self.value["logs"] or path not in self.value["logs"][-1]):
                 self.value["logs"] = [*self.value["logs"][-59:], f"{phase}: {path}"]
 
+    def update_items(self, completed: int, total: int, phase: str, path: str = "", detail: str = "") -> None:
+        total = max(1, total)
+        completed = max(0, min(completed, total))
+        percent = min(99, int(completed / total * 100))
+        with self.lock:
+            self.value.update(
+                percent=percent,
+                phase=phase,
+                path=path,
+                completed=completed,
+                total=total,
+                detail=detail,
+            )
+            activity = path or detail
+            if activity and (not self.value["logs"] or activity not in self.value["logs"][-1]):
+                self.value["logs"] = [*self.value["logs"][-59:], f"{phase}: {activity}"]
+
     def finish(self, message: str = "Tamamlandı", *, percent: int = 100) -> None:
         with self.lock:
             self.value.update(active=False, phase=message, percent=percent)
@@ -530,6 +547,66 @@ class MacMaidHandler(BaseHTTPRequestHandler):
         if len(chosen) != len(wanted): raise PermissionError("One or more items were not present in the latest scan")
         return chosen
 
+    def _execute_cleanup(self, service: str, action: str, items: list, *, apply: bool = True):
+        state = self.server.state
+        progress_state = getattr(state, "progress", None) or ProgressState()
+        progress_state.start(service, action)
+
+        def report(index: int, total: int, item, outcome: str) -> None:
+            phase = {
+                "running": "Cleaning",
+                "success": "Completed",
+                "skipped": "Skipped",
+                "failed": "Failed",
+            }.get(outcome, "Working")
+            completed = index - 1 if outcome == "running" else index
+            current = str(item.path) if item.path else item.label
+            progress_state.update_items(completed, total, phase, current, item.label)
+
+        try:
+            result = Cleaner(state.config).execute(
+                items,
+                apply=apply,
+                assume_yes=True,
+                progress=report,
+            )
+        except Exception:
+            progress_state.finish("Cleanup failed", percent=0)
+            raise
+        succeeded = max(0, len(items) - result.skipped - result.failed)
+        progress_state.finish(
+            f"Cleanup completed · {succeeded} succeeded · {result.skipped} skipped · {result.failed} failed"
+        )
+        return result
+
+    def _move_items_to_trash_with_progress(
+        self,
+        service: str,
+        action: str,
+        requested: list[Path],
+        estimates: dict[Path, int],
+        *,
+        on_moved=None,
+    ) -> list[str]:
+        state = self.server.state
+        progress_state = getattr(state, "progress", None) or ProgressState()
+        progress_state.start(service, action)
+        cleaner = Cleaner(state.config)
+        moved: list[str] = []
+        try:
+            for index, item in enumerate(requested, 1):
+                progress_state.update_items(index - 1, len(requested), "Moving to Trash", str(item))
+                destination = cleaner.move_analyzer_item_to_trash(item, estimates[item])
+                moved.append(str(destination))
+                if on_moved:
+                    on_moved(item)
+                progress_state.update_items(index, len(requested), "Moved to Trash", str(item))
+        except Exception:
+            progress_state.finish("Trash operation failed", percent=0)
+            raise
+        progress_state.finish(f"Moved {len(moved)} item(s) to Trash")
+        return moved
+
     def _route_post(self, path: str, body: dict) -> dict:
         state = self.server.state
         if path == "/api/permissions/open-full-disk-access":
@@ -567,7 +644,12 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             items = self._select_ids(state.scan, body.get("itemIds", []))
             plan = cleanup_plan("Apply cleanup", items)
             if review := self._review_gate("clean", body, plan): return review
-            result = Cleaner(state.config).execute(items, apply=not body.get("dryRun", False), assume_yes=True)
+            result = self._execute_cleanup(
+                "cleaner",
+                "Simulating selected cleanup" if body.get("dryRun", False) else "Cleaning selected items",
+                items,
+                apply=not body.get("dryRun", False),
+            )
             return dict(_operation_payload(result), dryRun=bool(body.get("dryRun", False)))
         if path in ("/api/installers/clean", "/api/leftovers/clean", "/api/developer/caches/clean"):
             scan = {"/api/installers/clean": state.installers, "/api/leftovers/clean": state.leftovers, "/api/developer/caches/clean": state.dev_caches}[path]
@@ -575,7 +657,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             scope = {"/api/installers/clean": "installers", "/api/leftovers/clean": "leftovers", "/api/developer/caches/clean": "developer-caches"}[path]
             plan = cleanup_plan("Apply selected tool results", items)
             if review := self._review_gate(scope, body, plan): return review
-            result = Cleaner(state.config).execute(items, apply=True, assume_yes=True)
+            result = self._execute_cleanup(scope, "Cleaning selected items", items)
             return _operation_payload(result)
         if path == "/api/apps/uninstall":
             app_path = Path(body.get("path", "")).expanduser().absolute()
@@ -589,14 +671,39 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 raise PermissionError("Application components changed after review")
             plan = application_plan(app, [available[path] for path in selected_paths])
             if review := self._review_gate("apps", body, plan): return review
-            return manager.remove(app, selected_paths)
+            state.progress.start("apps", f"Uninstalling {app.name}")
+            try:
+                result = manager.remove(
+                    app,
+                    selected_paths,
+                    progress=lambda index, total, current: state.progress.update_items(
+                        index - 1, total, "Removing", str(current)
+                    ),
+                )
+            except Exception:
+                state.progress.finish("Uninstall failed", percent=0)
+                raise
+            state.progress.finish(f"{app.name} uninstall completed")
+            return result
         if path == "/api/purge":
             wanted = {str(Path(item).expanduser().absolute()) for item in body.get("paths", [])}
             selected = [item for item in state.projects if str(item.path.absolute()) in wanted]
             if not wanted or len(selected) != len(wanted): raise PermissionError("Paths were not present in latest purge scan")
             plan = purge_plan(selected)
             if review := self._review_gate("purge", body, plan): return review
-            return ProjectPurgeManager(state.config).purge(selected)
+            state.progress.start("purge", "Moving project artifacts to Trash")
+            try:
+                result = ProjectPurgeManager(state.config).purge(
+                    selected,
+                    progress=lambda index, total, current: state.progress.update_items(
+                        index - 1, total, "Moving to Trash", str(current)
+                    ),
+                )
+            except Exception:
+                state.progress.finish("Project purge failed", percent=0)
+                raise
+            state.progress.finish("Project purge completed")
+            return result
         if path == "/api/treemap/open":
             requested = Path(str(body.get("path", ""))).expanduser().absolute()
             if requested not in state.treemap_paths:
@@ -611,12 +718,11 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 raise PermissionError("Treemap path was not present in latest view")
             plan = analyzer_trash_plan(requested)
             if review := self._review_gate("treemap", body, plan): return review
-            moved = []
             estimates = {item: size_of(item) for item in requested}
             free_space = FreeSpaceProbe.capture(requested)
-            for item in requested:
-                destination = Cleaner(state.config).move_analyzer_item_to_trash(item, estimates[item])
-                moved.append(str(destination))
+            moved = self._move_items_to_trash_with_progress(
+                "treemap", "Moving analyzed items to Trash", requested, estimates
+            )
             with state.lock: state.treemap_paths.difference_update(requested)
             observed, notes = free_space.finish()
             processed = sum(estimates.values())
@@ -635,7 +741,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 raise PermissionError("Browser Smart Clean only accepts cache areas")
             plan = cleanup_plan("Clean browser safe cache areas", items)
             if review := self._review_gate("browser-storage", body, plan): return review
-            result = Cleaner(state.config).execute(items, apply=True, assume_yes=True)
+            result = self._execute_cleanup("browser-storage", "Cleaning browser caches", items)
             return _operation_payload(result)
         if path == "/api/smart-downloads/trash":
             requested = [Path(item).expanduser().absolute() for item in body.get("paths", [])]
@@ -643,12 +749,11 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 raise PermissionError("Smart Downloads item was not present in latest scan")
             plan = analyzer_trash_plan(requested)
             if review := self._review_gate("smart-downloads", body, plan): return review
-            moved = []
             estimates = {item: size_of(item) for item in requested}
             free_space = FreeSpaceProbe.capture(requested)
-            for item in requested:
-                destination = Cleaner(state.config).move_analyzer_item_to_trash(item, estimates[item])
-                moved.append(str(destination))
+            moved = self._move_items_to_trash_with_progress(
+                "smart-downloads", "Moving downloads to Trash", requested, estimates
+            )
             with state.lock: state.smart_downloads.difference_update(requested)
             observed, notes = free_space.finish()
             processed = sum(estimates.values())
@@ -666,12 +771,11 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 raise PermissionError("Large/old file was not present in latest scan")
             plan = analyzer_trash_plan(requested)
             if review := self._review_gate("large-files", body, plan): return review
-            moved = []
             estimates = {item: size_of(item) for item in requested}
             free_space = FreeSpaceProbe.capture(requested)
-            for item in requested:
-                destination = Cleaner(state.config).move_analyzer_item_to_trash(item, estimates[item])
-                moved.append(str(destination))
+            moved = self._move_items_to_trash_with_progress(
+                "large-files", "Moving large files to Trash", requested, estimates
+            )
             with state.lock: state.large_files.difference_update(requested)
             observed, notes = free_space.finish()
             processed = sum(estimates.values())
@@ -689,12 +793,11 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 raise PermissionError("Duplicate path was not present in latest duplicate scan")
             plan = analyzer_trash_plan(requested)
             if review := self._review_gate("duplicates", body, plan): return review
-            moved = []
             estimates = {item: size_of(item) for item in requested}
             free_space = FreeSpaceProbe.capture(requested)
-            for item in requested:
-                destination = Cleaner(state.config).move_analyzer_item_to_trash(item, estimates[item])
-                moved.append(str(destination))
+            moved = self._move_items_to_trash_with_progress(
+                "duplicates", "Moving duplicates to Trash", requested, estimates
+            )
             with state.lock: state.duplicates.difference_update(requested)
             observed, notes = free_space.finish()
             processed = sum(estimates.values())
@@ -713,13 +816,15 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             if not requested or not set(requested).issubset(state.analyzed_paths): raise PermissionError("Path was not present in latest analysis")
             plan = analyzer_trash_plan(requested)
             if review := self._review_gate("analyzer", body, plan): return review
-            moved = []
             estimates = {item: size_of(item) for item in requested}
             free_space = FreeSpaceProbe.capture(requested)
-            for item in requested:
-                destination = Cleaner(state.config).move_analyzer_item_to_trash(item, estimates[item])
-                moved.append(str(destination))
-                state.analyzer.invalidate_after_removal(item)
+            moved = self._move_items_to_trash_with_progress(
+                "analyzer",
+                "Moving analyzed items to Trash",
+                requested,
+                estimates,
+                on_moved=state.analyzer.invalidate_after_removal,
+            )
             with state.lock: state.analyzed_paths.difference_update(requested)
             observed, notes = free_space.finish()
             processed = sum(estimates.values())

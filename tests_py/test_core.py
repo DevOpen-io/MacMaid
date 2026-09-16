@@ -164,10 +164,12 @@ def test_command_runner_does_not_invoke_shell() -> None:
 
 def test_bounded_parallel_sizes(tmp_path: Path) -> None:
     paths = []
+    completed = []
     for index in range(5):
         path = tmp_path / str(index); path.write_bytes(b"x" * (index + 1)); paths.append(path)
-    values = sizes_of(paths, max_workers=2)
+    values = sizes_of(paths, max_workers=2, on_result=lambda path, size: completed.append((path, size)))
     assert set(values) == set(paths)
+    assert {path for path, _size in completed} == set(paths)
     assert all(value > 0 for value in values.values())
 
 

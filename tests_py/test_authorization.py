@@ -5,7 +5,7 @@ import threading
 from http.client import HTTPConnection
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 import pytest
 
@@ -16,7 +16,8 @@ from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupIt
 
 
 def review_state(**values):
-    defaults = dict(token="test-secret", generations={}, review_tokens={}, lock=threading.RLock())
+    defaults = dict(token="test-secret", generations={}, review_tokens={}, lock=threading.RLock(),
+                    progress=web.ProgressState())
     defaults.update(values)
     return SimpleNamespace(**defaults)
 
@@ -178,5 +179,5 @@ def test_web_app_and_purge_delegate_to_shared_managers(monkeypatch, tmp_path):
     reviewed_request(handler, "/api/purge", {"paths": [str(artifact.path)]})
     assert app_manager.call_args_list == [((config,), {}), ((config,), {})]
     purge_manager.assert_called_once_with(config)
-    remove.assert_called_once_with(app, [app_path])
-    purge.assert_called_once_with([artifact])
+    remove.assert_called_once_with(app, [app_path], progress=ANY)
+    purge.assert_called_once_with([artifact], progress=ANY)

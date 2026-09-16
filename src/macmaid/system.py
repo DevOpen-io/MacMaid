@@ -202,7 +202,8 @@ def size_of(path: Path, *, cancel: Callable[[], None] | None = None,
 
 def sizes_of(paths: Iterable[Path], max_workers: int = 4,
              cancel: Callable[[], None] | None = None,
-             on_error: Callable[[Path, str], None] | None = None) -> dict[Path, int]:
+             on_error: Callable[[Path, str], None] | None = None,
+             on_result: Callable[[Path, int], None] | None = None) -> dict[Path, int]:
     pending_paths = iter(sorted(set(paths), key=str))
     worker_count = min(max(1, max_workers), 8)
     results: dict[Path, int] = {}
@@ -222,6 +223,8 @@ def sizes_of(paths: Iterable[Path], max_workers: int = 4,
             for future in completed:
                 path = futures.pop(future)
                 results[path] = future.result()
+                if on_result:
+                    on_result(path, results[path])
                 next_path = next(pending_paths, None)
                 if next_path is not None:
                     if cancel:
