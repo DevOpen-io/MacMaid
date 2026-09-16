@@ -7,6 +7,7 @@ import signal
 import stat
 import shutil
 import subprocess
+import sys
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import contextmanager
@@ -75,6 +76,97 @@ def _kill_command_group(process: subprocess.Popen) -> None:
         if process.stderr is not None:
             process.stderr.close()
         process.wait(timeout=5)
+
+
+def _directory_access(path: Path) -> str:
+    if not path.exists():
+        return "not_applicable"
+    try:
+        with os.scandir(path) as entries:
+            next(entries, None)
+    except PermissionError:
+        return "denied"
+    except OSError:
+        return "unavailable"
+    return "granted"
+
+
+def macos_permission_report(home: Path | None = None) -> dict:
+    """Probe the current process's read access without changing files or TCC state."""
+    home = home or Path.home()
+
+    def grouped_status(entries: list[tuple[str, Path]]) -> tuple[str, int, int, list[dict[str, str]]]:
+        existing = [(name, path) for name, path in entries if path.exists()]
+        if not existing:
+            return "not_applicable", 0, 0, []
+        details = [{"name": name, "status": _directory_access(path)} for name, path in existing]
+        statuses = [detail["status"] for detail in details]
+        granted = statuses.count("granted")
+        if granted == len(statuses):
+            status = "granted"
+        elif granted:
+            status = "limited"
+        elif "denied" in statuses:
+            status = "denied"
+        else:
+            status = "unavailable"
+        return status, granted, len(statuses), details
+
+    cache_paths = [("~/Library/Caches", home / "Library/Caches")]
+    browser_paths = [
+        ("Google Chrome", home / "Library/Application Support/Google/Chrome"),
+        ("Brave", home / "Library/Application Support/BraveSoftware/Brave-Browser"),
+        ("Microsoft Edge", home / "Library/Application Support/Microsoft Edge"),
+        ("Chromium", home / "Library/Application Support/Chromium"),
+        ("Firefox", home / "Library/Caches/Firefox/Profiles"),
+    ]
+    protected_paths = [
+        ("Mail", home / "Library/Mail"),
+        ("Safari", home / "Library/Safari"),
+    ]
+
+    container_root = home / "Library/Containers"
+    container_paths: list[tuple[str, Path]] = []
+    if _directory_access(container_root) == "granted":
+        try:
+            container_paths = [
+                (path.name, path / "Data/Library/Caches")
+                for path in sorted(container_root.iterdir(), key=lambda item: item.name.casefold())
+                if not path.name.startswith("com.apple.") and (path / "Data/Library/Caches").exists()
+            ]
+        except OSError:
+            container_paths = []
+
+    groups = []
+    for identifier, paths in (
+        ("userCaches", cache_paths),
+        ("browserProfiles", browser_paths),
+        ("appSandboxes", container_paths),
+        ("protectedData", protected_paths),
+    ):
+        status, accessible, total, entries = grouped_status(paths)
+        groups.append({
+            "id": identifier,
+            "status": status,
+            "accessible": accessible,
+            "total": total,
+            "entries": entries,
+        })
+
+    protected = next(group for group in groups if group["id"] == "protectedData")
+    full_disk_access = (
+        "granted" if protected["status"] == "granted" and protected["total"] > 0
+        else "not_granted" if protected["status"] in {"denied", "limited"}
+        else "unknown"
+    )
+    executable = Path(sys.executable)
+    launch_context = "app" if ".app/Contents/" in str(executable) else "cli"
+    return {
+        "launchContext": launch_context,
+        "fullDiskAccess": full_disk_access,
+        "checks": groups,
+        "note": "Capability probe only; macOS does not expose a definitive Full Disk Access query API.",
+    }
 
 
 def which(name: str) -> str | None:

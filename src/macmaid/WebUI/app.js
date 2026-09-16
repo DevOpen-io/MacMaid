@@ -47,6 +47,7 @@ const state = {
     ? localStorage.getItem('macmaid_lang')
     : 'en',
   modalReturnFocus: null,
+  permissionReport: null,
 };
 
 const I18N = {
@@ -92,6 +93,36 @@ const I18N = {
     "settings.theme_sub": "Select your preferred macOS aesthetic palette.",
     "settings.sound_label": "UI Sound Effects",
     "settings.sound_sub": "Audio cues on scan completion and button clicks.",
+    "settings.permissions_title": "Access & Permissions",
+    "settings.permissions_desc": "Review which cleanup locations MacMaid can read and manage access through macOS Privacy & Security.",
+    "settings.permissions_manage": "Manage Permissions",
+    "settings.permissions_refresh": "Refresh",
+    "settings.permissions_loading": "Checking access…",
+    "settings.permissions_note": "Full Disk Access is optional. Inaccessible locations are skipped safely; grant it only if you want those locations included.",
+    "settings.permissions_modal_title": "MacMaid Permissions",
+    "settings.permissions_modal_intro": "The counts below are readable locations, not separate macOS permissions. One app-wide Full Disk Access toggle controls MacMaid’s protected access. Expand a group to see exactly which locations are blocked, then manage the MacMaid toggle in Apple’s Privacy & Security panel.",
+    "settings.permissions_manage_macos": "Manage in macOS",
+    "settings.permissions_show_details": "Show locations",
+    "settings.permissions_hide_details": "Hide locations",
+    "settings.permissions_close": "Close",
+    "settings.permissions_summary": "{allowed} allowed · {limited} limited · {denied} unavailable",
+    "settings.permissions_open_fda": "Open Full Disk Access Settings",
+    "settings.permissions_opened": "Privacy & Security settings opened.",
+    "settings.permissions_failed": "Permission status could not be checked: {error}",
+    "settings.permissions_context_app": "Application context",
+    "settings.permissions_context_cli": "Command-line context",
+    "settings.permissions_fda_granted": "Full Disk Access appears available",
+    "settings.permissions_fda_not_granted": "Full Disk Access is not available to this app",
+    "settings.permissions_fda_unknown": "Full Disk Access status is unknown",
+    "settings.permission_userCaches": "User caches",
+    "settings.permission_browserProfiles": "Browser cache profiles",
+    "settings.permission_appSandboxes": "Application sandbox caches",
+    "settings.permission_protectedData": "Protected user data",
+    "settings.permission_granted": "Allowed",
+    "settings.permission_limited": "Limited ({accessible}/{total})",
+    "settings.permission_denied": "Not allowed",
+    "settings.permission_unavailable": "Unavailable",
+    "settings.permission_not_applicable": "Not installed / not present",
     "settings.about_title": "About MacMaid",
     "settings.about_desc": "System maintenance, disk optimization and developer environment cleaner built exclusively for macOS.",
     "settings.version_label": "Version",
@@ -596,6 +627,36 @@ const I18N = {
     "settings.theme_sub": "Favori macOS renk paletinizi belirleyin.",
     "settings.sound_label": "UI Ses Efektleri",
     "settings.sound_sub": "Temizlik tamamlama sesi ve buton tıklama tınıları.",
+    "settings.permissions_title": "Erişim ve İzinler",
+    "settings.permissions_desc": "MacMaid’in hangi temizlik konumlarını okuyabildiğini inceleyin ve erişimi macOS Gizlilik ve Güvenlik üzerinden yönetin.",
+    "settings.permissions_manage": "İzinleri Yönet",
+    "settings.permissions_refresh": "Yenile",
+    "settings.permissions_loading": "Erişim denetleniyor…",
+    "settings.permissions_note": "Tam Disk Erişimi isteğe bağlıdır. Erişilemeyen konumlar güvenle atlanır; yalnızca bu konumları da taramak istiyorsanız izin verin.",
+    "settings.permissions_modal_title": "MacMaid İzinleri",
+    "settings.permissions_modal_intro": "Aşağıdaki sayılar ayrı macOS izinleri değil, okunabilen konumların sayısıdır. MacMaid’in korumalı erişimini uygulama genelindeki tek bir Tam Disk Erişimi anahtarı kontrol eder. Hangi konumların engellendiğini görmek için grubu genişletin, ardından Apple’ın Gizlilik ve Güvenlik panelinden MacMaid anahtarını yönetin.",
+    "settings.permissions_manage_macos": "macOS’te Yönet",
+    "settings.permissions_show_details": "Konumları Göster",
+    "settings.permissions_hide_details": "Konumları Gizle",
+    "settings.permissions_close": "Kapat",
+    "settings.permissions_summary": "{allowed} izinli · {limited} sınırlı · {denied} erişilemez",
+    "settings.permissions_open_fda": "Tam Disk Erişimi Ayarlarını Aç",
+    "settings.permissions_opened": "Gizlilik ve Güvenlik ayarları açıldı.",
+    "settings.permissions_failed": "İzin durumu denetlenemedi: {error}",
+    "settings.permissions_context_app": "Uygulama bağlamı",
+    "settings.permissions_context_cli": "Komut satırı bağlamı",
+    "settings.permissions_fda_granted": "Tam Disk Erişimi kullanılabilir görünüyor",
+    "settings.permissions_fda_not_granted": "Bu uygulamanın Tam Disk Erişimi yok",
+    "settings.permissions_fda_unknown": "Tam Disk Erişimi durumu belirlenemedi",
+    "settings.permission_userCaches": "Kullanıcı önbellekleri",
+    "settings.permission_browserProfiles": "Tarayıcı önbellek profilleri",
+    "settings.permission_appSandboxes": "Uygulama sandbox önbellekleri",
+    "settings.permission_protectedData": "Korumalı kullanıcı verileri",
+    "settings.permission_granted": "İzin var",
+    "settings.permission_limited": "Sınırlı ({accessible}/{total})",
+    "settings.permission_denied": "İzin yok",
+    "settings.permission_unavailable": "Kullanılamıyor",
+    "settings.permission_not_applicable": "Kurulu değil / mevcut değil",
     "settings.about_title": "MacMaid Hakkında",
     "settings.about_desc": "macOS için güvenli sistem bakımı ve disk optimizasyonu paketi.",
     "settings.version_label": "Sürüm",
@@ -3640,6 +3701,141 @@ async function saveWhitelist() {
 }
 
 // =========================================================
+// Filesystem access & macOS privacy
+// =========================================================
+
+function renderPermissionSummary(report) {
+  const summary = document.getElementById('permission-summary');
+  if (!summary) return;
+  const context = t(`settings.permissions_context_${report.launchContext}`, report.launchContext);
+  const fda = t(`settings.permissions_fda_${report.fullDiskAccess}`, report.fullDiskAccess);
+  const counts = (report.checks || []).reduce((result, check) => {
+    if (check.status === 'granted') result.allowed += 1;
+    else if (check.status === 'limited') result.limited += 1;
+    else if (check.status !== 'not_applicable') result.denied += 1;
+    return result;
+  }, { allowed: 0, limited: 0, denied: 0 });
+  const countText = t('settings.permissions_summary', '{allowed} allowed · {limited} limited · {denied} unavailable')
+    .replace('{allowed}', String(counts.allowed))
+    .replace('{limited}', String(counts.limited))
+    .replace('{denied}', String(counts.denied));
+  summary.textContent = `${context} · ${fda} · ${countText}`;
+}
+
+async function fetchPermissionReport() {
+  const button = document.getElementById('btn-refresh-permissions');
+  const summary = document.getElementById('permission-summary');
+  if (!summary) return null;
+  if (button) button.disabled = true;
+  summary.textContent = t('settings.permissions_loading', 'Checking access…');
+  try {
+    state.permissionReport = await readAPIResponse(await fetch('/api/permissions'));
+    renderPermissionSummary(state.permissionReport);
+    return state.permissionReport;
+  } catch (error) {
+    summary.textContent = t('settings.permissions_failed', 'Permission status could not be checked: {error}')
+      .replace('{error}', error.message);
+    return null;
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+function populatePermissionModal(report) {
+  const list = document.getElementById('permission-modal-list');
+  if (!list) return;
+  list.replaceChildren();
+  (report.checks || []).forEach(check => {
+    const group = document.createElement('div');
+    group.className = 'permission-group';
+    const row = document.createElement('div');
+    row.className = 'permission-row';
+    const label = document.createElement('strong');
+    label.textContent = t(`settings.permission_${check.id}`, check.id);
+    const badge = document.createElement('span');
+    badge.className = `permission-badge permission-${check.status}`;
+    badge.textContent = t(`settings.permission_${check.status}`, check.status)
+      .replace('{accessible}', String(check.accessible ?? 0))
+      .replace('{total}', String(check.total ?? 0));
+    const actions = document.createElement('div');
+    actions.className = 'permission-row-actions';
+    const entries = Array.isArray(check.entries) ? [...check.entries] : [];
+    if (entries.length) {
+      const detailsButton = document.createElement('button');
+      detailsButton.className = 'btn btn-secondary btn-sm';
+      detailsButton.textContent = t('settings.permissions_show_details', 'Show locations');
+      actions.appendChild(detailsButton);
+      const details = document.createElement('div');
+      details.className = 'permission-detail-list hidden';
+      entries.sort((left, right) => {
+        if (left.status === 'granted' && right.status !== 'granted') return 1;
+        if (left.status !== 'granted' && right.status === 'granted') return -1;
+        return left.name.localeCompare(right.name);
+      }).forEach(entry => {
+        const detail = document.createElement('div');
+        detail.className = 'permission-detail-row';
+        const name = document.createElement('span');
+        name.textContent = entry.name;
+        const status = document.createElement('span');
+        status.className = `permission-badge permission-${entry.status}`;
+        status.textContent = t(`settings.permission_${entry.status}`, entry.status);
+        detail.append(name, status);
+        details.appendChild(detail);
+      });
+      detailsButton.addEventListener('click', () => {
+        const opening = details.classList.contains('hidden');
+        details.classList.toggle('hidden', !opening);
+        detailsButton.textContent = t(
+          opening ? 'settings.permissions_hide_details' : 'settings.permissions_show_details',
+          opening ? 'Hide locations' : 'Show locations'
+        );
+      });
+      group.append(row, details);
+    } else {
+      group.appendChild(row);
+    }
+    if (!['granted', 'not_applicable'].includes(check.status)) {
+      const manage = document.createElement('button');
+      manage.className = 'btn btn-secondary btn-sm permission-manage-btn';
+      manage.textContent = t('settings.permissions_manage_macos', 'Manage in macOS');
+      manage.addEventListener('click', openFullDiskAccessSettings);
+      actions.appendChild(manage);
+    }
+    row.append(label, badge, actions);
+    list.appendChild(group);
+  });
+}
+
+async function showPermissionManager() {
+  const report = state.permissionReport || await fetchPermissionReport();
+  if (!report) return;
+  showModal(
+    t('settings.permissions_modal_title', 'MacMaid Permissions'),
+    `<div class="permission-modal-intro">${t('settings.permissions_modal_intro', 'macOS privacy permissions must be managed in System Settings.')}</div><div class="permission-list" id="permission-modal-list"></div>`,
+    [
+      { text: t('settings.permissions_close', 'Close'), class: 'btn-secondary', onClick: hideModal },
+      { text: t('settings.permissions_refresh', 'Refresh'), class: 'btn-secondary', onClick: async () => {
+        const refreshed = await fetchPermissionReport();
+        if (refreshed) populatePermissionModal(refreshed);
+      }},
+      { text: t('settings.permissions_open_fda', 'Open Full Disk Access Settings'), class: 'btn-primary', onClick: openFullDiskAccessSettings },
+    ]
+  );
+  populatePermissionModal(report);
+}
+
+async function openFullDiskAccessSettings() {
+  try {
+    await readAPIResponse(await fetch('/api/permissions/open-full-disk-access', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+    }));
+    showToast(t('settings.permissions_opened', 'Privacy & Security settings opened.'), 'info');
+  } catch (error) {
+    showToast(t('settings.permissions_failed', 'Permission status could not be checked: {error}').replace('{error}', error.message), 'error');
+  }
+}
+
+// =========================================================
 // MacMaid Homebrew update
 // =========================================================
 
@@ -3946,6 +4142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     activateTopLevelTab('settings');
     document.querySelectorAll('.nav-submenu-item').forEach(n => n.classList.remove('active'));
     document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
+    fetchPermissionReport();
   });
 
   if (themeSelect) {
@@ -4174,6 +4371,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Doctor & Settings
   document.getElementById('btn-refresh-doctor')?.addEventListener('click', fetchDoctorReport);
   document.getElementById('btn-save-settings')?.addEventListener('click', saveWhitelist);
+  document.getElementById('btn-refresh-permissions')?.addEventListener('click', fetchPermissionReport);
+  document.getElementById('btn-manage-permissions')?.addEventListener('click', showPermissionManager);
   document.getElementById('modal-close-btn')?.addEventListener('click', hideModal);
   document.getElementById('modal-container')?.addEventListener('click', event => {
     if (event.target.id === 'modal-container') hideModal();

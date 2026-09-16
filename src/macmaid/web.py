@@ -36,7 +36,7 @@ from .review import (
     macmaid_update_plan, optimization_plan, purge_plan, snapshot_plan, validate_review_token,
 )
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
-from .system import human_bytes, run_command, size_of
+from .system import human_bytes, macos_permission_report, run_command, size_of
 
 
 def _operation_payload(result) -> dict:
@@ -482,6 +482,8 @@ class MacMaidHandler(BaseHTTPRequestHandler):
         if path == "/api/doctor":
             checks = doctor(); by_name = {c["name"]: c["value"] for c in checks}
             return {"macosVersion": by_name.get("macOS", ""), "buildVersion": "", "architecture": by_name.get("Architecture", ""), "sipStatus": by_name.get("System Integrity Protection", ""), "diskRoot": "/", "snapshots": "", "probes": [{"path": c["name"], "ok": c.get("ok") is True} for c in checks]}
+        if path == "/api/permissions":
+            return macos_permission_report(state.config.home)
         if path == "/api/history":
             entries = RecoveryCenter(state.config).entries(80) if hasattr(state, "config") else history(80)
             summaries = [item for item in entries if item.get("recordType") == "operation_summary"]
@@ -530,6 +532,15 @@ class MacMaidHandler(BaseHTTPRequestHandler):
 
     def _route_post(self, path: str, body: dict) -> dict:
         state = self.server.state
+        if path == "/api/permissions/open-full-disk-access":
+            result = run_command(
+                "/usr/bin/open",
+                ["x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"],
+                timeout=10,
+            )
+            if not result.succeeded:
+                raise OSError(result.stderr or "Could not open macOS Privacy & Security settings")
+            return {"opened": True}
         if path == "/api/scan/cancel":
             service = str(body.get("service", "clean"))
             if service == "analyzer":
