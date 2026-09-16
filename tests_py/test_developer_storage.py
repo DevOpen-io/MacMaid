@@ -21,7 +21,10 @@ def test_developer_storage_center_groups_known_ecosystems(tmp_path, monkeypatch)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     monkeypatch.setattr(developer, "which", lambda name: None)
 
-    sections = DeveloperStorageCenter(Config(home=home)).scan()
+    progress = []
+    sections = DeveloperStorageCenter(Config(home=home)).scan(
+        progress=lambda percent, phase, path: progress.append((percent, phase, path))
+    )
     by_id = {section.id: section for section in sections}
 
     assert {"xcode", "node", "rust", "android"}.issubset(by_id)
@@ -30,6 +33,7 @@ def test_developer_storage_center_groups_known_ecosystems(tmp_path, monkeypatch)
     assert any(item["label"] == "node_modules" for item in by_id["node"].items)
     assert any(item["label"] == "target directory" for item in by_id["rust"].items)
     assert all(item["removable"] is False for section in sections for item in section.items)
+    assert any(path for _percent, _phase, path in progress)
 
 
 def test_developer_storage_center_reports_docker_inventory_without_deletion(monkeypatch, tmp_path):

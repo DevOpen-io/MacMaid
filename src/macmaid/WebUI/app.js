@@ -257,6 +257,8 @@ const I18N = {
     "dev.th_ecosystem": "Ecosystem",
     "dev.th_items": "Items",
     "dev.th_note": "Note",
+    "dev.inventory_only": "Inventory status",
+    "dev.storage_items": "items",
     "dev.empty_storage": "Click above to scan Developer Storage Center.",
     "dev.caches_title": "Package Manager Caches",
     "dev.caches_desc": "Xcode, Homebrew, Conda, npm, cargo, pip and other package caches.",
@@ -802,6 +804,8 @@ const I18N = {
     "dev.th_ecosystem": "Ekosistem",
     "dev.th_items": "Öğeler",
     "dev.th_note": "Not",
+    "dev.inventory_only": "Envanter durumu",
+    "dev.storage_items": "öğe",
     "dev.empty_storage": "Developer Storage Center için tara.",
     "dev.caches_title": "Paket Yöneticisi Önbellekleri",
     "dev.caches_desc": "Xcode, Homebrew, Conda, npm, cargo, pip ve diğer paket önbellekleri.",
@@ -2729,17 +2733,44 @@ async function executePurge() {
 // =========================================================
 
 async function scanDeveloperStorage() {
+  SoundEffects.playClick();
   const tbody = document.getElementById('tbody-devstorage');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="4" class="empty-state">${t('dev.action_scanning_storage_sub', 'Scanning developer storage…')}</td></tr>`;
+  const previousItems = state.developerStorage || [];
+  beginCollectionRefresh(tbody, previousItems, 5, t('dev.action_scanning_storage_sub', 'Scanning developer storage…'));
+  startLiveProgressPolling(t('dev.action_scanning_storage_sub', 'Scanning developer storage…'));
   try {
     const data = await readAPIResponse(await fetch('/api/developer/storage'));
-    tbody.innerHTML = (data.sections || []).map(section => {
-      const items = (section.items || []).slice(0, 8).map(item => `${escapeHtml(item.label)} (${escapeHtml(item.humanBytes || formatBytes(item.bytes || 0))})`).join('<br>');
-      return `<tr><td><strong>${escapeHtml(section.title)}</strong></td><td>${escapeHtml(section.humanBytes || formatBytes(section.bytes || 0))}</td><td>${items || '<span class="text-muted">Inventory only</span>'}</td><td>${escapeHtml(section.note || '')}</td></tr>`;
-    }).join('') || `<tr><td colspan="4" class="empty-state">${t('dev.empty_storage_found', 'No developer storage items found.')}</td></tr>`;
+    const rows = (data.sections || []).flatMap(section => {
+      const items = section.items || [];
+      if (!items.length) {
+        return section.note ? [{ ecosystem: section.title, label: t('dev.inventory_only', 'Inventory status'), path: '—', note: section.note, bytes: 0, humanBytes: '0 B' }] : [];
+      }
+      return items.map(item => ({ ...item, ecosystem: section.title, note: item.note || section.note || '' }));
+    });
+    state.developerStorage = rows;
+    document.getElementById('devstorage-total-size').textContent = data.humanTotal || formatBytes(data.totalBytes);
+    document.getElementById('devstorage-count').textContent = `(${rows.length} ${t('dev.storage_items', 'items')})`;
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('dev.empty_storage_found', 'No developer storage items found.')}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map(item => `
+      <tr data-item-id="${escapeHtml(item.path || `${item.ecosystem}:${item.label}`)}">
+        <td><span class="badge-status badge-cyan">${escapeHtml(item.ecosystem)}</span></td>
+        <td><strong>${escapeHtml(item.label)}</strong></td>
+        <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path || '—')}</span></td>
+        <td><span style="font-size: 11.5px; color: var(--text-dim);">${escapeHtml(item.note || '—')}</span></td>
+        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes || formatBytes(item.bytes || 0))}</td>
+      </tr>
+    `).join('');
+    highlightCollectionDiff(tbody, previousItems, rows, 5);
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="4" class="empty-state">${t('dev.scan_failed', 'Storage scan failed: ')}${escapeHtml(err.message)}</td></tr>`;
+    if (!previousItems.length) tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('dev.scan_failed', 'Storage scan failed: ')}${escapeHtml(err.message)}</td></tr>`;
+    showOperationOutcome('error', err.message);
+  } finally {
+    endCollectionRefresh(tbody);
+    stopLiveProgressPolling();
   }
 }
 
@@ -2960,7 +2991,7 @@ async function scanDeveloperRuntimes() {
     if (!changed && previousItems.length) return;
     tbody.innerHTML = items.map((item, idx) => `
       <tr class="clickable-row" data-idx="${idx}" data-item-id="${escapeHtml(item.id || item.path)}" title="${t('dev.row_tip_detail', 'Click to view details and remove')}">
-        <td><strong>${escapeHtml(item.language)}</strong></td>
+        <td><strong>${escapeHtml(item.title || item.language)}</strong></td>
         <td><span style="font-family: var(--font-mono); font-weight: 600;">${escapeHtml(item.version)}</span></td>
         <td><span class="badge-status">${escapeHtml(item.manager)}</span></td>
         <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>

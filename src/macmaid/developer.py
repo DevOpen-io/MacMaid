@@ -7,7 +7,7 @@ import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from .cancellation import CancellationToken
 from .cleaner import Cleaner
@@ -126,22 +126,54 @@ class DeveloperStorageCenter:
 
     def __init__(self, config: Config | None = None) -> None:
         self.config = config or Config()
+        self._progress: Callable[[int, str, str], None] | None = None
+        self._phase_index = 0
+        self._phase_total = 1
+        self._phase_name = "Developer storage"
 
-    def scan(self, cancellation: CancellationToken | None = None) -> list[DeveloperStorageSection]:
+    def scan(
+        self,
+        cancellation: CancellationToken | None = None,
+        progress: Callable[[int, str, str], None] | None = None,
+    ) -> list[DeveloperStorageSection]:
         token = cancellation or CancellationToken()
-        sections = [
-            self._known_paths("xcode", "Xcode", self._xcode_paths(), token),
-            self._known_paths("node", "Node.js", self._node_paths(), token),
-            self._known_paths("python", "Python", self._python_paths(), token),
-            self._known_paths("rust", "Rust", self._rust_paths(), token),
-            self._android_section(token),
-            self._docker_section(token),
+        self._progress = progress
+        builders = [
+            ("Xcode", lambda: self._known_paths("xcode", "Xcode", self._xcode_paths(), token)),
+            ("Node.js", lambda: self._known_paths("node", "Node.js", self._node_paths(), token)),
+            ("Python", lambda: self._known_paths("python", "Python", self._python_paths(), token)),
+            ("Rust", lambda: self._known_paths("rust", "Rust", self._rust_paths(), token)),
+            ("Android", lambda: self._android_section(token)),
+            ("Docker", lambda: self._docker_section(token)),
         ]
+        self._phase_total = len(builders)
+        sections = []
+        for index, (name, builder) in enumerate(builders):
+            token.check()
+            self._phase_index = index
+            self._phase_name = name
+            if progress:
+                progress(int(index / self._phase_total * 100), name, "")
+            sections.append(builder())
         return [section for section in sections if section.items or section.bytes or section.note]
 
     def _known_paths(self, id: str, title: str, paths: list[tuple[str, Path, str]], token: CancellationToken) -> DeveloperStorageSection:
         existing = [(label, path, note) for label, path, note in paths if path.exists()]
-        measured = sizes_of([path for _label, path, _note in existing], cancel=token.check) if existing else {}
+        measured_count = 0
+
+        def measurement_result(path: Path, _size: int) -> None:
+            nonlocal measured_count
+            measured_count += 1
+            if self._progress:
+                fraction = measured_count / max(1, len(existing))
+                percent = min(99, int((self._phase_index + fraction) / self._phase_total * 100))
+                self._progress(percent, self._phase_name, str(path))
+
+        measured = sizes_of(
+            [path for _label, path, _note in existing],
+            cancel=token.check,
+            on_result=measurement_result,
+        ) if existing else {}
         items = tuple({"label": label, "path": str(path), "bytes": measured.get(path, 0),
                        "humanBytes": human_bytes(measured.get(path, 0)),
                        "note": note, "removable": False} for label, path, note in existing)
@@ -351,11 +383,16 @@ class DeveloperInventory:
             for raw in data.get("envs", []):
                 path = Path(raw); is_base = str(path) == root_prefix or path.name in {"base", "root"}
                 items.append(DeveloperItem(f"{manager}-env:{path}", "environment", path.name, "", manager, path, is_active=str(path) == active_prefix, executable=None if is_base else executable, arguments=("env", "remove", "-p", str(path), "-y") if not is_base else (), protected_reason="Base/root environment is protected" if is_base else "", note=f"Managed by {manager}"))
-        poetry = which("poetry")
-        if poetry:
-            for line in run_command(poetry, ["env", "list", "--full-path"]).stdout.splitlines():
-                raw = line.split(" (")[0].strip(); path = Path(raw)
-                if path.is_absolute(): items.append(DeveloperItem(f"poetry-env:{path}", "environment", path.name, "", "Poetry", path, protected_reason="Poetry environments are project-owned; remove from the owning project", note="Inventory only"))
+        poetry_root = Path(os.environ.get(
+            "POETRY_VIRTUALENVS_PATH",
+            Path(os.environ.get("POETRY_CACHE_DIR", Path.home() / "Library/Caches/pypoetry")) / "virtualenvs",
+        ))
+        for path in _children(poetry_root):
+            items.append(DeveloperItem(
+                f"poetry-env:{path}", "environment", path.name, "", "Poetry", path,
+                protected_reason="Poetry environments are project-owned; remove from the owning project",
+                note="Inventory only",
+            ))
         return _finish_sizes(items, self._scan_cancellation)
 
     def tools(self) -> list[DeveloperItem]:
@@ -374,11 +411,21 @@ class DeveloperInventory:
                 items.append(DeveloperItem(f"brew-tool:{formula}", "tool", formula, "", "Homebrew", prefix, is_active=active, executable=brew, arguments=("uninstall", "--formula", formula), protected_reason=f"Required by: {dependents}" if dependents else "", note="Top-level requested formula"))
         pipx = which("pipx")
         if pipx:
-            try: environments = json.loads(run_command(pipx, ["list", "--json"]).stdout).get("venvs", {})
-            except json.JSONDecodeError: environments = {}
+            try:
+                payload = json.loads(run_command(pipx, ["list", "--json"]).stdout)
+                environments = payload.get("venvs", {}) if isinstance(payload, dict) else {}
+            except json.JSONDecodeError:
+                environments = {}
+            pipx_home = Path(os.environ.get("PIPX_HOME", Path.home() / ".local/share/pipx"))
             for name, raw in environments.items():
-                version = str(raw.get("metadata", {}).get("main_package", {}).get("package_version", ""))
-                path = Path(raw.get("metadata", {}).get("venv_args", {}).get("venv_dir", Path.home() / f".local/share/pipx/venvs/{name}"))
+                if not isinstance(raw, dict):
+                    continue
+                metadata = raw.get("metadata", {})
+                metadata = metadata if isinstance(metadata, dict) else {}
+                main_package = metadata.get("main_package", {})
+                main_package = main_package if isinstance(main_package, dict) else {}
+                version = str(main_package.get("package_version", ""))
+                path = pipx_home / "venvs" / name
                 items.append(DeveloperItem(f"pipx:{name}", "tool", name, version, "pipx", path, executable=pipx, arguments=("uninstall", name), note="Isolated pipx app"))
         uv = which("uv")
         if uv:
@@ -393,8 +440,14 @@ class DeveloperInventory:
             result = run_command(executable, ["list", "-g", "--depth=0", "--json"], timeout=30)
             try: data = json.loads(result.stdout)
             except json.JSONDecodeError: continue
+            if not isinstance(data, dict):
+                continue
             prefix = Path(data.get("path") or run_command(executable, ["root", "-g"]).stdout or Path.home())
-            for name, meta in data.get("dependencies", {}).items():
+            dependencies = data.get("dependencies", {})
+            if not isinstance(dependencies, dict):
+                continue
+            for name, meta in dependencies.items():
+                meta = meta if isinstance(meta, dict) else {}
                 items.append(DeveloperItem(f"{manager}:{name}", "tool", name, str(meta.get("version", "")), manager, prefix / name, executable=executable, arguments=("uninstall" if manager == "npm" else "remove", "-g", name), note=f"Global {manager} package"))
         cargo = which("cargo")
         if cargo:

@@ -471,8 +471,14 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             return {"groups": [group.web_dict() for group in groups], "totalWastedBytes": total,
                     "humanTotalWasted": human_bytes(total), "selectedByDefault": []}
         if path == "/api/developer/storage":
-            sections = DeveloperStorageCenter(state.config).scan()
+            state.progress.start("devstorage", "Scanning developer storage")
+            try:
+                sections = DeveloperStorageCenter(state.config).scan(progress=state.progress.update)
+            except Exception:
+                state.progress.finish("Developer storage scan failed", percent=0)
+                raise
             total = sum(section.bytes for section in sections)
+            state.progress.finish(f"Developer storage scan completed · {len(sections)} ecosystems")
             return {"sections": [section.web_dict() for section in sections], "totalBytes": total,
                     "humanTotal": human_bytes(total)}
         if path == "/api/developer/caches":
@@ -486,7 +492,15 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             kind = path.rsplit("/", 1)[-1]
             if kind not in {"runtimes", "environments", "tools", "sdks"}: raise FileNotFoundError(path)
             category = kind.removesuffix("s")
-            items = DeveloperInventory(state.config).scan(category)
+            service = {"runtime": "runtimes", "environment": "environments", "tool": "devtools", "sdk": "sdks"}[category]
+            state.progress.start(service, f"Scanning developer {kind}")
+            state.progress.update(10, "Querying installed managers", "")
+            try:
+                items = DeveloperInventory(state.config).scan(category)
+            except Exception:
+                state.progress.finish(f"Developer {kind} scan failed", percent=0)
+                raise
+            state.progress.finish(f"Developer {kind} scan completed · {len(items)} item(s)")
             with state.lock:
                 state.developer_items[category] = items
                 self._bump_generation(f"developer-{category}")

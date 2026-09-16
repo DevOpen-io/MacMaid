@@ -36,7 +36,7 @@
             </div>
             <div class="brand-text-wrap">
               <span class="brand-name">MacMaid <span class="badge-pro">PRO</span></span>
-              <span class="version-tag">v0.11.1 Python</span>
+              <span class="version-tag">v0.11.2 Python</span>
             </div>
           </div>
         </div>
@@ -1030,11 +1030,48 @@
               </div>
               <button class="btn btn-primary" id="btn-scan-devstorage"><span data-i18n="dev.btn_scan_storage">Scan Storage</span></button>
             </div>
+
+            <div class="inpage-progress-card hidden" id="devstorage-progress-card">
+              <div class="inpage-progress-header">
+                <div class="inpage-title-group">
+                  <span class="live-pulse-dot"></span>
+                  <span class="inpage-action-label" id="devstorage-action-label" data-i18n="dev.action_scanning_storage_sub">Scanning developer storage…</span>
+                  <span class="inpage-phase-badge" id="devstorage-phase-badge" data-i18n="clean.phase_working">WORKING</span>
+                </div>
+                <div class="inpage-stats-group">
+                  <span class="inpage-count" id="devstorage-progress-count"></span>
+                  <span class="inpage-percent" id="devstorage-progress-percent">0%</span>
+                </div>
+              </div>
+              <div class="inpage-progress-track">
+                <div class="inpage-progress-fill" id="devstorage-progress-bar" style="width: 0%;"></div>
+              </div>
+              <div class="inpage-path-ticker">
+                <span class="inpage-path-icon">📂</span>
+                <span class="inpage-path-text" id="devstorage-path-text" data-i18n="clean.path_preparing">Preparing...</span>
+              </div>
+            </div>
+
             <div class="glass-card">
+              <div class="table-toolbar">
+                <div class="purge-summary">
+                  <span data-i18n="common.total_space">Total Space: </span>
+                  <strong class="highlight-cyan" id="devstorage-total-size">0 GB</strong>
+                  <span class="text-muted" id="devstorage-count">(0 items)</span>
+                </div>
+              </div>
               <div class="table-container">
                 <table class="data-table" id="table-devstorage">
-                  <thead><tr><th data-i18n="dev.th_ecosystem">Ecosystem</th><th data-i18n="clean.th_size">Size</th><th data-i18n="dev.th_items">Items</th><th data-i18n="dev.th_note">Note</th></tr></thead>
-                  <tbody id="tbody-devstorage"><tr><td colspan="4" class="empty-state" data-i18n="dev.empty_storage">Click above to scan Developer Storage Center.</td></tr></tbody>
+                  <thead>
+                    <tr>
+                      <th data-i18n="dev.th_ecosystem">Ecosystem</th>
+                      <th data-i18n="dev.th_items">Item</th>
+                      <th data-i18n="common.th_location_path">Location Path</th>
+                      <th data-i18n="dev.th_note">Note</th>
+                      <th width="120" style="text-align: right;" data-i18n="clean.th_size">Size</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-devstorage"><tr><td colspan="5" class="empty-state" data-i18n="dev.empty_storage">Click above to scan Developer Storage Center.</td></tr></tbody>
                 </table>
               </div>
             </div>
@@ -2047,7 +2084,7 @@
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 14px;">
                 <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 10px 14px;">
                   <div style="font-size: 11px; color: var(--text-dim);" data-i18n="settings.version_label">Version</div>
-                  <div style="font-size: 13px; font-weight: 600; color: var(--text-main); font-family: var(--font-mono); margin-top: 2px;">0.11.1 (Python 3.11+)</div>
+                  <div style="font-size: 13px; font-weight: 600; color: var(--text-main); font-family: var(--font-mono); margin-top: 2px;">0.11.2 (Python 3.11+)</div>
                 </div>
                 <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 10px 14px;">
                   <div style="font-size: 11px; color: var(--text-dim);" data-i18n="settings.safety_label">Safety Model</div>

@@ -337,6 +337,43 @@ def test_conda_base_identity_comes_from_manager_info(config, monkeypatch):
     assert len(items) == 2 and all(not item.removable for item in items)
 
 
+def test_poetry_environment_inventory_does_not_require_project_cwd(config, monkeypatch):
+    monkeypatch.delenv("POETRY_VIRTUALENVS_PATH", raising=False)
+    monkeypatch.delenv("POETRY_CACHE_DIR", raising=False)
+    environment = config.home / "Library/Caches/pypoetry/virtualenvs/example-py3.11"
+    environment.mkdir(parents=True)
+
+    items = DeveloperInventory(config).environments()
+
+    assert len(items) == 1
+    assert items[0].manager == "Poetry"
+    assert items[0].path == environment
+    assert not items[0].removable
+
+
+def test_pipx_list_accepts_current_list_shaped_venv_args(config, monkeypatch):
+    monkeypatch.delenv("PIPX_HOME", raising=False)
+    payload = {
+        "venvs": {
+            "poetry": {
+                "metadata": {
+                    "main_package": {"package_version": "2.3.2"},
+                    "venv_args": [],
+                }
+            }
+        }
+    }
+    monkeypatch.setattr(developer, "which", lambda name: "fake-pipx" if name == "pipx" else None)
+    monkeypatch.setattr(developer, "_run_command", lambda *args, **kwargs: CommandResult(0, json.dumps(payload)))
+
+    items = DeveloperInventory(config).tools()
+
+    assert len(items) == 1
+    assert items[0].title == "poetry"
+    assert items[0].version == "2.3.2"
+    assert items[0].path == config.home / ".local/share/pipx/venvs/poetry"
+
+
 def test_failed_active_query_is_not_treated_as_inactive(config, monkeypatch):
     monkeypatch.setattr(developer, "which", lambda name: "fake-manager" if name == "mise" else None)
     monkeypatch.setattr(developer, "_run_command", lambda *a, **kw: CommandResult(124, stderr="timeout"))
