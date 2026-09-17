@@ -55,11 +55,11 @@ Discover → Classify → PathSafety → Whitelist → Preview → Confirmation 
 
 ### Old Installers
 
-- [ ] Minimum yaş filtresi ekle: tümü, 7, 14 ve 30 gün.
+- [x] Minimum yaş filtresi ekle: tümü, 7, 14 ve 30 gün.
 
 ### Smart Downloads
 
-- [ ] Eski indirmeler için 30 / 90 / 180 / 365 gün filtresi ekle.
+- [x] Eski indirmeler için 30 / 90 / 180 / 365 gün filtresi ekle.
 
 ### Large & Old Files
 

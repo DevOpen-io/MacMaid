@@ -253,6 +253,8 @@ class MacMaidTUI(App[None]):
         self.more_kind: str | None = None; self.more_origin = "more"
         self.leftover_age_days = 30; self.leftover_include_data = False
         self.leftover_cache: ScanResult | None = None; self.leftover_mtimes: dict[str, float] = {}; self.leftover_cache_includes_data = False
+        self.installer_age_days = 30; self.installer_cache: ScanResult | None = None; self.installer_mtimes: dict[str, float] = {}
+        self.smart_download_age_days = 30; self.smart_download_cache: ScanResult | None = None; self.smart_download_mtimes: dict[str, float] = {}
         self.more_result: ScanResult | None = None; self.more_selected: set[int] = set()
         self.update_status: dict[str, Any] | None = None
         self.whitelist_lines: list[str] = []
@@ -661,6 +663,18 @@ class MacMaidTUI(App[None]):
             event.prevent_default()
             event.stop()
             self._confirm_snapshot_thin({"1": 10, "2": 20, "5": 50}[event.key])
+            return
+        if self.current_page == "more-results" and self.more_kind == "smart-downloads" and event.key in {"1", "2", "3", "4"}:
+            event.prevent_default()
+            event.stop()
+            self.smart_download_age_days = {"1": 30, "2": 90, "3": 180, "4": 365}[event.key]
+            self._apply_smart_download_filter()
+            return
+        if self.current_page == "more-results" and self.more_kind == "installers" and event.key.casefold() in {"a", "1", "2", "3"}:
+            event.prevent_default()
+            event.stop()
+            self.installer_age_days = {"a": 0, "1": 7, "2": 14, "3": 30}[event.key.casefold()]
+            self._apply_installer_filter()
             return
         if self.current_page == "more-results" and self.more_kind == "leftovers" and event.key.casefold() in {"a", "1", "2", "3", "d"}:
             event.prevent_default()
@@ -2100,11 +2114,17 @@ class MacMaidTUI(App[None]):
                 mtimes = {item.id: item.path.stat().st_mtime for item in result.items if item.path is not None and item.path.exists()}
                 self._scan_update(self._finish_leftovers, result, mtimes, self.leftover_include_data); return
             elif kind == "installers":
-                result = scan_installers(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
+                # Discover every age once; changing the age filter only updates cached rows.
+                result = scan_installers(0, cancellation=token)
+                mtimes = {item.id: item.path.stat().st_mtime for item in result.items if item.path is not None and item.path.exists()}
+                self._scan_update(self._finish_installers, result, mtimes); return
             elif kind == "browser-storage":
                 result = BrowserStorageInspector().scan_result(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "smart-downloads":
-                result = SmartDownloadsScanner().scan_result(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
+                # Discover once, then apply the selected age threshold from cached metadata.
+                result = SmartDownloadsScanner(older_than_days=0).scan_result(cancellation=token)
+                mtimes = {item.id: item.path.stat().st_mtime for item in result.items if item.path is not None and item.path.exists()}
+                self._scan_update(self._finish_smart_downloads, result, mtimes); return
             elif kind == "duplicates":
                 result = DuplicateFinder().scan_result(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind.startswith("large-files"):
@@ -2147,6 +2167,32 @@ class MacMaidTUI(App[None]):
             self.query_one("#more-hint", Static).update(self._ui("1  Review 10 GB · 2  20 GB · 5  50 GB · R Refresh · Esc Back"))
         self._set_state("more", f"{kind} hazır")
 
+    def _finish_smart_downloads(self, result: ScanResult, mtimes: dict[str, float]) -> None:
+        self.scan_cancellations.pop("more", None)
+        self.smart_download_cache = result
+        self.smart_download_mtimes = mtimes
+        self._apply_smart_download_filter()
+
+    def _apply_smart_download_filter(self) -> None:
+        if self.smart_download_cache is None:
+            return
+        cutoff = time.time() - self.smart_download_age_days * 86400
+        items = [item for item in self.smart_download_cache.items if self.smart_download_mtimes.get(item.id, 0) < cutoff]
+        self._finish_more_scan("smart-downloads", ScanResult(items, self.smart_download_cache.notes, self.smart_download_cache.status, self.smart_download_cache.issues))
+
+    def _finish_installers(self, result: ScanResult, mtimes: dict[str, float]) -> None:
+        self.scan_cancellations.pop("more", None)
+        self.installer_cache = result
+        self.installer_mtimes = mtimes
+        self._apply_installer_filter()
+
+    def _apply_installer_filter(self) -> None:
+        if self.installer_cache is None:
+            return
+        cutoff = time.time() - self.installer_age_days * 86400
+        items = [item for item in self.installer_cache.items if self.installer_age_days == 0 or self.installer_mtimes.get(item.id, 0) < cutoff]
+        self._finish_more_scan("installers", ScanResult(items, self.installer_cache.notes, self.installer_cache.status, self.installer_cache.issues))
+
     def _finish_leftovers(self, result: ScanResult, mtimes: dict[str, float], includes_data: bool) -> None:
         self.scan_cancellations.pop("more", None)
         self.leftover_cache = result
@@ -2170,7 +2216,15 @@ class MacMaidTUI(App[None]):
         self.scan_cancellations.pop("more", None)
         manual_review_only = kind in {"duplicates", "smart-downloads"} or kind.startswith("large-files")
         self.more_result = result; self.more_selected = (set() if manual_review_only else {i for i, item in enumerate(result.items) if item.risk is not RiskLevel.MANUAL_ONLY}) if result.is_complete else set()
-        if kind == "leftovers":
+        if kind == "smart-downloads":
+            age = self._ui("{days} days or older").format(days=self.smart_download_age_days)
+            self.query_one("#more-output", Static).update(self._ui("Old downloads: {age}\n1 30 days · 2 90 days · 3 180 days · 4 365 days · R Refresh").format(age=age))
+            self.query_one("#more-hint", Static).update(self._ui("1 30 days · 2 90 days · 3 180 days · 4 365 days · Space Select · Enter Continue · Esc Back"))
+        elif kind == "installers":
+            age = self._ui("All ages") if self.installer_age_days == 0 else self._ui("{days} days or older").format(days=self.installer_age_days)
+            self.query_one("#more-output", Static).update(self._ui("Minimum age: {age}\nA All · 1 7 days · 2 14 days · 3 30 days · R Refresh").format(age=age))
+            self.query_one("#more-hint", Static).update(self._ui("A All · 1 7 days · 2 14 days · 3 30 days · Space Select · Enter Continue · Esc Back"))
+        elif kind == "leftovers":
             age = self._ui("All ages") if self.leftover_age_days == 0 else self._ui("{days} days or older").format(days=self.leftover_age_days)
             data = self._ui("included (manual review only)") if self.leftover_include_data else self._ui("excluded")
             self.query_one("#more-output", Static).update(self._ui("Age: {age} · Application Support/Containers data: {data}\nA All · 1 7 days · 2 14 days · 3 30 days · D Toggle application data (off by default) · R Refresh").format(age=age, data=data))
