@@ -402,7 +402,12 @@ def main(argv: list[str] | None = None) -> None:
             table.add_column("STATUS / VALUE", style="cyan")
             for check in checks:
                 val = str(check["value"])
-                val_styled = f"[green]✓ {val}[/green]" if any(ok in val.lower() for ok in ("ok", "ready", "passed", "normal", "healthy", "available")) else val
+                if check.get("ok") is True:
+                    val_styled = f"[green]✓ {val}[/green]"
+                elif check.get("ok") is False:
+                    val_styled = f"[red]■ {val}[/red]"
+                else:
+                    val_styled = val
                 table.add_row(check["name"], val_styled)
             console.print(table)
         else:

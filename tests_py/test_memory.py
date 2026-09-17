@@ -13,6 +13,7 @@ import pytest
 from macmaid import memory
 from macmaid import cli
 from macmaid.config import Config
+from macmaid.system import CommandResult
 from macmaid.web import MacMaidHandler, WebState
 
 
@@ -56,7 +57,7 @@ def service(tmp_path, monkeypatch):
     monkeypatch.setattr(memory.psutil, "Process", lambda pid: proc)
     monkeypatch.setattr(memory.psutil, "virtual_memory", lambda: SimpleNamespace(used=10, total=20, available=10))
     monkeypatch.setattr(memory.psutil, "swap_memory", lambda: SimpleNamespace(used=2))
-    monkeypatch.setattr(memory, "_expensive_health_probes", lambda: {"memoryFreePercent": 10})
+    monkeypatch.setattr(instance, "_sample_pressure_headroom", lambda now: 10)
     monkeypatch.setattr(memory.psutil, "wait_procs", lambda procs, timeout: (procs, []))
     instance.sample()
     instance.proc = proc
@@ -85,6 +86,24 @@ def test_sample_and_history_are_read_only(service):
     assert row["growthBytes"] is None
     assert service.history(row["key"])["samples"][0]["rssBytes"] == 3 * 1024**3
     assert service.proc.signals == []
+
+
+def test_pressure_probe_is_memory_only_and_cached(tmp_path, monkeypatch):
+    config = Config(home=tmp_path)
+    config.ensure_files()
+    service = memory.MemoryService(config, threading.Lock())
+    calls = []
+
+    def command(executable, arguments, timeout):
+        calls.append((executable, arguments, timeout))
+        return CommandResult(0, "System-wide memory free percentage: 17.5%")
+
+    monkeypatch.setattr(memory, "run_command", command)
+    assert service._sample_pressure_headroom(100.0) == 17.5
+    assert service._sample_pressure_headroom(110.0) == 17.5
+    assert calls == [("/usr/bin/memory_pressure", ["-Q"], 5)]
+    assert service._sample_pressure_headroom(131.0) == 17.5
+    assert len(calls) == 2
 
 
 @pytest.mark.parametrize("exe,args,role", [
@@ -331,6 +350,20 @@ def test_histories_are_bounded_to_an_hour(service):
     assert service.history(target)["samples"][0]["secondsAgo"] <= 3600
 
 
+def test_doctor_uses_structured_health_status(service, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "Config", lambda: service.config)
+    monkeypatch.setattr(cli, "doctor", lambda: [
+        {"name": "Missing tool", "value": "Unavailable", "ok": False},
+        {"name": "Ready tool", "value": "Available", "ok": True},
+        {"name": "Neutral tool", "value": "Unknown", "ok": None},
+    ])
+    cli.main(["doctor"])
+    output = capsys.readouterr().out
+    assert "■ Unavailable" in output
+    assert "✓ Available" in output
+    assert "✓ Unknown" not in output and "■ Unknown" not in output
+
+
 def test_cli_memory_stop_is_review_only_without_apply(service, monkeypatch, capsys):
     monkeypatch.setattr(cli, "Config", lambda: service.config)
     monkeypatch.setattr(cli, "MemoryService", lambda config, lock: service)
@@ -360,7 +393,6 @@ def test_cli_memory_snapshot_rich_rendering(service, monkeypatch, capsys):
     assert "dart" in output
 
 
-
 def test_cli_memory_growing_filter_and_sort(service, monkeypatch, capsys):
     monkeypatch.setattr(cli, "Config", lambda: service.config)
     monkeypatch.setattr(cli, "MemoryService", lambda config, lock: service)
@@ -368,6 +400,4 @@ def test_cli_memory_growing_filter_and_sort(service, monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "MacMaid Memory Monitor" in output
     assert "Process" in output
-
-
 

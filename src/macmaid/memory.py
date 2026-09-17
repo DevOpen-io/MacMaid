@@ -5,6 +5,7 @@ import copy
 import json
 import math
 import os
+import re
 import secrets
 import statistics
 import threading
@@ -17,8 +18,8 @@ from typing import Any
 import psutil
 
 from .config import Config
-from .features import _expensive_health_probes
 from .review import ReviewItem, ReviewPlan
+from .system import run_command
 
 HELPERS = {"dart-analysis", "typescript-server"}
 SYSTEM_ROOTS = ("/System/", "/Library/Apple/", "/usr/lib/", "/usr/libexec/", "/usr/sbin/", "/sbin/", "/bin/", "/usr/bin/")
@@ -98,6 +99,8 @@ class MemoryService:
         self.error = ""
         self.settings_error = ""
         self.last_sample = 0.0
+        self.pressure_sampled_at = 0.0
+        self.pressure_headroom: float | None = None
         self.settings = self._read_settings()
 
     def _read_settings(self) -> dict:
@@ -213,6 +216,19 @@ class MemoryService:
                 "rssBytes": rss, "cpuTime": cpu.user + cpu.system, "protected": reason,
                 "helper": role in HELPERS and not reason}
 
+    def _sample_pressure_headroom(self, now: float) -> float | None:
+        """Read only macOS memory pressure, without unrelated battery/thermal probes."""
+        if self.pressure_sampled_at and now - self.pressure_sampled_at < 30:
+            return self.pressure_headroom
+        result = run_command("/usr/bin/memory_pressure", ["-Q"], timeout=5)
+        match = re.search(r"System-wide memory free percentage:\s*(\d+(?:\.\d+)?)%", result.stdout)
+        self.pressure_headroom = (
+            min(100.0, max(0.0, float(match.group(1))))
+            if result.succeeded and match else None
+        )
+        self.pressure_sampled_at = now
+        return self.pressure_headroom
+
     def sample(self) -> None:
         now = time.monotonic()
         protected = self._protected_pids()
@@ -259,7 +275,7 @@ class MemoryService:
             self.last_sample = now
         memory = psutil.virtual_memory()
         swap = psutil.swap_memory()
-        pressure = _expensive_health_probes().get("memoryFreePercent")
+        pressure = self._sample_pressure_headroom(now)
         with self.lock:
             self.metrics = {"used": memory.used, "total": memory.total, "available": memory.available,
                             "swap": swap.used, "pressureHeadroom": pressure, "measuredAt": time.time()}

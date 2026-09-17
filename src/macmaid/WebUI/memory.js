@@ -1,33 +1,4 @@
 /* Memory workspace. Process selection is always keyed by PID + creation time. */
-const MEMORY_COPY = {
-  title: ['Memory', 'Bellek'], nav: ['Processes & growth', 'Süreçler ve büyüme'],
-  subtitle: ['Find growing processes. Review what stops. Keep your work in control.', 'Büyüyen süreçleri bulun. Durdurulacakları inceleyin. İşinizin kontrolünü koruyun.'],
-  monitoring: ['Monitoring continues while MacMaid runs. Growth is a signal, not a confirmed leak.', 'MacMaid çalışırken izleme sürer. Büyüme bir işarettir; kesin bir sızıntı değildir.'],
-  monitoringShort: ['Monitoring while MacMaid runs', 'MacMaid çalışırken izleniyor'], processes: ['Processes', 'Süreçler'], searchPlaceholder: ['Name, PID, or path', 'Ad, PID veya yol'],
-  processSummary: ['{visible} of {total} processes · {protected} protected', '{total} süreçten {visible} tanesi · {protected} korumalı'], processCount: ['Processes', 'Süreçler'], growingCount: ['{count} showing sustained growth', '{count} süreç sürekli büyüyor'], protectedCount: ['{count} protected', '{count} korumalı'], systemWide: ['System-wide usage', 'Sistem genelindeki kullanım'],
-  search: ['Search processes', 'Süreç ara'], filter: ['Show', 'Göster'], all: ['All processes', 'Tüm süreçler'], developer: ['Developer tools', 'Geliştirici araçları'], flutter: ['Flutter / Dart', 'Flutter / Dart'], sort: ['Sort by', 'Sıralama'], rss: ['Resident memory (RSS)', 'Yerleşik bellek (RSS)'], growth: ['10-minute growth', '10 dakikalık büyüme'], cpu: ['CPU', 'CPU'], name: ['Process', 'Süreç'], status: ['Status', 'Durum'], actions: ['Actions', 'İşlemler'], selection: ['Select', 'Seç'],
-  select: ['Select visible eligible processes', 'Görünen uygun süreçleri seç'], clear: ['Clear selection', 'Seçimi temizle'], stop: ['Review & Stop', 'İncele ve Durdur'], force: ['Review Force Stop', 'Zorla Durdurmayı İncele'],
-  rssNote: ['RSS includes shared memory. Process totals are not an estimate of recoverable RAM.', 'RSS paylaşılan belleği içerir. Süreç toplamları geri kazanılabilir RAM tahmini değildir.'],
-  rules: ['Automatic helper rules', 'Otomatik yardımcı kuralları'], rulesNote: ['Optional and off by default. Only approved Dart analysis and TypeScript server helpers can stop automatically. Active apps, builds and simulators remain manual. Rules never force-stop.', 'İsteğe bağlıdır ve başlangıçta kapalıdır. Yalnızca onaylanan Dart analiz ve TypeScript sunucu yardımcıları otomatik durdurulabilir. Etkin uygulamalar, derlemeler ve simülatörler elle yönetilir. Kurallar zorla durdurmaz.'],
-  exclusions: ['Never stop', 'Asla durdurma'], exclusionsNote: ['Executables listed here remain protected from manual and automatic actions.', 'Buradaki çalıştırılabilir dosyalar elle ve otomatik işlemlerden korunur.'], activity: ['Memory activity', 'Bellek etkinliği'], activityNote: ['Stop requests and their outcomes for this session.', 'Bu oturumdaki durdurma istekleri ve sonuçları.'], pressure: ['Pressure headroom', 'Bellek baskısı payı'], ram: ['RAM used / total', 'Kullanılan / toplam RAM'], swap: ['Swap used', 'Kullanılan takas'], unknown: ['Unavailable', 'Kullanılamıyor'], loading: ['Collecting processes…', 'Süreçler toplanıyor…'], empty: ['No matching processes.', 'Eşleşen süreç yok.'], collecting: ['Collecting history', 'Geçmiş toplanıyor'], growing: ['Growing memory', 'Bellek büyüyor'], stable: ['No sustained growth', 'Sürekli büyüme yok'],
-  details: ['Details', 'Ayrıntılar'], exclude: ['Never stop', 'Asla durdurma'], addRule: ['Set helper rule', 'Yardımcı kuralı ayarla'], remove: ['Remove', 'Kaldır'], pause: ['Pause automation', 'Otomasyonu duraklat'], resume: ['Enable automation', 'Otomasyonu etkinleştir'], noRules: ['No rules. Choose “Set helper rule” on a recognized helper to begin.', 'Kural yok. Başlamak için tanınan bir yardımcıda “Yardımcı kuralı ayarla” seçeneğini kullanın.'], noExclusions: ['No excluded executables.', 'Hariç tutulan çalıştırılabilir dosya yok.'], noActivity: ['No memory actions this session.', 'Bu oturumda bellek işlemi yok.'],
-  selected: ['{count} selected', '{count} seçili'], cancel: ['Cancel', 'İptal'], confirm: ['Stop selected processes', 'Seçili süreçleri durdur'], confirmForce: ['Force Stop selected processes', 'Seçili süreçleri zorla durdur'], impact: ['Stopping can interrupt work and lose unsaved changes. Only these exact processes are targeted; child processes are not included automatically. MacMaid will not relaunch them.', 'Durdurma işi kesintiye uğratabilir ve kaydedilmemiş değişiklikleri kaybettirebilir. Yalnızca bu süreçler hedeflenir; alt süreçler otomatik eklenmez. MacMaid bunları yeniden başlatmaz.'], forceImpact: ['Force Stop sends SIGKILL immediately and can lose unsaved work. Use it only for processes that did not stop normally.', 'Zorla Durdur, hemen SIGKILL gönderir ve kaydedilmemiş işi kaybettirebilir. Yalnızca normal durmayan süreçler için kullanın.'], consent: ['I understand and accept the interruption and possible loss of unsaved work.', 'Kesintiyi ve kaydedilmemiş işin kaybolma olasılığını anlıyor ve kabul ediyorum.'], needConsent: ['Check the interruption confirmation first.', 'Önce kesinti onayını işaretleyin.'], stopping: ['Waiting for processes to stop…', 'Süreçlerin durması bekleniyor…'],
-  observed: ['Observed available RAM change: {delta}. This system-wide change is not attributable solely to MacMaid.', 'Gözlenen kullanılabilir RAM değişimi: {delta}. Sistem genelindeki bu değişim yalnızca MacMaid’e atfedilemez.'],
-  'exited': ['Exited', 'Sonlandı'], 'still-running': ['Still running — Force Stop is available after review', 'Hâlâ çalışıyor — inceleme sonrası Zorla Durdur kullanılabilir'], skipped: ['Skipped', 'Atlandı'], requested: ['Stop requested', 'Durdurma istendi'], automatic: ['Automatic', 'Otomatik'], manual: ['Manual', 'Elle'],
-  'other-user': ['Protected: another user', 'Korumalı: başka kullanıcı'], 'macmaid-or-ancestor': ['Protected: MacMaid / launcher', 'Korumalı: MacMaid / başlatıcı'], 'unverified-identity': ['Protected: identity unavailable', 'Korumalı: kimlik alınamadı'], 'system-process': ['Protected: macOS process', 'Korumalı: macOS süreci'], excluded: ['Protected: never stop', 'Korumalı: asla durdurma'],
-  'dart-analysis': ['Dart analysis server', 'Dart analiz sunucusu'], 'typescript-server': ['TypeScript server', 'TypeScript sunucusu'], 'dart-tool': ['Dart / Flutter tool', 'Dart / Flutter aracı'], 'flutter-tool': ['Flutter tool', 'Flutter aracı'], 'development-tool': ['Development tool', 'Geliştirme aracı'], application: ['Application / process', 'Uygulama / süreç'],
-  threshold: ['RSS threshold (GiB)', 'RSS eşiği (GiB)'], duration: ['Above threshold for (minutes)', 'Eşik üzerinde kalma süresi (dakika)'], headroom: ['Only when pressure headroom is below (%)', 'Yalnızca baskı payı bu değerin altındayken (%)'], save: ['Save helper rule', 'Yardımcı kuralını kaydet'], ruleImpact: ['This exact helper executable and role may receive SIGTERM without another confirmation. Analysis or editor assistance may be interrupted. Rules wait 30 minutes between attempts and pause after two failures.', 'Bu yardımcı dosyası ve rolü, başka onay olmadan SIGTERM alabilir. Analiz veya düzenleyici desteği kesilebilir. Kurallar denemeler arasında 30 dakika bekler ve iki başarısızlık sonrası duraklar.'], enabled: ['Enabled', 'Etkin'], disabled: ['Paused after failures', 'Başarısızlıklar sonrası duraklatıldı'], ruleSummary: ['Above {rss} for {minutes} min; pressure headroom below {pressure}%.', '{minutes} dakika boyunca {rss} üzerinde; baskı payı %{pressure} altında.'], trend: ['Resident memory over the last hour', 'Son saatteki yerleşik bellek'], trendRange: ['{old} seconds ago → now · {low} to {high}', '{old} saniye önce → şimdi · {low} ile {high}'], evidence: ['Growing memory means more than 256 MiB and 25% growth over ten minutes, with at least seven increasing minute-to-minute medians.', 'Bellek büyümesi, on dakikada 256 MiB ve %25 üzerinde artış ve dakikalık medyanlarda en az yedi yükseliş anlamına gelir.'], refresh: ['Refresh Memory to retry.', 'Yeniden denemek için Bellek bölümünü yenileyin.'],
-  refreshBtn: ['Refresh', 'Yenile'], filterGrowing: ['Growing', 'Büyüyen'], filterProtected: ['Protected', 'Korumalı'],
-  pressureNormal: ['Normal', 'Normal'], pressureElevated: ['Elevated', 'Yüksek'], pressureCritical: ['Critical', 'Kritik'],
-  close: ['Close', 'Kapat'], peak: ['Peak in window', 'Penceredeki en yüksek'], currentRss: ['Current RSS', 'Geçerli RSS'],
-  copyPath: ['Copy path', 'Yolu kopyala'], copied: ['Copied!', 'Kopyalandı!'], roleLabel: ['Role', 'Rol']
-};
-
-for (const [key, values] of Object.entries(MEMORY_COPY)) {
-  I18N.en[`memory.${key}`] = values[0];
-  I18N.tr[`memory.${key}`] = values[1];
-}
-
 const memoryState = {
   snapshot: null,
   selected: new Set(),
@@ -316,7 +287,7 @@ function renderMemory() {
               ${lucideIcon('shield')}<span>${e(mt('exclude'))}</span>
             </button>`}
             ${row.helper ? `<button class="btn btn-secondary btn-icon-action" data-memory-action="rule" data-key="${e(row.key)}" title="${e(mt('addRule'))}" aria-label="${e(mt('addRule'))}">
-              ${lucideIcon('settings')}<span>${e(mt('addRule'))}</span>
+              ${lucideIcon('sliders-horizontal')}<span>${e(mt('addRule'))}</span>
             </button>` : ''}
           </div>
         </td>
@@ -339,7 +310,7 @@ function renderMemory() {
       <div class="memory-rule memory-card-item">
         <div class="memory-card-main">
           <div class="memory-card-title-row">
-            <span class="memory-helper-icon">${lucideIcon('settings')}</span>
+            <span class="memory-helper-icon">${lucideIcon('sliders-horizontal')}</span>
             <strong>${e(mt(rule.role))}</strong>
             <span class="memory-rule-status ${rule.enabled ? 'is-enabled' : 'is-disabled'}">${e(mt(rule.enabled ? 'enabled' : 'disabled'))}</span>
           </div>
@@ -388,7 +359,7 @@ function renderMemory() {
         <time class="memory-event-time">${e(new Date(event.time * 1000).toLocaleTimeString())}</time>
         <div class="memory-event-info">
           <span class="memory-event-name">${e(event.name || event.key)}</span>
-          <span class="memory-event-mode">${lucideIcon(event.automatic ? 'zap' : 'user', 'mini-icon')} ${e(mt(event.automatic ? 'automatic' : 'manual'))}</span>
+          <span class="memory-event-mode">${lucideIcon(event.automatic ? 'zap' : 'check', 'mini-icon')} ${e(mt(event.automatic ? 'automatic' : 'manual'))}</span>
         </div>
         <span class="memory-event-outcome ${outcomeClass}">${e(mt(event.outcome))}</span>
         ${event.detail ? `<span class="memory-event-detail">${e(event.detail)}</span>` : ''}
@@ -625,7 +596,7 @@ function renderMemoryDetails(row, result, scroll = false) {
 
     <div class="memory-details-actions">
       ${row.protected ? '' : `<button type="button" class="btn btn-secondary btn-sm" data-memory-action="detail-exclude" data-key="${e(row.key)}">${lucideIcon('shield')}<span>${e(mt('exclude'))}</span></button>`}
-      ${row.helper ? `<button type="button" class="btn btn-secondary btn-sm" data-memory-action="detail-rule" data-key="${e(row.key)}">${lucideIcon('settings')}<span>${e(mt('addRule'))}</span></button>` : ''}
+      ${row.helper ? `<button type="button" class="btn btn-secondary btn-sm" data-memory-action="detail-rule" data-key="${e(row.key)}">${lucideIcon('sliders-horizontal')}<span>${e(mt('addRule'))}</span></button>` : ''}
     </div>
   `;
 

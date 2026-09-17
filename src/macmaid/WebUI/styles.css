@@ -3531,4 +3531,3 @@ input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.42; }
   .memory-section-header .btn { width: 100%; }
   .memory-details-stats { grid-template-columns: 1fr; }
 }
-

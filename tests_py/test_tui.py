@@ -684,5 +684,3 @@ def test_tui_memory_table_rendering_and_detail(monkeypatch) -> None:
 
     asyncio.run(exercise())
 
-
-

@@ -22,6 +22,9 @@ dependencies = [
 macmaid = "macmaid.cli:main"
 
 [dependency-groups]
+browser = [
+    "playwright>=1.55,<2",
+]
 dev = [
     "pytest>=8.3.0",
 ]

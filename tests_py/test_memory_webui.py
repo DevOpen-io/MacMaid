@@ -4,7 +4,10 @@ from pathlib import Path
 
 
 def test_memory_filter_and_selection_follow_process_identity():
-    source = (Path(__file__).parents[1] / 'src/macmaid/WebUI/memory.js').read_text()
+    root = Path(__file__).parents[1]
+    source = (root / 'src/macmaid/WebUI/memory.js').read_text()
+    app_source = (root / 'src/macmaid/WebUI/app.js').read_text()
+    catalog = app_source[app_source.index('const MEMORY_COPY = {'):app_source.index('function t(key, fallback =')]
     script = '''
 const assert = require('node:assert/strict');
 const controls = Object.fromEntries(['memory-search','memory-filter','memory-sort','memory-selection','memory-stop','memory-force'].map(key => [key, {value:''}]));
@@ -12,7 +15,7 @@ const document = {getElementById:key=>controls[key], addEventListener:()=>{}};
 const I18N = {en:{},tr:{}};
 const state = {lang:'en'};
 const t = key => I18N[state.lang][key];
-''' + source + '''
+''' + catalog + source + '''
 controls['memory-filter'].value='all'; controls['memory-sort'].value='rssBytes';
 memoryState.snapshot={processes:[
  {key:'7:100',pid:7,name:'dart',exe:'/sdk/dart',category:'flutter',role:'dart-analysis',rssBytes:300,protected:'',forceEligible:true},
@@ -38,6 +41,8 @@ for(const [key,translations] of Object.entries(MEMORY_COPY)) assert.equal(transl
 def test_memory_workspace_keeps_overview_controls_and_safety_context_together():
     root = Path(__file__).parents[1]
     html = (root / 'src/macmaid/WebUI/index.html').read_text()
+    script = (root / 'src/macmaid/WebUI/memory.js').read_text()
+    catalog = (root / 'src/macmaid/WebUI/app.js').read_text()
     styles = (root / 'src/macmaid/WebUI/styles.css').read_text()
 
     assert 'class="memory-overview"' in html
@@ -45,5 +50,13 @@ def test_memory_workspace_keeps_overview_controls_and_safety_context_together():
     assert 'class="memory-management-grid"' in html
     assert 'data-i18n="memory.monitoring"' in html
     assert 'data-i18n="memory.rssNote"' in html
+    assert 'data-i18n-title="memory.refreshProcesses"' in html
+    assert 'data-i18n-aria="memory.processFilters"' in html
+    assert 'data-i18n-aria="memory.select"' in html
+    assert "lucideIcon('settings')" not in script
+    assert "'user', 'mini-icon'" not in script
+    assert "lucideIcon('sliders-horizontal')" in script
+    assert 'const MEMORY_COPY = {' in catalog
+    assert 'const MEMORY_COPY = {' not in script
     assert '.memory-status.is-growing' in styles
     assert '@media (max-width: 520px)' in styles
