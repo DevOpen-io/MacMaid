@@ -69,6 +69,6 @@ Discover → Classify → PathSafety → Whitelist → Preview → Confirmation 
 
 ## Öncelik 4 — TUI İşlem Geri Bildirimi
 
-- [ ] GUI'deki canlı log akışına denk, tarama/işlem sırasında açılıp kapanabilen bir TUI olay günlüğü ekle.
-- [ ] Aktif yol, aşama, yüzde ve bulunan öğe sayısını aynı görünümde göster.
-- [ ] Log akışının UI event loop'u engellememesini ve iptal sonrası eski olayları göstermemesini sağla.
+- [x] GUI'deki canlı log akışına denk, tarama/işlem sırasında açılıp kapanabilen bir TUI olay günlüğü ekle.
+- [x] Aktif yol, aşama, yüzde ve bulunan öğe sayısını aynı görünümde göster.
+- [x] Log akışının UI event loop'u engellememesini ve iptal sonrası eski olayları göstermemesini sağla.

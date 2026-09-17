@@ -25,6 +25,7 @@ class Scanner:
         self._phase_index = 0
         self._phase_total = 1
         self._phase_name = "Scanning"
+        self.found_count = 0
 
     def scan(
         self,
@@ -66,6 +67,7 @@ class Scanner:
                 self._phase_name = name
                 self._emit(index, len(phases), name, "")
                 result.items.extend(operation())
+                self.found_count = len(result.items)
                 self._check_cancelled()
                 self._emit(index + 1, len(phases), name, "")
         except ScanCancelled:

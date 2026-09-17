@@ -74,14 +74,18 @@ def test_textual_tui_navigation_and_page_tables(monkeypatch) -> None:
 
             await pilot.press("escape"); await pilot.pause()
             assert switcher.current == "page-dashboard"
-            await pilot.press("4", "l"); await pilot.pause()
+            await pilot.press("4"); await pilot.pause()
             assert app.focused is not app.query_one("#nav", ListView)
             assert len(app.query_one("#clean-table", DataTable).columns) == 5
             assert len(app.query_one("#analyzer-table", DataTable).columns) == 6
             assert len(app.query_one("#more-table", DataTable).columns) == 5
 
+            app._show_results("clean")
             app._update_clean_progress(37, "Sandbox caches", "/Users/test/Library/Containers/current-file")
-            assert str(app.query_one("#clean-target", Static).content) == "/Users/test/Library/Containers/current-file"
+            assert "/Users/test/Library/Containers/current-file" in str(app.query_one("#clean-target", Static).content)
+            assert app.query_one("#clean-events", Static).has_class("open")
+            await pilot.press("l")
+            assert not app.query_one("#clean-events", Static).has_class("open")
 
             app._set_state("analyzer", "Dizin listeleniyor…")
             assert app.query_one("#analyzer-state", Static).has_class("busy")

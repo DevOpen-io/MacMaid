@@ -210,6 +210,8 @@ class MacMaidTUI(App[None]):
     #clean-progress-line ProgressBar { width: 38; margin: 0; }
     #clean-target { width: 1fr; height: 1; padding-left: 2; color: #777b83; overflow: hidden hidden; text-overflow: ellipsis; }
     #clean-progress-line.complete { display: none; }
+    .live-events { display: none; height: 7; border: round #3c5568; padding: 0 1; color: #a9c6d7; overflow: hidden; }
+    .live-events.open { display: block; }
     .state { height: 2; padding: 0 1; color: #9298a1; text-style: bold; }
     .state.busy { color: #74b9d1; }
     .state.success { color: #8fcf8b; }
@@ -270,6 +272,7 @@ class MacMaidTUI(App[None]):
         self._status_running = threading.Event()
         self.operation_done = False
         self.operation_lines: list[str] = []
+        self.live_event_lines: list[str] = []; self.live_events_open = True; self.live_event_generation = 0
         self.pending_confirmation: str | None = None
         self.review_plan: ReviewPlan | None = None
         self.review_origin: str | None = None
@@ -370,7 +373,7 @@ class MacMaidTUI(App[None]):
         ]), Static("↑↓ / j k  Navigate     Enter  Scan     1–4  Jump     Esc/B  Back", classes="hint"))
 
     def _clean_results_page(self) -> Vertical:
-        return self._page("clean-results", "Review Cleanup", "Safe items start enabled. Move with ↑↓ and press Space to exclude/include an item.", Horizontal(ProgressBar(total=100, show_eta=False, id="clean-progress"), Static("", id="clean-target", markup=False), id="clean-progress-line"), Static("Starting scan…", id="clean-state", classes="state"), DataTable(id="clean-table", zebra_stripes=True), Static("The selected item's reason, path and impact appear here.", id="clean-detail", classes="detail", markup=False), Static("↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Cancel", classes="hint"))
+        return self._page("clean-results", "Review Cleanup", "Safe items start enabled. Move with ↑↓ and press Space to exclude/include an item.", Horizontal(ProgressBar(total=100, show_eta=False, id="clean-progress"), Static("", id="clean-target", markup=False), id="clean-progress-line"), Static("Starting scan…", id="clean-state", classes="state"), Static("", id="clean-events", classes="live-events", markup=False), DataTable(id="clean-table", zebra_stripes=True), Static("The selected item's reason, path and impact appear here.", id="clean-detail", classes="detail", markup=False), Static("L Live events · ↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Cancel", classes="hint"))
 
     def _apps_page(self) -> Vertical:
         return self._page("apps", "Uygulama Kaldırıcı", "Ayrı tarama ekranında app paketlerini ve exact bundle-ID bileşenlerini incele.", self._action_menu("apps-actions", [
@@ -502,6 +505,7 @@ class MacMaidTUI(App[None]):
             "operation", "Operation", "Every reviewed target is revalidated immediately before execution.",
             ProgressBar(total=100, show_eta=False, id="operation-progress"),
             Static("Preparing operation…", id="operation-current", markup=False),
+            Static("", id="operation-events", classes="live-events", markup=False),
             Static("", id="operation-log", markup=False),
             Static("Preparing before-operation system metrics…", id="operation-summary", markup=False),
             Static("When complete, press Enter to return to MacMaid.", id="operation-hint", markup=False),
@@ -582,6 +586,7 @@ class MacMaidTUI(App[None]):
         )
 
     def _begin_operation(self, title: str, total: int, before: dict[str, Any]) -> None:
+        self._start_live_events()
         self._mutation_requested = True
         self._leave_results()
         self.operation_done = False
@@ -592,10 +597,11 @@ class MacMaidTUI(App[None]):
         self.query_one("#operation-current", Static).update(f"◌  {title} hazırlanıyor…")
         self.query_one("#operation-log", Static).update("")
         self.query_one("#operation-summary", Static).update(self._snapshot_line("ÖNCE", before))
-        self.query_one("#operation-hint", Static).update("İşlem sürüyor · lütfen terminali kapatma")
+        self.query_one("#operation-hint", Static).update("L Canlı olayları aç/kapat · İşlem sürüyor · lütfen terminali kapatma")
         self._set_activity(f"◌  {title} çalışıyor…")
 
     def _operation_item(self, index: int, total: int, label: str, outcome: str) -> None:
+        self._append_live_event("Operation", label, int(index / max(total, 1) * 100), index)
         icons = {"running": "◌", "success": "✓", "failed": "✕", "skipped": "!"}
         labels = {"success": "Tamamlandı", "failed": "Başarısız", "skipped": "Atlandı"}
         icon = icons.get(outcome, "·")
@@ -628,6 +634,12 @@ class MacMaidTUI(App[None]):
         self._set_activity(f"{'✕' if failed else '✓'}  {summary} · Enter ile ana menü")
 
     def on_key(self, event: events.Key) -> None:
+        if self.current_page in {"clean-results", "operation"} and event.key.casefold() == "l":
+            event.prevent_default()
+            event.stop()
+            self.live_events_open = not self.live_events_open
+            self._render_live_events()
+            return
         if self.current_page == "whitelist-editor" and self._handle_whitelist_editor_key(event):
             return
         if self.current_page == "dashboard" and event.key.isdigit():
@@ -1242,18 +1254,37 @@ class MacMaidTUI(App[None]):
         return analyzer_trash_plan([path], {path: int(entry.get("bytes", 0))})
 
     # Smart Clean
-    def _scan_progress(self, percent: int, phase: str, path: str) -> None:
-        self._scan_update(self._update_clean_progress, percent, phase, path)
+    def _start_live_events(self) -> None:
+        self.live_event_generation += 1
+        self.live_event_lines = []
+        self.live_events_open = True
+        self._render_live_events()
 
-    def _update_clean_progress(self, percent: int, phase: str, path: str) -> None:
+    def _append_live_event(self, phase: str, path: str, percent: int, found: int) -> None:
+        self.live_event_lines.append(self._ui("{percent:3d}% · {phase} · {found} found · {path}").format(percent=percent, phase=phase, found=found, path=path or self._ui("working")))
+        self.live_event_lines = self.live_event_lines[-80:]
+        self._render_live_events()
+
+    def _render_live_events(self) -> None:
+        text = "\n".join(self.live_event_lines[-6:]) or self._ui("No live events yet.")
+        for widget in self.query(".live-events"):
+            widget.update(text)
+            widget.set_class(self.live_events_open, "open")
+
+    def _scan_progress(self, percent: int, phase: str, path: str, found: int = 0) -> None:
+        self._scan_update(self._update_clean_progress, percent, phase, path, found)
+
+    def _update_clean_progress(self, percent: int, phase: str, path: str, found: int = 0) -> None:
+        self._append_live_event(phase, path, percent, found)
         self.query_one("#clean-progress", ProgressBar).update(progress=percent)
-        self.query_one("#clean-target", Static).update(path or phase)
+        self.query_one("#clean-target", Static).update(self._ui("{phase} · {percent}% · {found} found · {path}").format(phase=phase, percent=percent, found=found, path=path or self._ui("working")))
         state = self.query_one("#clean-state", Static)
         state.set_classes("state busy")
         state.update(f"◌  {phase}")
 
     def _start_clean_scan(self) -> None:
         self._reset_scan("clean")
+        self._start_live_events()
         profile = self.clean_profile
         self.query_one("#clean-progress", ProgressBar).remove_class("complete")
         self.query_one("#clean-progress-line").remove_class("complete")
@@ -1266,8 +1297,9 @@ class MacMaidTUI(App[None]):
     @work(thread=True, exclusive=True, group="clean-scan")
     def _clean_worker(self, profile: CleanupProfile, token: CancellationToken) -> None:
         try:
-            self._scan_update(self._finish_clean, Scanner(self.config).scan(
-                profile, progress=self._scan_progress, cancellation=token,
+            scanner = Scanner(self.config)
+            self._scan_update(self._finish_clean, scanner.scan(
+                profile, progress=lambda percent, phase, path: self._scan_progress(percent, phase, path, getattr(scanner, "found_count", 0)), cancellation=token,
             ))
         except ScanCancelled:
             self._scan_update(self._finish_clean, ScanResult(status="cancelled", notes=["Tarama kullanıcı tarafından iptal edildi."]))
