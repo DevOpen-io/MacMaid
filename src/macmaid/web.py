@@ -29,6 +29,7 @@ from .developer import DeveloperInventory, DeveloperStorageCenter
 from .duplicates import DuplicateFinder
 from .large_files import LargeOldFileScanner, SIZE_FILTERS
 from .smart_downloads import SmartDownloadsScanner
+from .memory import MemoryService
 from .models import ActionType, CleanupProfile, RiskLevel, ScanResult
 from .reporting import FreeSpaceProbe
 from .review import (
@@ -121,6 +122,7 @@ class WebState:
         self.review_tokens: dict[str, tuple[str, int, str]] = {}
         self.scan_cancellations: dict[str, CancellationToken] = {}
         self.analyzer = IncrementalAnalyzer()
+        self.memory = MemoryService(self.config, self.mutation_lock)
 
 
 def _webui_root() -> Path:
@@ -196,6 +198,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             "/index.html": "index.html",
             "/styles.css": "styles.css",
             "/app.js": "app.js",
+            "/memory.js": "memory.js",
             "/favicon.ico": "assets/MacMaid-Logo.png",
             "/assets/MacMaid-Logo.png": "assets/MacMaid-Logo.png",
             "/MacMaid-Logo.png": "assets/MacMaid-Logo.png",
@@ -328,6 +331,10 @@ class MacMaidHandler(BaseHTTPRequestHandler):
 
     def _route_get(self, path: str, query: dict[str, str]) -> dict:
         state = self.server.state
+        if path == "/api/memory":
+            return state.memory.snapshot()
+        if path == "/api/memory/history":
+            return state.memory.history(query.get("key", ""))
         if path == "/api/progress":
             regular = state.progress.snapshot()
             analyzer = state.analyzer.progress()
@@ -641,6 +648,16 @@ class MacMaidHandler(BaseHTTPRequestHandler):
 
     def _route_post(self, path: str, body: dict) -> dict:
         state = self.server.state
+        if path in {"/api/memory/stop", "/api/memory/force-stop"}:
+            keys = body.get("keys")
+            force = path.endswith("/force-stop")
+            plan = state.memory.review(keys, force)
+            review = self._review_gate("memory-force" if force else "memory-stop", body, plan)
+            if review is not None:
+                return review
+            return state.memory.stop(keys, force=force)
+        if path == "/api/memory/settings":
+            return state.memory.configure(body)
         if path == "/api/permissions/open-full-disk-access":
             result = run_command(
                 "/usr/bin/open",
@@ -911,6 +928,7 @@ class MacMaidHTTPServer(ThreadingHTTPServer):
         super().__init__(address, MacMaidHandler)
 
     def server_close(self) -> None:
+        self.state.memory.shutdown()
         self.state.analyzer.shutdown()
         super().server_close()
 
@@ -932,6 +950,7 @@ def serve(port: int = 8123, open_browser: bool = True) -> None:
     if open_browser:
         threading.Timer(0.25, lambda: webbrowser.open(url)).start()
     try:
+        state.memory.start()
         server.serve_forever(poll_interval=0.25)
     except KeyboardInterrupt:
         pass

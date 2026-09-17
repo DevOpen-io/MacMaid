@@ -4,6 +4,7 @@ import argparse
 import os
 import shutil
 import sys
+import threading
 from pathlib import Path
 
 from . import __version__
@@ -18,11 +19,22 @@ from .features import (
 from .developer import DeveloperStorageCenter
 from .duplicates import DuplicateFinder
 from .large_files import LargeOldFileScanner, SIZE_FILTERS
+from .memory import MemoryService
 from .models import CleanupProfile
 from .smart_downloads import SmartDownloadsScanner
 from .review import cleanup_plan, optimization_plan, purge_plan, snapshot_plan
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
 from .system import human_bytes, is_interactive
+
+try:
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich.text import Text
+    from rich import box
+    _HAS_RICH = True
+except ImportError:
+    _HAS_RICH = False
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -44,6 +56,14 @@ def _parser() -> argparse.ArgumentParser:
     commands.add_parser("apps")
     purge = commands.add_parser("purge"); purge.add_argument("--path", action="append", default=[]); purge.add_argument("--apply", action="store_true"); purge.add_argument("--yes", action="store_true")
     commands.add_parser("status")
+    memory = commands.add_parser("memory", help="Inspect and manage process memory and growth")
+    memory.add_argument("--stop", type=int, action="append", default=[], metavar="PID", help="Request review to stop PID")
+    memory.add_argument("--limit", type=int, default=30, help="Maximum processes to display (default: 30)")
+    memory.add_argument("--growing", action="store_true", help="Only show processes showing sustained memory growth")
+    memory.add_argument("--sort", choices=("rss", "growth", "cpu", "name", "pid"), default="rss", help="Sort order (default: rss)")
+    memory.add_argument("--filter", choices=("all", "developer", "flutter", "growing", "protected"), default="all", help="Filter by category")
+    memory.add_argument("--apply", action="store_true", help="Apply authorized stop after review")
+    memory.add_argument("--yes", action="store_true", help="Authorize without interactive confirmation")
     completion = commands.add_parser("completion"); completion.add_argument("shell", choices=("zsh", "bash", "fish"), nargs="?", default="zsh"); completion.add_argument("--print", action="store_true", dest="print_only"); completion.add_argument("--install", action="store_true")
     caches = commands.add_parser("developer-caches"); caches.add_argument("--scan-only", action="store_true"); caches.add_argument("--apply", action="store_true"); caches.add_argument("--yes", action="store_true")
     developer = commands.add_parser("developer"); developer.add_argument("kind", choices=("storage", "runtimes", "environments", "tools", "sdks"), default="runtimes", nargs="?")
@@ -132,6 +152,187 @@ def _print_history_record(record: dict) -> None:
         print(f"{prefix} {record.get('label', record.get('path', ''))} · hedef tahmini {human_bytes(record.get('bytes', 0))} · {record.get('reclaimStatus', 'legacy record')} · {restore}")
 
 
+def _print_memory_snapshot(
+    snapshot: dict,
+    limit: int = 30,
+    growing_only: bool = False,
+    sort_by: str = "rss",
+    filter_by: str = "all",
+) -> None:
+    metrics = snapshot.get("metrics", {})
+    all_rows = snapshot.get("processes", [])
+    growing_count = sum(1 for r in all_rows if r.get("growing"))
+    protected_count = sum(1 for r in all_rows if r.get("protected"))
+
+    # Apply filtering
+    filtered_rows = all_rows
+    if growing_only or filter_by == "growing":
+        filtered_rows = [r for r in filtered_rows if r.get("growing")]
+    elif filter_by == "developer":
+        filtered_rows = [r for r in filtered_rows if r.get("category") in ("developer", "flutter")]
+    elif filter_by == "flutter":
+        filtered_rows = [r for r in filtered_rows if r.get("category") == "flutter"]
+    elif filter_by == "protected":
+        filtered_rows = [r for r in filtered_rows if r.get("protected")]
+
+    # Apply sorting
+    if sort_by == "growth":
+        rows = sorted(filtered_rows, key=lambda row: row.get("growthBytes") or -1, reverse=True)
+    elif sort_by == "cpu":
+        rows = sorted(filtered_rows, key=lambda row: row.get("cpuPercent") or -1, reverse=True)
+    elif sort_by == "name":
+        rows = sorted(filtered_rows, key=lambda row: (row.get("name") or "").lower())
+    elif sort_by == "pid":
+        rows = sorted(filtered_rows, key=lambda row: row.get("pid") or 0)
+    else:  # rss
+        rows = sorted(filtered_rows, key=lambda row: row.get("rssBytes") or -1, reverse=True)
+
+    rows = rows[:max(1, min(limit, 200))]
+
+    if _HAS_RICH:
+        console = Console()
+        if metrics.get("total"):
+            used = metrics.get("used", 0)
+            total = metrics["total"]
+            avail = metrics.get("available", 0)
+            swap = metrics.get("swap", 0)
+            pressure = metrics.get("pressureHeadroom")
+            pct = round((used / total) * 100) if total else 0
+
+            if pressure is None:
+                p_text = "[dim]unavailable[/dim]"
+            elif pressure < 10:
+                p_text = f"[bold red]{pressure}% (Critical)[/bold red]"
+            elif pressure < 20:
+                p_text = f"[bold yellow]{pressure}% (Elevated)[/bold yellow]"
+            else:
+                p_text = f"[bold green]{pressure}% (Normal)[/bold green]"
+
+            bar_len = 14
+            filled = int((pct / 100) * bar_len)
+            meter = f"[cyan]{'■' * filled}[/cyan][dim]{'░' * (bar_len - filled)}[/dim]"
+
+            grow_highlight = f"[bold yellow]{growing_count} showing growth[/bold yellow]" if growing_count else "[dim green]stable (0 growing)[/dim green]"
+
+            summary_lines = [
+                f"  RAM: [bold]{human_bytes(used)}[/bold] / {human_bytes(total)}  {meter}  [bold]{pct}%[/bold]   Available: [cyan]{human_bytes(avail)}[/cyan]   Swap: [magenta]{human_bytes(swap)}[/magenta]",
+                f"  Pressure Headroom: {p_text}   Processes: [bold]{len(all_rows)}[/bold] ({grow_highlight}, [dim]{protected_count} protected[/dim])",
+            ]
+            console.print(Panel("\n".join(summary_lines), title="[bold]MacMaid Memory Monitor[/bold]", title_align="left", border_style="cyan", box=box.ROUNDED))
+
+        if snapshot.get("error"):
+            console.print(f"[bold yellow]Warning:[/bold yellow] {snapshot['error']}")
+
+        table = Table(box=box.ROUNDED, header_style="bold cyan", border_style="dim")
+        table.add_column("PID", justify="right", style="cyan", no_wrap=True)
+        table.add_column("PROCESS", style="bold")
+        table.add_column("RSS", justify="right", style="bold magenta")
+        table.add_column("10-MIN GROWTH", justify="right")
+        table.add_column("CPU", justify="right")
+        table.add_column("STATUS")
+        table.add_column("ROLE", style="dim")
+
+        for row in rows:
+            rss = "unknown" if row.get("rssBytes") is None else human_bytes(row["rssBytes"])
+            growth_value = row.get("growthBytes")
+            if growth_value is None:
+                growth_text = "[dim italic]collecting[/dim italic]"
+            elif row.get("growing"):
+                growth_text = f"[bold yellow]+{human_bytes(growth_value)} ↗[/bold yellow]"
+            elif growth_value > 0:
+                growth_text = f"[yellow]+{human_bytes(growth_value)}[/yellow]"
+            elif growth_value < 0:
+                growth_text = f"[dim]-{human_bytes(abs(growth_value))}[/dim]"
+            else:
+                growth_text = "[dim green]+0 B[/dim green]"
+
+            cpu_num = row.get("cpuPercent")
+            cpu = "[dim]?[/dim]" if cpu_num is None else f"{cpu_num:.1f}%"
+            if cpu_num and cpu_num > 10.0:
+                cpu = f"[bold red]{cpu}[/bold red]"
+            elif cpu_num and cpu_num > 2.0:
+                cpu = f"[yellow]{cpu}[/yellow]"
+
+            if row.get("protected"):
+                status = f"[dim]🔒 {row['protected']}[/dim]"
+            elif row.get("growing"):
+                status = "[bold yellow]▲ growing[/bold yellow]"
+            elif row.get("historyReady"):
+                status = "[green]✓ stable[/green]"
+            else:
+                status = "[dim]⏳ collecting[/dim]"
+
+            role = row.get("role") or ""
+            table.add_row(str(row["pid"]), row["name"], rss, growth_text, cpu, status, role)
+
+        console.print(table)
+        console.print("[dim]Growth is evidence, not a confirmed leak. RSS is not a reclaim estimate.[/dim]\n")
+
+    else:
+        if metrics.get("total"):
+            pressure = metrics.get("pressureHeadroom")
+            pressure_text = "unavailable" if pressure is None else f"{pressure}%"
+            print(
+                f"RAM {human_bytes(metrics.get('used', 0))} / {human_bytes(metrics['total'])}"
+                f" · available {human_bytes(metrics.get('available', 0))}"
+                f" · swap {human_bytes(metrics.get('swap', 0))}"
+                f" · pressure headroom {pressure_text}"
+            )
+        if snapshot.get("error"):
+            print(f"Warning: {snapshot['error']}")
+        print("\n     PID         RSS      GROWTH    CPU  STATUS                 PROCESS")
+        for row in rows:
+            rss = "unknown" if row.get("rssBytes") is None else human_bytes(row["rssBytes"])
+            growth_value = row.get("growthBytes")
+            growth_text = "collecting" if growth_value is None else ("+" if growth_value >= 0 else "-") + human_bytes(abs(growth_value))
+            cpu = "?" if row.get("cpuPercent") is None else f"{row['cpuPercent']:.1f}%"
+            status = row.get("protected") or ("growing" if row.get("growing") else "stable" if row.get("historyReady") else "collecting")
+            print(f"{row['pid']:>8}  {rss:>10}  {growth_text:>10}  {cpu:>6}  {status:<21}  {row['name']}")
+        print("\nGrowth is evidence, not a confirmed leak. RSS is not a reclaim estimate.")
+
+
+def _run_memory_command(config: Config, args: argparse.Namespace) -> None:
+    service = MemoryService(config, threading.Lock())
+    service.sample()
+    snapshot = service.snapshot()
+    _print_memory_snapshot(
+        snapshot,
+        limit=getattr(args, "limit", 30),
+        growing_only=getattr(args, "growing", False),
+        sort_by=getattr(args, "sort", "rss"),
+        filter_by=getattr(args, "filter", "all"),
+    )
+    if not args.stop:
+        return
+    requested = set(args.stop)
+    rows = [row for row in snapshot["processes"] if row["pid"] in requested]
+    missing = requested - {row["pid"] for row in rows}
+    if missing:
+        raise ValueError(f"PID not found in the current snapshot: {', '.join(map(str, sorted(missing)))}")
+    keys = [row["key"] for row in rows]
+    plan = service.review(keys)
+    _print_review(plan)
+    if not args.apply:
+        print("No changes made. Add --apply after reviewing the exact processes.")
+        return
+    if not _confirm("Authorize SIGTERM for this exact reviewed selection?", args.yes):
+        print("Cancelled.")
+        return
+    result = service.stop(keys)
+    for outcome in result["outcomes"]:
+        print(f"{outcome.get('name', outcome['key'])}: {outcome['outcome']}{' · ' + outcome['detail'] if outcome.get('detail') else ''}")
+    survivors = [item["key"] for item in result["outcomes"] if item["outcome"] == "still-running"]
+    if survivors:
+        force_plan = service.review(survivors, force=True)
+        _print_review(force_plan)
+        if _confirm("Authorize SIGKILL for the processes still running?", args.yes):
+            forced = service.stop(survivors, force=True)
+            for outcome in forced["outcomes"]:
+                print(f"{outcome.get('name', outcome['key'])}: {outcome['outcome']}")
+        else:
+            print("Force Stop cancelled.")
+
+
 def _run_clean_result(result, args) -> None:
     _print_scan(result)
     if not result.is_complete:
@@ -193,14 +394,54 @@ def main(argv: list[str] | None = None) -> None:
         result = _run_interruptible_scan(lambda: PackageManagerCacheScanner(config).scan())
         if result is not None: _run_clean_result(result, args)
     elif command == "doctor":
-        for check in doctor(): print(f"{check['name']:<28} {check['value']}")
+        checks = doctor()
+        if _HAS_RICH:
+            console = Console()
+            table = Table(box=box.ROUNDED, header_style="bold cyan", border_style="dim", title="[bold]MacMaid System Diagnostics[/bold]", title_justify="left")
+            table.add_column("DIAGNOSTIC CHECK", style="bold")
+            table.add_column("STATUS / VALUE", style="cyan")
+            for check in checks:
+                val = str(check["value"])
+                val_styled = f"[green]✓ {val}[/green]" if any(ok in val.lower() for ok in ("ok", "ready", "passed", "normal", "healthy", "available")) else val
+                table.add_row(check["name"], val_styled)
+            console.print(table)
+        else:
+            for check in checks: print(f"{check['name']:<28} {check['value']}")
     elif command == "status":
         status = system_status()
-        for item in status["healthIndicators"]:
-            print(f"{item['label']:<18} {item['state'].upper():<14} {item['value']}")
-            print(f"  {item['detail']}")
-            if item.get("recommendation"): print(f"  Suggestion: {item['recommendation']}")
-        print(f"Measured {status['healthMeasuredAt']} · read-only snapshot; no health score")
+        if _HAS_RICH:
+            console = Console()
+            table = Table(box=box.ROUNDED, header_style="bold cyan", border_style="dim", title="[bold]Mac Health Indicators[/bold]", title_justify="left")
+            table.add_column("INDICATOR", style="bold")
+            table.add_column("STATE", justify="center")
+            table.add_column("VALUE", justify="right", style="cyan")
+            table.add_column("DETAILS")
+            table.add_column("SUGGESTION", style="dim italic")
+            for item in status["healthIndicators"]:
+                state_raw = item["state"].upper()
+                if state_raw == "NORMAL":
+                    state_styled = "[bold green]● NORMAL[/bold green]"
+                elif state_raw in ("ELEVATED", "WARNING"):
+                    state_styled = "[bold yellow]▲ WARNING[/bold yellow]"
+                else:
+                    state_styled = f"[bold red]■ {state_raw}[/bold red]"
+                table.add_row(
+                    item["label"],
+                    state_styled,
+                    str(item["value"]),
+                    item["detail"],
+                    item.get("recommendation") or "—"
+                )
+            console.print(table)
+            console.print(f"[dim]Measured {status['healthMeasuredAt']} · read-only snapshot; no arbitrary health score[/dim]\n")
+        else:
+            for item in status["healthIndicators"]:
+                print(f"{item['label']:<18} {item['state'].upper():<14} {item['value']}")
+                print(f"  {item['detail']}")
+                if item.get("recommendation"): print(f"  Suggestion: {item['recommendation']}")
+            print(f"Measured {status['healthMeasuredAt']} · read-only snapshot; no health score")
+    elif command == "memory":
+        _run_memory_command(config, args)
     elif command == "analyze":
         minimum = _parse_bytes(args.min_size, 1_000_000_000)
         result = _run_interruptible_scan(lambda: analyze_directory(Path(args.path), args.top, minimum))

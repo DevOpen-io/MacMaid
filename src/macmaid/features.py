@@ -925,6 +925,7 @@ _macmaid() {{
     'apps:List installed applications'
     'purge:Find generated project artifacts'
     'status:Show evidence-based Mac health'
+    'memory:Inspect memory growth and review process stopping'
     'completion:Print or install shell completion'
     'developer-caches:Scan package-manager caches'
     'developer:List managed runtimes environments tools or SDKs'
@@ -982,6 +983,9 @@ _macmaid() {{
           ;;
         developer)
           _arguments '1:inventory kind:(runtimes environments tools sdks)'
+          ;;
+        memory)
+          _arguments '*--stop[review a process for stopping]:PID:' '--limit[maximum processes to display]:count:' '--apply[request process stopping after review]' '--yes[acknowledge reviewed process signals]'
           ;;
         optimize)
           _arguments '--task[select one maintenance task]:task:({optimization_ids})' '--all[select every task including advanced tasks]' '--apply[request execution after review]' '--yes[acknowledge a reviewed non-interactive operation]'

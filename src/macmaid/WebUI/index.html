@@ -36,7 +36,7 @@
             </div>
             <div class="brand-text-wrap">
               <span class="brand-name">MacMaid <span class="badge-pro">PRO</span></span>
-              <span class="version-tag">v0.11.35 Python</span>
+              <span class="version-tag">v0.12.0 Python</span>
             </div>
           </div>
         </div>
@@ -132,6 +132,10 @@
           </div>
 
           <!-- 7. Status -->
+          <button class="nav-item" data-tab="memory">
+            <span class="nav-symbol" data-lucide="memory-stick"></span>
+            <div class="nav-text-group"><span class="nav-main-title" data-i18n="memory.title">Memory</span><span class="nav-sub-title" data-i18n="memory.nav">Processes &amp; growth</span></div>
+          </button>
           <button class="nav-item" data-tab="dashboard">
             <span class="nav-symbol" data-lucide="activity"></span>
             <div class="nav-text-group">
@@ -249,6 +253,166 @@
 
       <!-- Main Content Area -->
       <main class="content-container" id="main-content">
+
+        <section class="tab-pane" id="pane-memory">
+          <div class="pane-header memory-heading">
+            <div>
+              <h1 class="pane-title" data-i18n="memory.title">Memory</h1>
+              <p class="pane-subtitle" data-i18n="memory.subtitle">Find growing processes. Review what stops. Keep your work in control.</p>
+            </div>
+            <div class="memory-header-actions">
+              <button class="btn btn-secondary btn-sm memory-refresh-btn" id="memory-refresh-btn" title="Refresh processes" aria-label="Refresh processes" data-i18n-title="memory.refreshProcesses">
+                <span data-lucide="refresh-cw"></span>
+                <span class="memory-refresh-text" data-i18n="memory.refreshBtn">Refresh</span>
+              </button>
+              <div class="memory-live-status">
+                <span class="memory-live-dot" aria-hidden="true"></span>
+                <span data-i18n="memory.monitoringShort">Monitoring while MacMaid runs</span>
+              </div>
+            </div>
+          </div>
+          <div id="memory-error" class="memory-notice" role="status" hidden></div>
+          <section class="memory-overview">
+            <dl id="memory-metrics" class="memory-metrics"></dl>
+            <p class="memory-context"><span data-lucide="info"></span><span data-i18n="memory.monitoring">Monitoring continues while MacMaid runs. Growth is a signal, not a confirmed leak.</span></p>
+          </section>
+          <section class="memory-workbench" aria-labelledby="memory-process-heading">
+            <div class="memory-workbench-head">
+              <div>
+                <h2 id="memory-process-heading" data-i18n="memory.processes">Processes</h2>
+                <p id="memory-summary" class="memory-note" aria-live="polite"></p>
+              </div>
+              <div class="memory-filter-pills" id="memory-filter-pills" role="tablist" aria-label="Process filters" data-i18n-aria="memory.processFilters">
+                <button type="button" class="memory-pill active" data-pill="all" role="tab" aria-selected="true">
+                  <span data-i18n="memory.all">All processes</span>
+                  <span class="memory-pill-count" id="pill-count-all">0</span>
+                </button>
+                <button type="button" class="memory-pill pill-growing" data-pill="growing" role="tab" aria-selected="false">
+                  <span class="pill-dot" aria-hidden="true"></span>
+                  <span data-i18n="memory.filterGrowing">Growing</span>
+                  <span class="memory-pill-count" id="pill-count-growing">0</span>
+                </button>
+                <button type="button" class="memory-pill" data-pill="developer" role="tab" aria-selected="false">
+                  <span data-i18n="memory.developer">Developer tools</span>
+                  <span class="memory-pill-count" id="pill-count-developer">0</span>
+                </button>
+                <button type="button" class="memory-pill" data-pill="flutter" role="tab" aria-selected="false">
+                  <span data-i18n="memory.flutter">Flutter / Dart</span>
+                  <span class="memory-pill-count" id="pill-count-flutter">0</span>
+                </button>
+                <button type="button" class="memory-pill" data-pill="protected" role="tab" aria-selected="false">
+                  <span data-i18n="memory.filterProtected">Protected</span>
+                  <span class="memory-pill-count" id="pill-count-protected">0</span>
+                </button>
+              </div>
+            </div>
+            <div class="memory-toolbar">
+              <label class="memory-search-field">
+                <span data-i18n="memory.search">Search processes</span>
+                <span class="memory-input-wrap">
+                  <span data-lucide="search"></span>
+                  <input id="memory-search" type="search" autocomplete="off" placeholder="Name, PID, or path" data-i18n-placeholder="memory.searchPlaceholder">
+                </span>
+              </label>
+              <label class="memory-filter-label">
+                <span data-i18n="memory.filter">Show</span>
+                <select id="memory-filter">
+                  <option value="all" data-i18n="memory.all">All processes</option>
+                  <option value="growing" data-i18n="memory.filterGrowing">Growing</option>
+                  <option value="developer" data-i18n="memory.developer">Developer tools</option>
+                  <option value="flutter" data-i18n="memory.flutter">Flutter / Dart</option>
+                  <option value="protected" data-i18n="memory.filterProtected">Protected</option>
+                </select>
+              </label>
+              <label class="memory-sort-label">
+                <span data-i18n="memory.sort">Sort by</span>
+                <select id="memory-sort">
+                  <option value="rssBytes" data-i18n="memory.rss">Resident memory (RSS)</option>
+                  <option value="growthBytes" data-i18n="memory.growth">10-minute growth</option>
+                  <option value="cpuPercent" data-i18n="memory.cpu">CPU</option>
+                  <option value="name" data-i18n="memory.name">Process</option>
+                </select>
+              </label>
+            </div>
+            <div class="memory-actions">
+              <span id="memory-selection" class="memory-selection" role="status"></span>
+              <div class="memory-selection-tools">
+                <button class="btn btn-secondary" id="memory-select" data-i18n="memory.select">Select visible eligible processes</button>
+                <button class="btn btn-secondary" id="memory-clear" data-i18n="memory.clear">Clear selection</button>
+              </div>
+              <div class="memory-stop-tools">
+                <button class="btn btn-primary" id="memory-stop" disabled data-i18n="memory.stop">Review &amp; Stop</button>
+                <button class="btn btn-danger" id="memory-force" disabled data-i18n="memory.force">Review Force Stop</button>
+              </div>
+            </div>
+            <div class="memory-table-wrap">
+              <table class="memory-table">
+                <thead>
+                  <tr>
+                    <th>
+                      <input type="checkbox" id="memory-select-all" aria-label="Select visible eligible processes" data-i18n-aria="memory.select">
+                      <span class="sr-only" data-i18n="memory.selection">Select</span>
+                    </th>
+                    <th class="sortable" data-sort="name">
+                      <div class="th-content"><span data-i18n="memory.name">Process</span><span class="sort-indicator" data-lucide="arrow-up-down"></span></div>
+                    </th>
+                    <th class="sortable memory-pid-col" data-sort="pid">
+                      <div class="th-content"><span>PID</span><span class="sort-indicator" data-lucide="arrow-up-down"></span></div>
+                    </th>
+                    <th class="sortable memory-num-col" data-sort="rssBytes">
+                      <div class="th-content"><span data-i18n="memory.rss">Resident memory (RSS)</span><span class="sort-indicator" data-lucide="arrow-up-down"></span></div>
+                    </th>
+                    <th class="sortable memory-num-col" data-sort="growthBytes">
+                      <div class="th-content"><span data-i18n="memory.growth">10-minute growth</span><span class="sort-indicator" data-lucide="arrow-up-down"></span></div>
+                    </th>
+                    <th class="sortable memory-num-col" data-sort="cpuPercent">
+                      <div class="th-content"><span data-i18n="memory.cpu">CPU</span><span class="sort-indicator" data-lucide="arrow-up-down"></span></div>
+                    </th>
+                    <th data-i18n="memory.status">Status</th>
+                    <th data-i18n="memory.actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="memory-processes"></tbody>
+              </table>
+            </div>
+            <p class="memory-table-footnote">
+              <span data-lucide="info"></span>
+              <span data-i18n="memory.rssNote">RSS includes shared memory. Process totals are not an estimate of recoverable RAM.</span>
+            </p>
+          </section>
+          <div id="memory-details" class="memory-details" hidden></div>
+          <div class="memory-management-grid">
+            <section class="memory-panel memory-rules">
+              <div class="memory-section-header">
+                <div>
+                  <h2 data-i18n="memory.rules">Automatic helper rules</h2>
+                  <p class="memory-note" data-i18n="memory.rulesNote">Optional and off by default. Only approved Dart analysis and TypeScript server helpers can stop automatically. Active apps, builds and simulators remain manual. Rules never force-stop.</p>
+                </div>
+                <button class="btn btn-secondary" id="memory-pause" disabled></button>
+              </div>
+              <div id="memory-rules"></div>
+            </section>
+            <section class="memory-panel memory-rules">
+              <div class="memory-section-header">
+                <div>
+                  <h2 data-i18n="memory.exclusions">Never stop</h2>
+                  <p class="memory-note" data-i18n="memory.exclusionsNote">Executables listed here remain protected from manual and automatic actions.</p>
+                </div>
+              </div>
+              <div id="memory-exclusions"></div>
+            </section>
+          </div>
+          <section class="memory-panel memory-rules memory-activity">
+            <div class="memory-section-header">
+              <div>
+                <h2 data-i18n="memory.activity">Memory activity</h2>
+                <p class="memory-note" data-i18n="memory.activityNote">Stop requests and their outcomes for this session.</p>
+              </div>
+            </div>
+            <div id="memory-outcome" role="status"></div>
+            <div id="memory-events"></div>
+          </section>
+        </section>
 
         <!-- ================= TAB 7: STATUS (CLI MENU ITEM 7) ================= -->
         <section class="tab-pane" id="pane-dashboard">
@@ -1984,7 +2148,7 @@
               <div class="settings-info-grid">
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.version_label">Version</div>
-                  <div class="settings-info-value settings-info-mono">0.11.35 (Python 3.11+)</div>
+                  <div class="settings-info-value settings-info-mono">0.12.0 (Python 3.11+)</div>
                 </div>
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.safety_label">Safety Model</div>
@@ -2048,5 +2212,6 @@
   </div>
 
   <script src="/app.js"></script>
+  <script src="/memory.js"></script>
 </body>
 </html>

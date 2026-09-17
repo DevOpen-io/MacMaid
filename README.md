@@ -108,6 +108,8 @@ macmaid                         # Terminal UI
 macmaid ui                      # Web UI on 127.0.0.1:8123
 macmaid doctor                  # Capability diagnostics
 macmaid status                  # Read-only system snapshot
+macmaid memory                  # Process memory and growth snapshot
+macmaid memory --stop PID       # Review only; add --apply to request SIGTERM
 macmaid scan --profile safe --scan-only
 macmaid analyze ~/Projects
 macmaid duplicates --path ~/Downloads --min-size 10MB
@@ -128,6 +130,7 @@ Destructive CLI actions require `--apply`, and non-interactive automation should
 - **Storage Treemap** — visual folder-size map with drill-down navigation.
 - **Disk Analyzer** — incremental directory analysis without waiting for the full tree to finish.
 - **App removal review** — inventories apps and related components before removal.
+- **Memory** — tracks process memory growth, supports reviewed bulk stopping, and offers opt-in helper rules.
 - **Developer Storage** — shows Xcode, Node.js, Python, Rust, Android and Docker-related storage.
 - **Browser Storage Inspector** — separates safe browser caches from user data like sessions, cookies and local storage.
 - **Duplicate Finder** — read-only duplicate detection with no automatic deletion.
@@ -147,7 +150,7 @@ MacMaid is intentionally conservative:
 - Cleanup paths are validated again immediately before mutation.
 - Symlinked ancestors are rejected for destructive operations.
 - User-visible file cleanup normally moves items to `~/.Trash` instead of permanently deleting them.
-- Web UI mutations require localhost session/origin checks and a fresh server-side review token.
+- Web UI mutations require localhost session/origin checks. Manual cleanup and process stopping require a fresh server-side review token; automatic helper rules require explicit stored consent.
 - macOS privacy/TCC limitations are reported; MacMaid does not bypass them.
 
 If MacMaid cannot prove an operation is safe, it skips or blocks it.
@@ -167,6 +170,16 @@ http://127.0.0.1:8123
 ```
 
 If MacMaid is already running on that port, launching it again opens the existing session instead of crashing.
+
+### Memory
+
+Open **Memory** to compare processes by resident memory (RSS), CPU, or ten-minute growth. Use **Developer tools** or **Flutter / Dart** to narrow the list. Monitoring continues across sections while MacMaid runs; history stays in memory for up to one hour and starts fresh after restart. Growth indicates a process worth investigating, not a confirmed leak. RSS includes shared memory and is not a promise of recoverable RAM.
+
+Select processes and choose **Review & Stop**. MacMaid sends SIGTERM only after confirmation. Processes that remain running can be selected for a separate **Review Force Stop**. Both actions can interrupt work and lose unsaved changes; MacMaid does not relaunch applications. System processes, MacMaid, inaccessible identities, and exclusions remain protected.
+
+For optional automation, choose **Set helper rule** on a recognized Dart analysis or TypeScript server helper, review its exact executable and interruption consent, then **Enable automation**. Default rules require RSS above 2 GiB for five minutes and pressure headroom below 15%. Thresholds are editable; each rule waits 30 minutes between attempts and pauses after two failures. Rules never force-stop. **Never stop** excludes an executable from both manual and automatic actions.
+
+Rules, cooldowns, and exclusions persist in `~/.config/macmaid/memory.json`; actions are audited in the existing operations log. No background service is installed: quit MacMaid (or stop `macmaid ui`) to stop monitoring and automation.
 
 ---
 
