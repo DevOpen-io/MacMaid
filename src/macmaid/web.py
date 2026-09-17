@@ -271,8 +271,8 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             self.wfile.write(data)
 
     def _app_icon(self, raw_path: str, head: bool) -> None:
-        requested = Path(unquote(raw_path)).expanduser().absolute()
-        app = next((item for item in self.server.state.apps if item.path == requested), None)
+        requested = self._request_path_key(unquote(raw_path))
+        app = next((item for item in self.server.state.apps if str(item.path) == requested), None)
         if app is None:
             self._json({"error": "Application icon not approved"}, 404); return
         try:
@@ -375,8 +375,8 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             state.progress.finish(f"{len(apps)} uygulama tespit edildi")
             return {"apps": [dict(app.web_dict(), id=str(app.path), humanBytes=human_bytes(app.bytes)) for app in apps]}
         if path == "/api/apps/leftovers":
-            requested = Path(unquote(query.get("path", ""))).expanduser().absolute()
-            app = next((app for app in state.apps if app.path == requested), None)
+            requested = self._request_path_key(query.get("path", ""))
+            app = next((app for app in state.apps if str(app.path) == requested), None)
             if not app: raise FileNotFoundError("Application not found in latest scan")
             leftovers = [c for c in ApplicationManager(state.config).components(app) if c.path != app.path and c.selected and c.risk == "safe"]
             return {"leftovers": [dict(c.web_dict(), title=c.label, humanBytes=human_bytes(c.bytes)) for c in leftovers]}
@@ -542,11 +542,29 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             return {"lines": lines}
         raise FileNotFoundError(path)
 
+    @staticmethod
+    def _request_path_key(value: object) -> str:
+        """Normalize a request-provided path string without building a Path from user input."""
+        text = str(value)
+        if text == "~":
+            return str(Path.home())
+        if text.startswith("~/"):
+            return str(Path.home()) + text[1:]
+        return text
+
+    def _known_request_paths(self, raw: object, known: set[Path], error: str) -> list[Path]:
+        """Resolve request path strings to Path objects from server-populated scan state."""
+        wanted = list(dict.fromkeys(self._request_path_key(item) for item in raw)) if isinstance(raw, list) else []
+        lookup = {str(item): item for item in known}
+        if not wanted or any(key not in lookup for key in wanted):
+            raise PermissionError(error)
+        return [lookup[key] for key in wanted]
+
     def _select_paths(self, scan: ScanResult | None, requested: list[str]):
         if scan is not None and not scan.is_complete:
             raise PermissionError("Incomplete scan results cannot be mutated")
         if scan is None or not requested: raise ValueError("No matching latest scan is available")
-        wanted = {str(Path(path).expanduser().absolute()) for path in requested}
+        wanted = {self._request_path_key(path) for path in requested}
         chosen = [item for item in scan.items if item.path and str(item.path.absolute()) in wanted and item.risk is not RiskLevel.MANUAL_ONLY and item.action.kind is not ActionType.MANUAL_CACHE_FALLBACK]
         if len(chosen) != len(wanted): raise PermissionError("One or more paths were not present in the latest scan")
         return chosen
@@ -674,16 +692,17 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             result = self._execute_cleanup(scope, "Cleaning selected items", items)
             return _operation_payload(result)
         if path == "/api/apps/uninstall":
-            app_path = Path(body.get("path", "")).expanduser().absolute()
-            app = next((app for app in state.apps if app.path == app_path), None)
+            app_key = self._request_path_key(body.get("path", ""))
+            app = next((app for app in state.apps if str(app.path) == app_key), None)
             if not app: raise PermissionError("Application was not present in latest scan")
-            leftovers = {Path(item).expanduser().absolute() for item in body.get("leftoverPaths", [])}
+            leftover_keys = sorted({self._request_path_key(item) for item in body.get("leftoverPaths", [])})
             manager = ApplicationManager(state.config)
-            available = {component.path: component for component in manager.components(app)}
-            selected_paths = [app.path, *sorted(leftovers, key=str)]
-            if any(path not in available for path in selected_paths):
+            available = {str(component.path): component for component in manager.components(app)}
+            selected_keys = [str(app.path), *leftover_keys]
+            if any(key not in available for key in selected_keys):
                 raise PermissionError("Application components changed after review")
-            plan = application_plan(app, [available[path] for path in selected_paths])
+            selected_paths = [available[key].path for key in selected_keys]
+            plan = application_plan(app, [available[key] for key in selected_keys])
             if review := self._review_gate("apps", body, plan): return review
             state.progress.start("apps", f"Uninstalling {app.name}")
             try:
@@ -700,7 +719,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             state.progress.finish(f"{app.name} uninstall completed")
             return result
         if path == "/api/purge":
-            wanted = {str(Path(item).expanduser().absolute()) for item in body.get("paths", [])}
+            wanted = {self._request_path_key(item) for item in body.get("paths", [])}
             selected = [item for item in state.projects if str(item.path.absolute()) in wanted]
             if not wanted or len(selected) != len(wanted): raise PermissionError("Paths were not present in latest purge scan")
             plan = purge_plan(selected)
@@ -719,17 +738,16 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             state.progress.finish("Project purge completed")
             return result
         if path == "/api/treemap/open":
-            requested = Path(str(body.get("path", ""))).expanduser().absolute()
-            if requested not in state.treemap_paths:
+            requested_key = self._request_path_key(body.get("path", ""))
+            requested = next((item for item in state.treemap_paths if str(item) == requested_key), None)
+            if requested is None:
                 raise PermissionError("Treemap path was not present in latest view")
             result = run_command("/usr/bin/open", ["-R", str(requested)], timeout=15)
             if not result.succeeded:
                 raise RuntimeError(result.stderr or result.stdout or "Open in Finder failed")
             return {"success": True, "path": str(requested)}
         if path == "/api/treemap/trash":
-            requested = [Path(item).expanduser().absolute() for item in body.get("paths", [])]
-            if not requested or not set(requested).issubset(state.treemap_paths):
-                raise PermissionError("Treemap path was not present in latest view")
+            requested = self._known_request_paths(body.get("paths", []), state.treemap_paths, "Treemap path was not present in latest view")
             plan = analyzer_trash_plan(requested)
             if review := self._review_gate("treemap", body, plan): return review
             estimates = {item: size_of(item) for item in requested}
@@ -758,9 +776,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             result = self._execute_cleanup("browser-storage", "Cleaning browser caches", items)
             return _operation_payload(result)
         if path == "/api/smart-downloads/trash":
-            requested = [Path(item).expanduser().absolute() for item in body.get("paths", [])]
-            if not requested or not set(requested).issubset(state.smart_downloads):
-                raise PermissionError("Smart Downloads item was not present in latest scan")
+            requested = self._known_request_paths(body.get("paths", []), state.smart_downloads, "Smart Downloads item was not present in latest scan")
             plan = analyzer_trash_plan(requested)
             if review := self._review_gate("smart-downloads", body, plan): return review
             estimates = {item: size_of(item) for item in requested}
@@ -780,9 +796,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                     "trashMovedEstimatedBytes": processed, "observedFreeBytesDelta": observed,
                     "measurementNotes": notes}
         if path == "/api/large-files/trash":
-            requested = [Path(item).expanduser().absolute() for item in body.get("paths", [])]
-            if not requested or not set(requested).issubset(state.large_files):
-                raise PermissionError("Large/old file was not present in latest scan")
+            requested = self._known_request_paths(body.get("paths", []), state.large_files, "Large/old file was not present in latest scan")
             plan = analyzer_trash_plan(requested)
             if review := self._review_gate("large-files", body, plan): return review
             estimates = {item: size_of(item) for item in requested}
@@ -802,9 +816,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                     "trashMovedEstimatedBytes": processed, "observedFreeBytesDelta": observed,
                     "measurementNotes": notes}
         if path == "/api/duplicates/trash":
-            requested = [Path(item).expanduser().absolute() for item in body.get("paths", [])]
-            if not requested or not set(requested).issubset(state.duplicates):
-                raise PermissionError("Duplicate path was not present in latest duplicate scan")
+            requested = self._known_request_paths(body.get("paths", []), state.duplicates, "Duplicate path was not present in latest duplicate scan")
             plan = analyzer_trash_plan(requested)
             if review := self._review_gate("duplicates", body, plan): return review
             estimates = {item: size_of(item) for item in requested}
@@ -826,8 +838,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
         if path == "/api/analyze/trash":
             raw = body.get("paths", [])
             if "path" in body: raw = [body["path"]]
-            requested = [Path(item).expanduser().absolute() for item in raw]
-            if not requested or not set(requested).issubset(state.analyzed_paths): raise PermissionError("Path was not present in latest analysis")
+            requested = self._known_request_paths(raw, state.analyzed_paths, "Path was not present in latest analysis")
             plan = analyzer_trash_plan(requested)
             if review := self._review_gate("analyzer", body, plan): return review
             estimates = {item: size_of(item) for item in requested}
