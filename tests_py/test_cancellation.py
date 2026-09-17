@@ -15,7 +15,7 @@ from macmaid.analyzer import IncrementalAnalyzer
 from macmaid.cancellation import CancellationToken, ScanCancelled
 from macmaid.config import Config
 from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, CleanupProfile, RiskLevel, ScanResult
-from macmaid.scanner import Scanner
+from macmaid.scanner import Scanner, scan_leftovers
 from macmaid.system import run_command, sizes_of
 
 
@@ -169,6 +169,23 @@ def test_sandbox_cache_scan_skips_apple_containers(monkeypatch, tmp_path):
 
     assert [item.path for item in items] == [third_party]
     assert not scanner._issues
+
+
+def test_leftover_data_roots_require_opt_in_and_include_containers(monkeypatch, tmp_path):
+    support = tmp_path / "Library" / "Application Support" / "com.example.orphan"
+    container = tmp_path / "Library" / "Containers" / "com.example.sandbox"
+    support.mkdir(parents=True); container.mkdir(parents=True)
+    (support / "data.sqlite").write_bytes(b"data")
+    (container / "data.sqlite").write_bytes(b"data")
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    config = Config(home=tmp_path)
+
+    assert not scan_leftovers(config, older_than_days=0, include_data=False).items
+    items = scan_leftovers(config, older_than_days=0, include_data=True).items
+
+    assert {item.path for item in items} == {support, container}
+    assert all(item.risk is RiskLevel.MANUAL_ONLY for item in items)
+    assert all(item.action.kind is ActionType.MANUAL_CACHE_FALLBACK for item in items)
 
 
 def test_cancellation_terminates_waiting_subprocess_promptly():

@@ -1,0 +1,38 @@
+from __future__ import annotations
+
+import asyncio
+import time
+from pathlib import Path
+
+from macmaid import tui
+from macmaid.config import Config
+from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel, ScanResult
+
+
+def test_leftover_age_keys_filter_cached_results_without_rescanning(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(tui, "Config", lambda: Config(home=tmp_path))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    old = tmp_path / "Library" / "Caches" / "com.example.old"
+    recent = tmp_path / "Library" / "Caches" / "com.example.recent"
+    old.mkdir(parents=True); recent.mkdir(parents=True)
+    old_item = CleanupItem(CleanupCategory.LEFTOVERS, old.name, old, 1, RiskLevel.SAFE, "test", CleanupAction(ActionType.REMOVE_PATH))
+    recent_item = CleanupItem(CleanupCategory.LEFTOVERS, recent.name, recent, 1, RiskLevel.SAFE, "test", CleanupAction(ActionType.REMOVE_PATH))
+
+    async def exercise() -> None:
+        app = tui.MacMaidTUI()
+        async with app.run_test() as pilot:
+            app._show_results("more")
+            app.more_kind = "leftovers"
+            app.leftover_cache = ScanResult([old_item, recent_item])
+            app.leftover_mtimes = {old_item.id: time.time() - 31 * 86400, recent_item.id: time.time() - 2 * 86400}
+            app.leftover_cache_includes_data = False
+            rescans: list[str] = []
+            monkeypatch.setattr(app, "_load_more", lambda kind: rescans.append(kind))
+
+            await pilot.press("1")
+
+            assert not rescans
+            assert app.more_result is not None
+            assert [item.id for item in app.more_result.items] == [old_item.id]
+
+    asyncio.run(exercise())

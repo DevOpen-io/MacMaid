@@ -475,7 +475,12 @@ def scan_leftovers(config: Config | None = None, older_than_days: int = 30, incl
         (Path.home() / "Library/Saved Application State", RiskLevel.MODERATE),
     ]
     if include_data:
-        roots.append((Path.home() / "Library/Application Support", RiskLevel.MANUAL_ONLY))
+        # These roots may contain documents, databases, preferences and sandboxed app data.
+        # Keep them manual-only and require an explicit UI/CLI opt-in.
+        roots.extend([
+            (Path.home() / "Library/Application Support", RiskLevel.MANUAL_ONLY),
+            (Path.home() / "Library/Containers", RiskLevel.MANUAL_ONLY),
+        ])
     items = []
     for root, risk in roots:
         token.check()

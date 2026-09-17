@@ -50,8 +50,8 @@ Discover → Classify → PathSafety → Whitelist → Preview → Confirmation 
 
 ### Application Leftovers
 
-- [ ] Yaş filtresi ekle: tümü, 14 gün ve 30 gün.
-- [ ] Application Support / Containers kullanıcı verisini dahil etmeyi ayrı, varsayılan kapalı bir opt-in olarak sun.
+- [x] Yaş filtresi ekle: tümü, 14 gün ve 30 gün.
+- [x] Application Support / Containers kullanıcı verisini dahil etmeyi ayrı, varsayılan kapalı bir opt-in olarak sun.
 
 ### Old Installers
 

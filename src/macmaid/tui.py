@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import os
 import threading
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -250,6 +251,8 @@ class MacMaidTUI(App[None]):
         self.developer_kind = "runtime"
         self.developer_items: list[DeveloperItem] = []; self.developer_storage: list[DeveloperStorageSection] = []; self.dev_cache_result: ScanResult | None = None; self.dev_selected: set[int] = set()
         self.more_kind: str | None = None; self.more_origin = "more"
+        self.leftover_age_days = 30; self.leftover_include_data = False
+        self.leftover_cache: ScanResult | None = None; self.leftover_mtimes: dict[str, float] = {}; self.leftover_cache_includes_data = False
         self.more_result: ScanResult | None = None; self.more_selected: set[int] = set()
         self.update_status: dict[str, Any] | None = None
         self.whitelist_lines: list[str] = []
@@ -658,6 +661,20 @@ class MacMaidTUI(App[None]):
             event.prevent_default()
             event.stop()
             self._confirm_snapshot_thin({"1": 10, "2": 20, "5": 50}[event.key])
+            return
+        if self.current_page == "more-results" and self.more_kind == "leftovers" and event.key.casefold() in {"a", "1", "2", "3", "d"}:
+            event.prevent_default()
+            event.stop()
+            key = event.key.casefold()
+            if key == "a": self.leftover_age_days = 0
+            elif key == "1": self.leftover_age_days = 7
+            elif key == "2": self.leftover_age_days = 14
+            elif key == "3": self.leftover_age_days = 30
+            else: self.leftover_include_data = not self.leftover_include_data
+            if self.leftover_include_data and not self.leftover_cache_includes_data:
+                self._load_more("leftovers")
+            else:
+                self._apply_leftover_filter()
             return
         if event.key != "enter":
             return
@@ -2078,7 +2095,10 @@ class MacMaidTUI(App[None]):
         try:
             token.check()
             if kind == "leftovers":
-                result = scan_leftovers(self.config, cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
+                # Discover every age once; changing the age pill only filters this cached result.
+                result = scan_leftovers(self.config, 0, self.leftover_include_data, cancellation=token)
+                mtimes = {item.id: item.path.stat().st_mtime for item in result.items if item.path is not None and item.path.exists()}
+                self._scan_update(self._finish_leftovers, result, mtimes, self.leftover_include_data); return
             elif kind == "installers":
                 result = scan_installers(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "browser-storage":
@@ -2118,15 +2138,44 @@ class MacMaidTUI(App[None]):
         self.query_one("#more-progress", ProgressBar).update(total=100, progress=100)
         if kind == "permissions":
             self.query_one("#more-hint", Static).update("O  Tam Disk Erişimi ayarlarını aç  ·  R Yenile  ·  Esc Geri")
+        elif kind == "leftovers":
+            age = self._ui("All ages") if self.leftover_age_days == 0 else self._ui("{days} days or older").format(days=self.leftover_age_days)
+            data = self._ui("included (manual review only)") if self.leftover_include_data else self._ui("excluded")
+            self.query_one("#more-output", Static).update(self._ui("Age: {age} · Application Support/Containers data: {data}\nA All · 1 7 days · 2 14 days · 3 30 days · D Toggle application data (off by default) · R Refresh").format(age=age, data=data))
+            self.query_one("#more-hint", Static).update(self._ui("A All · 1 7 days · 2 14 days · 3 30 days · D Toggle application data · Space Select · Enter Continue · Esc Back"))
         elif kind == "snapshots":
             self.query_one("#more-hint", Static).update(self._ui("1  Review 10 GB · 2  20 GB · 5  50 GB · R Refresh · Esc Back"))
         self._set_state("more", f"{kind} hazır")
+
+    def _finish_leftovers(self, result: ScanResult, mtimes: dict[str, float], includes_data: bool) -> None:
+        self.scan_cancellations.pop("more", None)
+        self.leftover_cache = result
+        self.leftover_mtimes = mtimes
+        self.leftover_cache_includes_data = includes_data
+        self._apply_leftover_filter()
+
+    def _apply_leftover_filter(self) -> None:
+        if self.leftover_cache is None:
+            return
+        cutoff = time.time() - self.leftover_age_days * 86400
+        data_roots = (Path.home() / "Library/Application Support", Path.home() / "Library/Containers")
+        items = [
+            item for item in self.leftover_cache.items
+            if (self.leftover_age_days == 0 or self.leftover_mtimes.get(item.id, 0) < cutoff)
+            and (self.leftover_include_data or not item.path or not any(item.path.is_relative_to(root) for root in data_roots))
+        ]
+        self._finish_more_scan("leftovers", ScanResult(items, self.leftover_cache.notes, self.leftover_cache.status, self.leftover_cache.issues))
 
     def _finish_more_scan(self, kind: str, result: ScanResult) -> None:
         self.scan_cancellations.pop("more", None)
         manual_review_only = kind in {"duplicates", "smart-downloads"} or kind.startswith("large-files")
         self.more_result = result; self.more_selected = (set() if manual_review_only else {i for i, item in enumerate(result.items) if item.risk is not RiskLevel.MANUAL_ONLY}) if result.is_complete else set()
-        if manual_review_only and not result.items:
+        if kind == "leftovers":
+            age = self._ui("All ages") if self.leftover_age_days == 0 else self._ui("{days} days or older").format(days=self.leftover_age_days)
+            data = self._ui("included (manual review only)") if self.leftover_include_data else self._ui("excluded")
+            self.query_one("#more-output", Static).update(self._ui("Age: {age} · Application Support/Containers data: {data}\nA All · 1 7 days · 2 14 days · 3 30 days · D Toggle application data (off by default) · R Refresh").format(age=age, data=data))
+            self.query_one("#more-hint", Static).update(self._ui("A All · 1 7 days · 2 14 days · 3 30 days · D Toggle application data · Space Select · Enter Continue · Esc Back"))
+        elif manual_review_only and not result.items:
             self.query_one("#more-output", Static).update("Filtreye uyan dosya bulunamadı. Large & Old varsayılan olarak HOME altında tarar, ~/Library ve symlinkleri atlar; farklı eşik için More menüsünden başka Large & Old filtresi seç.")
         else:
             self.query_one("#more-output", Static).update("")
