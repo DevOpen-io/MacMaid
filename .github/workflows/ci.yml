@@ -30,17 +30,42 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Sync dependencies
-        run: uv sync --all-groups
-
-      - name: Verify lockfile
+      - name: Verify committed lockfile
         run: uv lock --check
+
+      - name: Sync locked dependencies
+        run: uv sync --locked --all-groups
 
       - name: Compile Python
         run: uv run python -m compileall -q src/macmaid
 
       - name: Check Web UI JavaScript
-        run: node --check src/macmaid/WebUI/app.js
+        run: |
+          node --check src/macmaid/WebUI/app.js
+          node --check src/macmaid/WebUI/memory.js
 
       - name: Run tests
         run: uv run pytest -q
+
+  browser-test:
+    name: Memory browser workflow
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync locked browser dependencies
+        run: uv sync --locked --group browser
+
+      - name: Install Playwright Chromium
+        run: uv run playwright install chromium
+
+      - name: Run Memory browser test
+        env:
+          MACMAID_BROWSER_TESTS: "1"
+        run: uv run pytest tests_py/test_memory_browser.py -q

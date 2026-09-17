@@ -21,6 +21,7 @@ const LUCIDE_ICONS = {
   'app-window': '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><path d="M8 7h.01"/><path d="M12 7h.01"/>',
   'arrow-down': '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
   'arrow-up': '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+  'arrow-up-down': '<path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/>',
   boxes: '<path d="M2.97 12.92 12 17.5l9.03-4.58"/><path d="M2.97 17.92 12 22.5l9.03-4.58"/><path d="M12 2.5 2.97 7.08 12 11.66l9.03-4.58L12 2.5Z"/>',
   braces: '<path d="M8 3H7a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-4a2 2 0 0 1 2-2 2 2 0 0 1-2-2V7a2 2 0 0 0-2-2h-1"/>',
   'chart-pie': '<path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951C12.449 1.995 12 2.448 12 3v9Z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>',
@@ -48,16 +49,18 @@ const LUCIDE_ICONS = {
   'more-horizontal': '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   package: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
   'panels-top-left': '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>',
+  'refresh-cw': '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
   save: '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8A2 2 0 0 1 21 8.8V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
   search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
-  lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
-  settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.8 17 5 19 5a1 1 0 0 1 1 1Z"/>',
   'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.8 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/>',
+  'sliders-horizontal': '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
   sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
   stethoscope: '<path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
   terminal: '<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
   'trash-2': '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+  'trending-up': '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
   'triangle-alert': '<path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
   upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
   'volume-2': '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
@@ -1213,6 +1216,35 @@ const I18N = {
 }
 };
 
+const MEMORY_COPY = {
+  title: ['Memory', 'Bellek'], nav: ['Processes & growth', 'Süreçler ve büyüme'],
+  subtitle: ['Find growing processes. Review what stops. Keep your work in control.', 'Büyüyen süreçleri bulun. Durdurulacakları inceleyin. İşinizin kontrolünü koruyun.'],
+  monitoring: ['Monitoring continues while MacMaid runs. Growth is a signal, not a confirmed leak.', 'MacMaid çalışırken izleme sürer. Büyüme bir işarettir; kesin bir sızıntı değildir.'],
+  monitoringShort: ['Monitoring while MacMaid runs', 'MacMaid çalışırken izleniyor'], processes: ['Processes', 'Süreçler'], searchPlaceholder: ['Name, PID, or path', 'Ad, PID veya yol'],
+  processSummary: ['{visible} of {total} processes · {protected} protected', '{total} süreçten {visible} tanesi · {protected} korumalı'], processCount: ['Processes', 'Süreçler'], growingCount: ['{count} showing sustained growth', '{count} süreç sürekli büyüyor'], protectedCount: ['{count} protected', '{count} korumalı'], systemWide: ['System-wide usage', 'Sistem genelindeki kullanım'],
+  search: ['Search processes', 'Süreç ara'], filter: ['Show', 'Göster'], all: ['All processes', 'Tüm süreçler'], developer: ['Developer tools', 'Geliştirici araçları'], flutter: ['Flutter / Dart', 'Flutter / Dart'], sort: ['Sort by', 'Sıralama'], rss: ['Resident memory (RSS)', 'Yerleşik bellek (RSS)'], growth: ['10-minute growth', '10 dakikalık büyüme'], cpu: ['CPU', 'CPU'], name: ['Process', 'Süreç'], status: ['Status', 'Durum'], actions: ['Actions', 'İşlemler'], selection: ['Select', 'Seç'],
+  select: ['Select visible eligible processes', 'Görünen uygun süreçleri seç'], clear: ['Clear selection', 'Seçimi temizle'], stop: ['Review & Stop', 'İncele ve Durdur'], force: ['Review Force Stop', 'Zorla Durdurmayı İncele'],
+  rssNote: ['RSS includes shared memory. Process totals are not an estimate of recoverable RAM.', 'RSS paylaşılan belleği içerir. Süreç toplamları geri kazanılabilir RAM tahmini değildir.'],
+  rules: ['Automatic helper rules', 'Otomatik yardımcı kuralları'], rulesNote: ['Optional and off by default. Only approved Dart analysis and TypeScript server helpers can stop automatically. Active apps, builds and simulators remain manual. Rules never force-stop.', 'İsteğe bağlıdır ve başlangıçta kapalıdır. Yalnızca onaylanan Dart analiz ve TypeScript sunucu yardımcıları otomatik durdurulabilir. Etkin uygulamalar, derlemeler ve simülatörler elle yönetilir. Kurallar zorla durdurmaz.'],
+  exclusions: ['Never stop', 'Asla durdurma'], exclusionsNote: ['Executables listed here remain protected from manual and automatic actions.', 'Buradaki çalıştırılabilir dosyalar elle ve otomatik işlemlerden korunur.'], activity: ['Memory activity', 'Bellek etkinliği'], activityNote: ['Stop requests and their outcomes for this session.', 'Bu oturumdaki durdurma istekleri ve sonuçları.'], pressure: ['Pressure headroom', 'Bellek baskısı payı'], ram: ['RAM used / total', 'Kullanılan / toplam RAM'], swap: ['Swap used', 'Kullanılan takas'], unknown: ['Unavailable', 'Kullanılamıyor'], loading: ['Collecting processes…', 'Süreçler toplanıyor…'], empty: ['No matching processes.', 'Eşleşen süreç yok.'], collecting: ['Collecting history', 'Geçmiş toplanıyor'], growing: ['Growing memory', 'Bellek büyüyor'], stable: ['No sustained growth', 'Sürekli büyüme yok'],
+  details: ['Details', 'Ayrıntılar'], exclude: ['Never stop', 'Asla durdurma'], addRule: ['Set helper rule', 'Yardımcı kuralı ayarla'], remove: ['Remove', 'Kaldır'], pause: ['Pause automation', 'Otomasyonu duraklat'], resume: ['Enable automation', 'Otomasyonu etkinleştir'], noRules: ['No rules. Choose “Set helper rule” on a recognized helper to begin.', 'Kural yok. Başlamak için tanınan bir yardımcıda “Yardımcı kuralı ayarla” seçeneğini kullanın.'], noExclusions: ['No excluded executables.', 'Hariç tutulan çalıştırılabilir dosya yok.'], noActivity: ['No memory actions this session.', 'Bu oturumda bellek işlemi yok.'],
+  selected: ['{count} selected', '{count} seçili'], cancel: ['Cancel', 'İptal'], confirm: ['Stop selected processes', 'Seçili süreçleri durdur'], confirmForce: ['Force Stop selected processes', 'Seçili süreçleri zorla durdur'], impact: ['Stopping can interrupt work and lose unsaved changes. Only these exact processes are targeted; child processes are not included automatically. MacMaid will not relaunch them.', 'Durdurma işi kesintiye uğratabilir ve kaydedilmemiş değişiklikleri kaybettirebilir. Yalnızca bu süreçler hedeflenir; alt süreçler otomatik eklenmez. MacMaid bunları yeniden başlatmaz.'], forceImpact: ['Force Stop sends SIGKILL immediately and can lose unsaved work. Use it only for processes that did not stop normally.', 'Zorla Durdur, hemen SIGKILL gönderir ve kaydedilmemiş işi kaybettirebilir. Yalnızca normal durmayan süreçler için kullanın.'], consent: ['I understand and accept the interruption and possible loss of unsaved work.', 'Kesintiyi ve kaydedilmemiş işin kaybolma olasılığını anlıyor ve kabul ediyorum.'], needConsent: ['Check the interruption confirmation first.', 'Önce kesinti onayını işaretleyin.'], stopping: ['Waiting for processes to stop…', 'Süreçlerin durması bekleniyor…'],
+  observed: ['Observed available RAM change: {delta}. This system-wide change is not attributable solely to MacMaid.', 'Gözlenen kullanılabilir RAM değişimi: {delta}. Sistem genelindeki bu değişim yalnızca MacMaid’e atfedilemez.'],
+  'exited': ['Exited', 'Sonlandı'], 'still-running': ['Still running — Force Stop is available after review', 'Hâlâ çalışıyor — inceleme sonrası Zorla Durdur kullanılabilir'], skipped: ['Skipped', 'Atlandı'], requested: ['Stop requested', 'Durdurma istendi'], automatic: ['Automatic', 'Otomatik'], manual: ['Manual', 'Elle'],
+  'other-user': ['Protected: another user', 'Korumalı: başka kullanıcı'], 'macmaid-or-ancestor': ['Protected: MacMaid / launcher', 'Korumalı: MacMaid / başlatıcı'], 'unverified-identity': ['Protected: identity unavailable', 'Korumalı: kimlik alınamadı'], 'system-process': ['Protected: macOS process', 'Korumalı: macOS süreci'], excluded: ['Protected: never stop', 'Korumalı: asla durdurma'],
+  'dart-analysis': ['Dart analysis server', 'Dart analiz sunucusu'], 'typescript-server': ['TypeScript server', 'TypeScript sunucusu'], 'dart-tool': ['Dart / Flutter tool', 'Dart / Flutter aracı'], 'flutter-tool': ['Flutter tool', 'Flutter aracı'], 'development-tool': ['Development tool', 'Geliştirme aracı'], application: ['Application / process', 'Uygulama / süreç'],
+  threshold: ['RSS threshold (GiB)', 'RSS eşiği (GiB)'], duration: ['Above threshold for (minutes)', 'Eşik üzerinde kalma süresi (dakika)'], headroom: ['Only when pressure headroom is below (%)', 'Yalnızca baskı payı bu değerin altındayken (%)'], save: ['Save helper rule', 'Yardımcı kuralını kaydet'], ruleImpact: ['This exact helper executable and role may receive SIGTERM without another confirmation. Analysis or editor assistance may be interrupted. Rules wait 30 minutes between attempts and pause after two failures.', 'Bu yardımcı dosyası ve rolü, başka onay olmadan SIGTERM alabilir. Analiz veya düzenleyici desteği kesilebilir. Kurallar denemeler arasında 30 dakika bekler ve iki başarısızlık sonrası duraklar.'], enabled: ['Enabled', 'Etkin'], disabled: ['Paused after failures', 'Başarısızlıklar sonrası duraklatıldı'], ruleSummary: ['Above {rss} for {minutes} min; pressure headroom below {pressure}%.', '{minutes} dakika boyunca {rss} üzerinde; baskı payı %{pressure} altında.'], trend: ['Resident memory over the last hour', 'Son saatteki yerleşik bellek'], trendRange: ['{old} seconds ago → now · {low} to {high}', '{old} saniye önce → şimdi · {low} ile {high}'], evidence: ['Growing memory means more than 256 MiB and 25% growth over ten minutes, with at least seven increasing minute-to-minute medians.', 'Bellek büyümesi, on dakikada 256 MiB ve %25 üzerinde artış ve dakikalık medyanlarda en az yedi yükseliş anlamına gelir.'], refresh: ['Refresh Memory to retry.', 'Yeniden denemek için Bellek bölümünü yenileyin.'],
+  refreshBtn: ['Refresh', 'Yenile'], refreshProcesses: ['Refresh processes', 'Süreçleri yenile'], processFilters: ['Process filters', 'Süreç filtreleri'], filterGrowing: ['Growing', 'Büyüyen'], filterProtected: ['Protected', 'Korumalı'],
+  pressureNormal: ['Normal', 'Normal'], pressureElevated: ['Elevated', 'Yüksek'], pressureCritical: ['Critical', 'Kritik'],
+  close: ['Close', 'Kapat'], peak: ['Peak in window', 'Penceredeki en yüksek'], currentRss: ['Current RSS', 'Geçerli RSS'],
+  copyPath: ['Copy path', 'Yolu kopyala'], copied: ['Copied!', 'Kopyalandı!'], roleLabel: ['Role', 'Rol']
+};
+
+for (const [key, values] of Object.entries(MEMORY_COPY)) {
+  I18N.en[`memory.${key}`] = values[0];
+  I18N.tr[`memory.${key}`] = values[1];
+}
+
 function t(key, fallback = '') {
   const lang = state.lang || state.language || 'en';
   const dict = I18N[lang] || I18N.en;
@@ -1243,6 +1275,10 @@ function applyLanguage(lang) {
       el.setAttribute('aria-label', dict[key]);
     }
   });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+    const key = el.dataset.i18nAria;
+    if (dict[key] !== undefined) el.setAttribute('aria-label', dict[key]);
+  });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     const key = el.dataset.i18nPlaceholder;
     if (dict[key] !== undefined) el.placeholder = dict[key];
@@ -1252,6 +1288,7 @@ function applyLanguage(lang) {
   if (langSelect && langSelect.value !== lang) {
     langSelect.value = lang;
   }
+  document.dispatchEvent(new CustomEvent('macmaid-language-change'));
 }
 
 async function readAPIResponse(response) {

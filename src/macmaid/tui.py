@@ -28,6 +28,7 @@ from .config import Config
 from .developer import DeveloperInventory, DeveloperItem, DeveloperStorageCenter, DeveloperStorageSection
 from .duplicates import DuplicateFinder
 from .large_files import LargeOldFileScanner
+from .memory import MemoryService
 from .i18n import DEFAULT_LANGUAGE, translate
 from .smart_downloads import SmartDownloadsScanner
 from .features import (
@@ -55,6 +56,7 @@ NAVIGATION = [
     ("status", "●", "Mac Health", "Evidence-based disk, memory-pressure, thermal and battery status"),
     ("files", "▧", "Files & Storage", "Large files, duplicates, downloads and browser storage"),
     ("more", "⋯", "System & History", "Leftovers, installers, snapshots, history and diagnostics"),
+    ("memory", "▤", "Memory", "Inspect process memory growth and review exact processes before stopping"),
     ("update", "↑", "Check for Updates", "Check Homebrew for a newer MacMaid release"),
 ]
 
@@ -270,6 +272,9 @@ class MacMaidTUI(App[None]):
         self.scan_cancellations: dict[str, CancellationToken] = {}
         self.analyzer_snapshot: dict[str, Any] | None = None; self.analyzer_views: dict[str, dict[str, Any]] = {}
         self._status_running = threading.Event()
+        self.memory = MemoryService(self.config, threading.Lock())
+        self.memory_rows: list[dict[str, Any]] = []
+        self._memory_running = threading.Event()
         self.operation_done = False
         self.operation_lines: list[str] = []
         self.live_event_lines: list[str] = []; self.live_events_open = True; self.live_event_generation = 0
@@ -290,6 +295,7 @@ class MacMaidTUI(App[None]):
             yield self._developer_page(); yield self._developer_results_page()
             yield self._optimize_page(); yield self._optimize_results_page()
             yield self._status_page(); yield self._status_results_page()
+            yield self._memory_page()
             yield self._files_page(); yield self._more_page(); yield self._more_results_page(); yield self._whitelist_editor_page(); yield self._settings_page()
             yield self._update_page(); yield self._review_page(); yield self._operation_page()
         yield Static("", id="activity")
@@ -312,7 +318,7 @@ class MacMaidTUI(App[None]):
                     Vertical(
                         Horizontal(
                             Label("➤", classes="menu-marker"),
-                            Label(f"{0 if index == 10 else index}.  {icon}  {title}", classes="nav-title"),
+                            Label(f"{0 if key == 'update' else index}.  {icon}  {title}", classes="nav-title"),
                             classes="menu-line",
                         ),
                         Label(desc, classes="nav-desc"),
@@ -430,6 +436,15 @@ class MacMaidTUI(App[None]):
     def _status_results_page(self) -> Vertical:
         return self._page("status-results", "Mac Health", "Read-only indicators with evidence, freshness and safe recommendations; no health score or automatic action.", Static("Loading metrics…", id="status-state", classes="state busy"), Static("Loading metrics…", id="status-output", markup=False), Static("R Refresh · Q / Esc Back", classes="hint"))
 
+    def _memory_page(self) -> Vertical:
+        return self._page(
+            "memory", "Memory", "Process memory evidence. Growth is not a confirmed leak and RSS is not a reclaim estimate.",
+            Static("Collecting process memory…", id="memory-state", classes="state busy"),
+            DataTable(id="memory-table", zebra_stripes=True),
+            Static("Protected processes cannot be selected. Enter reviews SIGTERM; D reviews SIGKILL only after a normal stop attempt.", id="memory-detail", classes="detail", markup=False),
+            Static("↑↓ Navigate · Enter Review & Stop · D Review Force Stop · R Refresh · Esc Back", classes="hint"),
+        )
+
     def _files_page(self) -> Vertical:
         return self._page("files", "Files & Storage", "User-file and browser inspection tools; nothing is removed without review", self._action_menu("files-actions", [
             ("files-browser-storage", "◉  Browser Storage", "Inspect cache, site data, cookies and session boundaries"),
@@ -520,6 +535,7 @@ class MacMaidTUI(App[None]):
             "more-table": ("Seç", "Risk", "Boyut", "Öğe", "Konum"),
             "whitelist-table": ("Korunan yol veya glob",),
             "whitelist-suggestions": ("Eşleşen konumlar",),
+            "memory-table": ("RSS", "Growth", "CPU", "Status", "PID", "Process"),
         }
         for table_id, labels in columns.items():
             table = self.query_one(f"#{table_id}", DataTable)
@@ -530,7 +546,9 @@ class MacMaidTUI(App[None]):
         self._render_optimize(); self.query_one("#nav", ListView).index = 0
         self.set_interval(2.0, self._periodic_status); self.set_interval(0.4, self._periodic_analyzer); self._load_status()
 
-    def on_unmount(self) -> None: self.analyzer.shutdown()
+    def on_unmount(self) -> None:
+        self.analyzer.shutdown()
+        self.memory.shutdown()
     def _set_activity(self, text: str) -> None: self.query_one("#activity", Static).update(text)
     def _warn(self, text: str) -> None: self._set_activity(f"!  {text}")
     def _set_progress(self, widget_id: str, total: float | None, progress: float) -> None:
@@ -643,7 +661,7 @@ class MacMaidTUI(App[None]):
         if self.current_page == "whitelist-editor" and self._handle_whitelist_editor_key(event):
             return
         if self.current_page == "dashboard" and event.key.isdigit():
-            index = 9 if event.key == "0" else int(event.key) - 1
+            index = next((i for i, item in enumerate(NAVIGATION) if item[0] == "update"), -1) if event.key == "0" else int(event.key) - 1
             if 0 <= index < len(NAVIGATION):
                 event.stop()
                 self.open_page(NAVIGATION[index][0])
@@ -1022,6 +1040,16 @@ class MacMaidTUI(App[None]):
             return
         valid = {item[0] for item in NAVIGATION} | {"dashboard"}
         if key not in valid: return
+        if key == "memory":
+            self._leave_results()
+            self.current_page = "memory"
+            self.query_one("#pages", ContentSwitcher).current = "page-memory"
+            nav = self.query_one("#nav", ListView)
+            nav.index = next(i for i, item in enumerate(NAVIGATION) if item[0] == key)
+            self.query_one("#memory-table", DataTable).focus()
+            self._set_activity("")
+            self._load_memory()
+            return
         direct: dict[str, Callable[[], None]] = {
             "apps": self._scan_apps,
             "optimize": lambda: None,
@@ -1142,6 +1170,7 @@ class MacMaidTUI(App[None]):
         if self.current_page == "analyzer-results": self.key_t()
         elif self.current_page == "developer-results": self._confirm_developer_remove()
         elif self.current_page == "whitelist-editor": self._remove_whitelist_entry()
+        elif self.current_page == "memory": self._confirm_memory_stop(force=True)
     def action_help(self) -> None: self._set_activity("↑↓/j/k Gezin · Enter Aç · Space Seç · İncelemede y Onay / Enter İptal · R Yenile · Q Geri/Çıkış")
 
     def action_cancel_scan(self) -> None:
@@ -1163,7 +1192,7 @@ class MacMaidTUI(App[None]):
         if self._mutation_requested:
             self._warn("İşlem sürerken yeniden tarama başlatılamaz")
             return
-        actions = {"dashboard": self._load_status, "status-results": self._load_status, "clean-results": self._start_clean_scan, "apps-results": self._scan_apps, "analyzer-results": lambda: self._request_analysis(self.analyzer_path, True), "purge-results": self._scan_projects, "developer-results": self._scan_developer, "more-results": lambda: self._load_more(self.more_kind) if self.more_kind else None, "update-results": self._check_macmaid_update}
+        actions = {"dashboard": self._load_status, "status-results": self._load_status, "memory": self._load_memory, "clean-results": self._start_clean_scan, "apps-results": self._scan_apps, "analyzer-results": lambda: self._request_analysis(self.analyzer_path, True), "purge-results": self._scan_projects, "developer-results": self._scan_developer, "more-results": lambda: self._load_more(self.more_kind) if self.more_kind else None, "update-results": self._check_macmaid_update}
         action = actions.get(self.current_page)
         if action: action()
 
@@ -1215,6 +1244,17 @@ class MacMaidTUI(App[None]):
             task = OPTIMIZATIONS[row]; text = f"{OPTIMIZATION_HELP.get(task['id'], task['title'])}\nRisk: {task['risk']} · {'Önerilen' if task['recommended'] else 'Varsayılan olarak seçilmez'}"
         elif table_id == "more-table" and self.more_result and 0 <= row < len(self.more_result.items):
             item = self.more_result.items[row]; text = f"{item.reason}\n{item.path or item.action.kind.value}"
+        elif table_id == "memory-table" and 0 <= row < len(self.memory_rows):
+            p = self.memory_rows[row]
+            rss = human_bytes(p.get("rssBytes", 0)) if p.get("rssBytes") is not None else "?"
+            delta = p.get("growthBytes")
+            growth_str = ("+" if delta >= 0 else "-") + human_bytes(abs(delta)) if delta is not None else "collecting"
+            cpu = f"{p.get('cpuPercent', 0.0):.1f}%" if p.get("cpuPercent") is not None else "?"
+            status = p.get("protected") or ("growing" if p.get("growing") else "stable" if p.get("historyReady") else "collecting")
+            role = f" · Role: {p['role']}" if p.get("role") else ""
+            entry = f" [{p['entrypoint']}]" if p.get("entrypoint") else ""
+            exe_path = p.get("exe") or "unknown path"
+            text = f"{p['name']}{entry} (PID {p['pid']}) · RSS: {rss} · Growth: {growth_str} · CPU: {cpu} · Status: {status}{role}\nPath: {exe_path}"
         if text:
             detail.update(text)
 
@@ -1233,6 +1273,7 @@ class MacMaidTUI(App[None]):
         elif table_id == "analyzer-table" and self.analyzer_snapshot:
             entries = self.analyzer_snapshot.get("entries", [])
             if 0 <= row < len(entries) and entries[row]["directory"]: self._request_analysis(Path(entries[row]["path"]))
+        elif table_id == "memory-table": self._confirm_memory_stop()
 
     def key_backspace(self) -> None:
         if self.current_page == "analyzer-results": self._request_analysis(self.analyzer_path.parent)
@@ -1737,6 +1778,137 @@ class MacMaidTUI(App[None]):
 
     def _periodic_status(self) -> None:
         if self.current_page in {"dashboard", "status-results"}: self._load_status()
+        elif self.current_page == "memory": self._load_memory()
+
+    def _load_memory(self) -> None:
+        if not self._memory_running.is_set() and not self._mutation_requested:
+            self._memory_worker()
+
+    @work(thread=True, exclusive=True, group="memory")
+    def _memory_worker(self) -> None:
+        self._memory_running.set()
+        try:
+            self.memory.sample()
+            self.call_from_thread(self._finish_memory, self.memory.snapshot(), None)
+        except Exception as exc:
+            self.call_from_thread(self._memory_failed, str(exc))
+        finally:
+            self._memory_running.clear()
+
+    def _finish_memory(self, snapshot: dict[str, Any], outcome: str | None) -> None:
+        cursor = self.query_one("#memory-table", DataTable).cursor_row
+        self.memory_rows = sorted(snapshot.get("processes", []), key=lambda row: row.get("rssBytes") or -1, reverse=True)
+        table = self.query_one("#memory-table", DataTable)
+        table.clear()
+        growing_count = sum(1 for row in self.memory_rows if row.get("growing"))
+        for row in self.memory_rows:
+            rss_val = row.get("rssBytes")
+            rss_text = "?" if rss_val is None else human_bytes(rss_val)
+            rss_cell = Text(rss_text, style="bold #d2a8ff" if (rss_val or 0) > 1024**3 else "#c9d1d9")
+
+            delta = row.get("growthBytes")
+            if delta is None:
+                growth_cell = Text("collecting", style="dim")
+            elif row.get("growing"):
+                growth_cell = Text(f"+{human_bytes(abs(delta))} ↗", style="bold #e3b341")
+            elif delta < 0:
+                growth_cell = Text(f"-{human_bytes(abs(delta))}", style="#57ab5a")
+            else:
+                growth_cell = Text(f"+{human_bytes(abs(delta))}", style="dim")
+
+            cpu_val = row.get("cpuPercent")
+            if cpu_val is None:
+                cpu_cell = Text("?", style="dim")
+            elif cpu_val >= 20.0:
+                cpu_cell = Text(f"{cpu_val:.1f}%", style="bold #f85149")
+            elif cpu_val >= 5.0:
+                cpu_cell = Text(f"{cpu_val:.1f}%", style="#e3b341")
+            else:
+                cpu_cell = Text(f"{cpu_val:.1f}%", style="#56d364")
+
+            prot = row.get("protected")
+            if prot:
+                status_cell = Text(f"🔒 {prot}", style="dim")
+            elif row.get("growing"):
+                status_cell = Text("▲ growing", style="bold #e3b341")
+            elif row.get("historyReady"):
+                status_cell = Text("✓ stable", style="#57ab5a")
+            else:
+                status_cell = Text("⏳ collecting", style="dim")
+
+            pid_cell = Text(str(row["pid"]), style="#79c0ff")
+            name_cell = Text(row["name"], style="bold" if row.get("growing") else "")
+            table.add_row(rss_cell, growth_cell, cpu_cell, status_cell, pid_cell, name_cell)
+        self._restore_cursor(table, cursor)
+        if table.row_count:
+            active_row = min(cursor or 0, table.row_count - 1)
+            self._update_row_detail("memory-table", active_row)
+        metrics = snapshot.get("metrics", {})
+        summary = f"{len(self.memory_rows)} processes"
+        if growing_count:
+            summary += f" · {growing_count} growing"
+        if metrics.get("total"):
+            summary += f" · RAM {human_bytes(metrics.get('used', 0))}/{human_bytes(metrics['total'])} · swap {human_bytes(metrics.get('swap', 0))}"
+        if snapshot.get("error"):
+            summary += f" · {snapshot['error']}"
+        if outcome:
+            summary = f"{outcome} · {summary}"
+        self._set_state("memory", summary)
+        if table.row_count and self.current_page == "memory":
+            table.focus()
+
+    def _memory_failed(self, message: str) -> None:
+        self._memory_running.clear()
+        self._mutation_requested = False
+        self._set_state("memory", f"Memory monitoring failed: {message}")
+
+    def _memory_row(self) -> dict[str, Any] | None:
+        table = self.query_one("#memory-table", DataTable)
+        return self.memory_rows[table.cursor_row] if table.row_count and 0 <= table.cursor_row < len(self.memory_rows) else None
+
+    def _confirm_memory_stop(self, force: bool = False) -> None:
+        row = self._memory_row()
+        if row is None:
+            self._warn("Choose a process first")
+            return
+        if row.get("protected"):
+            self._warn(f"Protected process: {row['protected']}")
+            return
+        key = row["key"]
+        try:
+            plan = self.memory.review([key], force=force)
+        except (OSError, ValueError, PermissionError) as exc:
+            self._warn(str(exc))
+            return
+        self._confirm(plan, lambda: self._start_memory_stop(key, force), lambda: self._current_memory_plan(key, force))
+
+    def _current_memory_plan(self, key: str, force: bool) -> ReviewPlan:
+        try:
+            return self.memory.review([key], force=force)
+        except (OSError, PermissionError) as exc:
+            raise ValueError("process identity or protection changed") from exc
+
+    def _start_memory_stop(self, key: str, force: bool) -> None:
+        self.current_page = "memory"
+        self.query_one("#pages", ContentSwitcher).current = "page-memory"
+        self._set_state("memory", "Waiting for the reviewed process to stop…")
+        self._memory_stop_worker(key, force)
+
+    @work(thread=True, exclusive=True, group="memory-stop")
+    def _memory_stop_worker(self, key: str, force: bool) -> None:
+        try:
+            result = self.memory.stop([key], force=force)
+            self.memory.sample()
+            item = result["outcomes"][0]
+            message = f"{item.get('name', item['key'])}: {item['outcome']}"
+            self.call_from_thread(self._finish_memory_stop, self.memory.snapshot(), message)
+        except Exception as exc:
+            self.call_from_thread(self._memory_failed, str(exc))
+
+    def _finish_memory_stop(self, snapshot: dict[str, Any], message: str) -> None:
+        self._mutation_requested = False
+        self._finish_memory(snapshot, message)
+
     def _load_status(self) -> None:
         if not self._status_running.is_set(): self._status_worker()
     @work(thread=True, exclusive=True, group="status")

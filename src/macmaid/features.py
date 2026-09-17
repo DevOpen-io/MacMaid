@@ -899,7 +899,7 @@ def developer_inventory(kind: str) -> list[dict[str, Any]]:
 
 
 def completion_script(shell: str) -> str:
-    commands = "doctor scan clean leftovers installers smart-downloads browser-storage analyze duplicates large-files apps purge status completion developer-caches developer optimize snapshots history restore whitelist uninstall ui web gui dashboard"
+    commands = "doctor scan clean leftovers installers smart-downloads browser-storage analyze duplicates large-files apps purge status memory completion developer-caches developer optimize snapshots history restore whitelist uninstall ui web gui dashboard"
     if shell == "fish":
         return f"complete -c macmaid -f -a '{commands}'"
     if shell == "bash":
@@ -925,6 +925,7 @@ _macmaid() {{
     'apps:List installed applications'
     'purge:Find generated project artifacts'
     'status:Show evidence-based Mac health'
+    'memory:Inspect memory growth and review process stopping'
     'completion:Print or install shell completion'
     'developer-caches:Scan package-manager caches'
     'developer:List managed runtimes environments tools or SDKs'
@@ -982,6 +983,16 @@ _macmaid() {{
           ;;
         developer)
           _arguments '1:inventory kind:(runtimes environments tools sdks)'
+          ;;
+        memory)
+          _arguments \
+            '*--stop[review a process for stopping]:PID:' \
+            '--limit[maximum processes to display]:count:' \
+            '--growing[show only sustained memory growth]' \
+            '--sort[sort process rows]:sort order:(rss growth cpu name pid)' \
+            '--filter[filter process rows]:filter:(all developer flutter growing protected)' \
+            '--apply[request process stopping after review]' \
+            '--yes[acknowledge reviewed process signals]'
           ;;
         optimize)
           _arguments '--task[select one maintenance task]:task:({optimization_ids})' '--all[select every task including advanced tasks]' '--apply[request execution after review]' '--yes[acknowledge a reviewed non-interactive operation]'

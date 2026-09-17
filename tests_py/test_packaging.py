@@ -76,3 +76,17 @@ def test_homebrew_libexec_symlink_structure_resolution(tmp_path: Path) -> None:
         resolved = symlink.resolve()
         assert resolved == mock_bin
         assert (resolved.parent / "_internal").is_dir()
+
+
+def test_memory_release_version_surfaces_are_synchronized() -> None:
+    import re
+    import tomllib
+    root = Path(__file__).resolve().parents[1]
+    project = tomllib.loads((root / "pyproject.toml").read_text())["project"]
+    lock = tomllib.loads((root / "uv.lock").read_text())
+    package = next(item for item in lock["package"] if item["name"] == "macmaid")
+    html = (root / "src/macmaid/WebUI/index.html").read_text()
+    displayed = re.search(r'class="version-tag">v([0-9.]+) Python', html).group(1)
+    assert project["version"] == package["version"] == displayed == __version__
+    assert tuple(map(int, __version__.split("."))) >= (0, 12, 0)
+    assert 'from macmaid import __version__' in (root / "scripts/prod-install.sh").read_text()

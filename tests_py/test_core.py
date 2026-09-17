@@ -201,11 +201,15 @@ def test_bounded_parallel_sizes(tmp_path: Path) -> None:
 
 def test_completion_contains_all_primary_commands() -> None:
     script = completion_script("zsh")
-    for command in ("scan", "apps", "analyze", "purge", "status", "developer", "ui"):
+    for command in ("scan", "apps", "analyze", "purge", "status", "memory", "developer", "ui"):
         assert f"'{command}:" in script
     for option in ("--profile", "--scan-only", "--apply", "--path", "--task", "--port"):
         assert option in script
+    for option in ("--growing", "--sort", "--filter"):
+        assert option in script
     assert "'help:" not in script and "'version:" not in script
+    assert "memory" in completion_script("bash")
+    assert "memory" in completion_script("fish")
 
 
 def test_zsh_completion_script_has_valid_syntax() -> None:

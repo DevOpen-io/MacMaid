@@ -189,6 +189,26 @@ _TR: Final[dict[str, str]] = {
     "Type a path; matching locations appear below": "Bir yol yazın; eşleşen konumlar aşağıda görünür",
     "Protected path or glob": "Korunan yol veya glob", "Matching locations": "Eşleşen konumlar",
     "Enter Add · ↓ then Enter Select suggestion · D Remove rule · Ctrl+S Save · Esc Back": "Enter Ekle · ↓ ve Enter Öneriyi seç · D Kuralı kaldır · Ctrl+S Kaydet · Esc Geri",
+    "Memory": "Bellek",
+    "Inspect process memory growth and review exact processes before stopping": "Süreç belleği büyümesini incele ve durdurmadan önce kesin süreçleri gözden geçir",
+    "Process memory evidence. Growth is not a confirmed leak and RSS is not a reclaim estimate.": "Süreç belleği kanıtları. Büyüme doğrulanmış bir sızıntı değildir ve RSS geri kazanım tahmini değildir.",
+    "Collecting process memory…": "Süreç belleği toplanıyor…",
+    "Protected processes cannot be selected. Enter reviews SIGTERM; D reviews SIGKILL only after a normal stop attempt.": "Korumalı süreçler seçilemez. Enter SIGTERM işlemini; D ise yalnızca normal durdurma denemesinden sonra SIGKILL işlemini inceletir.",
+    "↑↓ Navigate · Enter Review & Stop · D Review Force Stop · R Refresh · Esc Back": "↑↓ Gezin · Enter İncele ve Durdur · D Zorla Durdurmayı İncele · R Yenile · Esc Geri",
+    "Growth": "Büyüme", "Process": "Süreç", "collecting": "toplanıyor", "growing": "büyüyor", "stable": "kararlı",
+    "Choose a process first": "Önce bir süreç seçin",
+    "Waiting for the reviewed process to stop…": "İncelenen sürecin durması bekleniyor…",
+    "process identity or protection changed": "süreç kimliği veya koruma durumu değişti",
+    "other-user": "başka kullanıcı", "macmaid-or-ancestor": "MacMaid veya üst süreci", "unverified-identity": "kimlik doğrulanamadı",
+    "system-process": "macOS süreci", "excluded": "hariç tutuldu",
+    "▲ growing": "▲ büyüyor", "✓ stable": "✓ kararlı", "⏳ collecting": "⏳ toplanıyor",
+    "Role": "Rol", "Path": "Yol",
+    "Stop processes": "Süreçleri durdur", "Force Stop processes": "Süreçleri zorla durdur",
+    "Stop": "Durdur", "Force Stop": "Zorla durdur",
+    "May interrupt work or lose unsaved changes.": "Çalışmayı kesintiye uğratabilir veya kaydedilmemiş değişiklikleri kaybettirebilir.",
+    "Only the listed processes will receive SIGTERM. Applications may lose unsaved work.": "Yalnızca listelenen süreçlere SIGTERM gönderilir. Uygulamalar kaydedilmemiş çalışmaları kaybedebilir.",
+    "Only the listed processes will receive SIGKILL.": "Yalnızca listelenen süreçlere SIGKILL gönderilir.",
+    "RSS includes shared memory and is not a reclaim estimate. No applications will be restarted.": "RSS paylaşılan belleği içerir ve bir geri kazanım tahmini değildir. Hiçbir uygulama yeniden başlatılmaz.",
 }
 
 _EN_EXTRA: Final[dict[str, str]] = {
@@ -331,6 +351,9 @@ _TR_FRAGMENTS: Final[tuple[tuple[str, str], ...]] = tuple(sorted({
     "MacMaid update failed": "MacMaid güncellemesi başarısız",
     "Updating MacMaid with Homebrew": "MacMaid Homebrew ile güncelleniyor",
     "No files": "Dosya yok", "No items": "Öğe yok", "available": "kullanılabilir", "unavailable": "kullanılamıyor",
+    "Memory monitoring failed: ": "Bellek izleme başarısız: ", "Protected process: ": "Korumalı süreç: ",
+    " processes": " süreç", " growing": " büyüyor", " · Role: ": " · Rol: ", " · Growth: ": " · Büyüme: ",
+    " · Status: ": " · Durum: ", "Path: ": "Yol: ",
     "granted": "izinli", "denied": "engelli", "limited": "sınırlı", "not applicable": "uygulanamaz",
 }.items(), key=lambda item: len(item[0]), reverse=True))
 

@@ -618,3 +618,69 @@ def test_tui_update_page_lifecycle_and_actions(monkeypatch) -> None:
 
     asyncio.run(exercise())
 
+
+def test_tui_memory_table_rendering_and_detail(monkeypatch) -> None:
+    monkeypatch.setattr(tui, "system_status", _metrics)
+
+    async def exercise() -> None:
+        app = tui.MacMaidTUI()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.open_page("memory")
+            assert app.current_page == "memory"
+
+            fake_snapshot = {
+                "metrics": {"used": 8 * 1024**3, "total": 16 * 1024**3, "swap": 1024**3},
+                "processes": [
+                    {
+                        "key": "123:456",
+                        "pid": 123,
+                        "name": "dart",
+                        "exe": "/opt/flutter/bin/cache/dart-sdk/bin/dart",
+                        "rssBytes": 2 * 1024**3,
+                        "growthBytes": 256 * 1024**2,
+                        "growing": True,
+                        "cpuPercent": 14.5,
+                        "role": "language-server",
+                        "protected": None,
+                        "historyReady": True,
+                        "entrypoint": "lsp",
+                    },
+                    {
+                        "key": "456:789",
+                        "pid": 456,
+                        "name": "system-daemon",
+                        "exe": "/System/Library/daemon",
+                        "rssBytes": 50 * 1024**2,
+                        "growthBytes": 0,
+                        "growing": False,
+                        "cpuPercent": 0.1,
+                        "role": "service",
+                        "protected": "system-process",
+                        "historyReady": True,
+                        "entrypoint": "",
+                    },
+                ],
+            }
+            app._finish_memory(fake_snapshot, None)
+            table = app.query_one("#memory-table", DataTable)
+            assert table.row_count == 2
+
+            state_text = str(app.query_one("#memory-state", Static).content)
+            assert "2 processes" in state_text
+            assert "1 growing" in state_text
+            assert "RAM" in state_text
+
+            detail_text = str(app.query_one("#memory-detail", Static).content)
+            assert "dart" in detail_text
+            assert "PID 123" in detail_text
+            assert "Path: /opt/flutter/bin/cache/dart-sdk/bin/dart" in detail_text
+
+            app._update_row_detail("memory-table", 1)
+            detail_daemon = str(app.query_one("#memory-detail", Static).content)
+            assert "system-daemon" in detail_daemon
+            assert "Status: system-process" in detail_daemon
+            assert "Path: /System/Library/daemon" in detail_daemon
+
+    asyncio.run(exercise())
+
