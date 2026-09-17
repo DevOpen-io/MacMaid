@@ -173,13 +173,9 @@ If MacMaid is already running on that port, launching it again opens the existin
 
 ### Memory
 
-Open **Memory** to compare processes by resident memory (RSS), CPU, or ten-minute growth. Use **Developer tools** or **Flutter / Dart** to narrow the list. Monitoring continues across sections while MacMaid runs; history stays in memory for up to one hour and starts fresh after restart. Growth indicates a process worth investigating, not a confirmed leak. RSS includes shared memory and is not a promise of recoverable RAM.
+The **Memory** panel shows per-process RSS, CPU, and sustained ten-minute growth so you can investigate unusual usage; growth is only a signal, and RSS is not guaranteed reclaimable memory.
 
-Select processes and choose **Review & Stop**. MacMaid sends SIGTERM only after confirmation. Processes that remain running can be selected for a separate **Review Force Stop**. Both actions can interrupt work and lose unsaved changes; MacMaid does not relaunch applications. System processes, MacMaid, inaccessible identities, and exclusions remain protected.
-
-For optional automation, choose **Set helper rule** on a recognized Dart analysis or TypeScript server helper, review its exact executable and interruption consent, then **Enable automation**. Default rules require RSS above 2 GiB for five minutes and pressure headroom below 15%. Thresholds are editable; each rule waits 30 minutes between attempts and pauses after two failures. Rules never force-stop. **Never stop** excludes an executable from both manual and automatic actions.
-
-Rules, cooldowns, and exclusions persist in `~/.config/macmaid/memory.json`; actions are audited in the existing operations log. No background service is installed: quit MacMaid (or stop `macmaid ui`) to stop monitoring and automation.
+Stopping a process always requires review, while optional rules can send SIGTERM only to recognized Dart analysis or TypeScript server helpers after their RSS, duration, and memory-pressure limits are met. Rules never force-stop, protected or excluded processes remain untouched, and monitoring ends when MacMaid closes.
 
 ---
 

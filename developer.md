@@ -29,7 +29,7 @@ Proje, geleneksel temizleme yazılımlarının getirdiği körlemesine silme (`r
 * **Sistem Metrikleri:** [psutil](https://github.com/giampaolo/psutil) (>= 7.0.0)
 * **Web UI Frontend:** Vanilla HTML5, CSS3 (Modern dark glassmorphism), Vanilla JavaScript (ES6+) — *Hiçbir dış derleme adımı (Webpack, Vite vs.) gerektirmez.*
 * **Web UI Backend:** Python `http.server.ThreadingHTTPServer` (Zero external framework - FastAPI veya Flask bağımlılığı yoktur)
-* **Test Çatısı:** `pytest` (>= 8.3.0)
+* **Test Çatısı:** `pytest` (>= 8.3.0); Web UI uçtan uca testi için ayrı `browser` grubunda Playwright/Chromium
 * **Build Backend:** `uv_build` (Wheel içine `macmaid/WebUI` statik dosyaları gömülür)
 
 ---
@@ -54,6 +54,9 @@ MacMaid-PYTHON/
 ├── tests_py/                # Pytest birim ve entegrasyon testleri
 │   ├── test_analyzer.py     # Artımlı analizör testleri
 │   ├── test_core.py         # Güvenlik, profil ve CLI testleri
+│   ├── test_memory.py       # Bellek örnekleme, süreç güvenliği ve rule testleri
+│   ├── test_memory_browser.py # Playwright ile gerçek Chromium Memory akışı
+│   ├── test_memory_webui.py # Tarayıcısız JavaScript davranış testleri
 │   ├── test_tui.py          # Textual TUI arayüz testleri
 │   └── test_web.py          # HTTP sunucu ve API güvenlik testleri
 └── src/
@@ -65,13 +68,15 @@ MacMaid-PYTHON/
         ├── config.py        # Konfigürasyon ve Whitelist yönetimi
         ├── developer.py     # Geliştirici envanteri ve araç yöneticisi
         ├── features.py      # Uygulama yönetimi, Project Purge, Optimizasyon, Sistem Durumu
+        ├── memory.py        # Süreç belleği izleme, review ve helper rule motoru
         ├── models.py        # Veri modelleri, Enum'lar ve Dataclass'lar
         ├── safety.py        # Yol güvenliği ve silme koruma katmanı (PathSafety)
         ├── system.py        # İşletim sistemi çağrıları, du, pgrep, subprocess sarmalayıcıları
         ├── tui.py           # Textual ile tam teşekküllü TUI paneli
         ├── web.py           # Yerel HTTP sunucusu ve REST API uç noktaları
         └── WebUI/           # Web paneli statik varlıkları
-            ├── app.js       # Web UI ön yüz reaktif mantığı
+            ├── app.js       # Web UI ön yüz mantığı ve ortak localization kataloğu
+            ├── memory.js    # Memory paneli görünüm, filtre, review ve rule akışları
             ├── index.html   # Modern SPA tek sayfa yapısı
             └── styles.css   # Dark modern tema ve responsive CSS
 ```
@@ -368,6 +373,70 @@ Python'ın modern `textual` kütüphanesi üzerine kurulmuştur.
 | `POST` | `/api/optimize/run` | Belirli bir optimizasyon görevini çalıştırır |
 | `GET` | `/api/history` | Geçmiş temizlik işlemlerinin denetim kaydı |
 | `GET/POST` | `/api/whitelist` | Whitelist satırlarını okur veya günceller |
+| `GET` | `/api/memory` | Son süreç örneklerini, sistem metriklerini, rule'ları ve olayları döner |
+| `GET` | `/api/memory/history?key=...` | PID + oluşturulma zamanı ile tanımlanan sürecin RSS geçmişini döner |
+| `POST` | `/api/memory/stop` | Taze review token'ı sonrasında seçilen süreçlere SIGTERM gönderir |
+| `POST` | `/api/memory/force-stop` | Yalnızca önceki SIGTERM'den sonra yaşayan süreçler için ayrı review ile SIGKILL gönderir |
+| `POST` | `/api/memory/settings` | Otomasyonu duraklatır, helper rule veya exclusion yönetir |
+
+### 12.4 Bellek İzleme ve Helper Rule Mimarisi (`memory.py`)
+
+`MemoryService`, süreçleri gözlemleme ile süreçlere sinyal gönderme yetkisini birbirinden ayırır. Servis bir sistem daemon'u kurmaz; yalnızca MacMaid çalışırken aktiftir ve uygulama kapanırken `shutdown()` ile durdurulur. Web UI servisi beş saniyelik döngüyle örnekler; CLI tek anlık görüntü alır, TUI ise işi UI thread'i dışında yürütür.
+
+#### Arayüz entegrasyonları
+
+* **CLI:** `macmaid memory` RSS/growth/CPU tablosu üretir; `--growing`, `--sort` ve `--filter` görünümü daraltır. `--stop PID` yalnızca review gösterir, sinyal için ayrıca `--apply` ve etkileşimsiz kullanımda `--yes` gerekir.
+* **TUI:** Memory ekranı örnekleme ve stop işlemlerini worker üzerinde çalıştırır; korumalı satırlar seçilemez ve SIGTERM/SIGKILL için ayrı onay akışları kullanılır.
+* **Web UI:** RSS, CPU, pressure headroom, swap, bir saatlik trend, filtre/sıralama, rule, exclusion ve session activity görünümü sunar. Seçim anahtarı PID + oluşturulma zamanıdır ve yenilemede yalnızca aynı kimlik mevcutsa korunur. Tüm metinler ortak İngilizce/Türkçe localization kataloğundan, ikonlar yalnızca Lucide setinden gelir.
+
+#### Örnekleme ve büyüme analizi
+
+* Her süreç `PID:create_time` anahtarıyla tutulur. Böylece işletim sistemi aynı PID'yi yeniden kullansa bile eski seçim veya review yeni sürece uygulanamaz.
+* RSS ve CPU değerleri `psutil` ile okunur. RSS paylaşılan belleği de içerdiği için geri kazanılabilecek RAM miktarı olarak sunulmaz.
+* Süreç başına en fazla 721 kayıt tutulur; bir saatten eski kayıtlar atılır. Örnekler arasında 15 saniyeden uzun boşluk oluşursa büyüme ve otomasyon süreleri sıfırlanır.
+* “Growing” kararı için gerçek on dakikalık pencere gerekir: artış hem 256 MiB'den hem başlangıç RSS'inin %25'inden büyük olmalı ve on adet dakikalık medianın en az yedisinde yükseliş görülmelidir. Kısa süreli sıçramalar veya 30 saniyelik kayıtlar büyüme olarak etiketlenmez.
+* Bellek baskısı yalnızca `/usr/bin/memory_pressure -Q` ile ölçülür ve 30 saniye önbelleğe alınır; pil, termal durum veya RAM doluluk oranı bunun yerine kullanılmaz.
+
+#### Süreç kimliği ve koruma sınırları
+
+Sinyal gönderilmeden hemen önce süreç yeniden okunur ve PID, oluşturulma zamanı, executable ve helper entrypoint bilgileri ilk örnekle karşılaştırılır. Başka kullanıcıya ait süreçler, PID 0/1, MacMaid ve üst/alt süreçleri, Apple sistem yolları, kimliği okunamayan süreçler, kullanıcı exclusion'ları ve genel whitelist tarafından korunan yollar fail-closed biçimde reddedilir. Root altında süreç aksiyonu çalıştırılmaz.
+
+Helper tanıma kasıtlı olarak dardır. Otomasyon yalnızca şu iki role izin verir:
+
+* `dart-analysis`: Doğrudan `dart language-server` veya bilinen `analysis_server*.dart.snapshot` entrypoint'i.
+* `typescript-server`: TypeScript paketinin `lib/tsserver.js` entrypoint'ini doğrudan çalıştıran Node süreci.
+
+Komut satırının ilerleyen bölümünde bu adların yalnızca argüman olarak geçmesi helper yetkisi vermez. Flutter uygulaması, build, simulator, genel Node/Dart aracı veya normal kullanıcı uygulaması otomatik rule hedefi olamaz.
+
+#### Manuel durdurma ve Force Stop
+
+Manuel akış önce `review()` ile değişmez hedef listesinin fingerprint'ini üretir. Web API bu fingerprint'e bağlı, tek kullanımlık ve kısa ömürlü review token ister. Normal durdurma yalnızca SIGTERM gönderir. Beş saniye sonunda yaşamaya devam ettiği doğrulanan süreç `forceEligible` olur; SIGKILL için yeni ve ayrı bir Force Stop review'u gerekir. MacMaid süreçleri yeniden başlatmaz ve her iki işlem de kaydedilmemiş işi kaybettirebileceği için arayüzde açık onay gösterilir.
+
+#### Otomatik helper rule değerlendirmesi
+
+Rule'lar başlangıçta kapalıdır ve `~/.config/macmaid/memory.json` içinde `0600` izinli, symlink takip etmeyen atomik yazımla saklanır. Bir rule exact executable + role + entrypoint üçlüsüne bağlanır ve açık interruption consent içerir. Varsayılan eşikler RSS > 2 GiB, eşik üzerinde beş dakika ve pressure headroom < %15'tir; izin verilen minimum süre 30 saniyedir.
+
+Her otomasyon döngüsünde aşağıdaki kapılar sırayla uygulanır:
+
+1. Paylaşılan mutation lock alınabiliyor mu, otomasyon açık mı ve son örnek 15 saniyeden yeni mi?
+2. Rule etkin mi; süreç korumasız mı ve exact helper kimliği hâlâ eşleşiyor mu?
+3. RSS eşiğin **kesin olarak üzerinde** mi ve kesintisiz süre tamamlandı mı? Eşiğe eşit veya altındaki tek kayıt süreyi sıfırlar.
+4. Pressure headroom rule limitinin **kesin olarak altında** mı ve önceki denemeden 30 dakika geçti mi?
+5. Canlı süreç kimliği ve RSS tekrar doğrulandı mı?
+
+Tüm kapılar geçilirse cooldown sinyalden önce diske yazılır ve yalnızca SIGTERM gönderilir. Döngü başına en fazla bir helper hedeflenir. Rule otomasyonu hiçbir koşulda SIGKILL kullanmaz; iki başarısız durdurma denemesinden sonra rule kendisini devre dışı bırakır. Rule, cooldown, failure sayısı ve exclusion'lar restart sonrasında korunur. Tüm istek ve sonuçlar mevcut `operations.jsonl` audit kaydına yazılır; komut argümanları ve olası sırlar loglanmaz.
+
+#### Test stratejisi
+
+`tests_py/test_memory.py` gerçek süreçleri veya gerçek zamanı kullanmaz. Sahte `psutil.Process` nesneleri ile monotonic/wall clock kontrollü ilerletilir. Beş saniyelik örneklerden oluşan 30 saniyelik diziler; rule süresi, eşik reseti, pressure sınırı, exact helper eşleşmesi, persistence/deduplication, cooldown, iki hata sonrası pause, PID reuse ve audit davranışını saniyelerce beklemeden doğrular. Aynı testler 30 saniyelik verinin yanlışlıkla on dakikalık büyüme sayılmadığını da kontrol eder.
+
+`tests_py/test_memory_browser.py` sentetik süreçlerle gerçek Chromium üzerinde filtreleme, seçim, detay geçmişi, rule oluşturma, exclusion, SIGTERM/Force Stop review, localization, temalar ve mobil taşma akışlarını sınar. Normal pytest çalıştırmasında maliyeti nedeniyle opt-in'dir:
+
+```sh
+MACMAID_BROWSER_TESTS=1 uv run pytest tests_py/test_memory_browser.py -q
+```
+
+GitHub Actions içindeki ayrı **Memory browser workflow** job'u bu testi her PR'da Playwright Chromium ile zorunlu olarak çalıştırır; dolayısıyla yereldeki skip test kapsamı eksikliği anlamına gelmez.
 
 ---
 

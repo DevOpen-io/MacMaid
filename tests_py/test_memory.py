@@ -80,6 +80,15 @@ def advance(service, seconds):
     service.last_sample = service.clock.mono
 
 
+def record_memory(service, rss, seconds=5):
+    """Record one synthetic sample without waiting for wall-clock time."""
+    service.clock.mono += seconds
+    service.clock.wall += seconds
+    service.proc.rss = rss
+    service.sample()
+    service.automate()
+
+
 def test_sample_and_history_are_read_only(service):
     row = service.snapshot()["processes"][0]
     assert row["role"] == "dart-analysis" and row["helper"]
@@ -212,6 +221,137 @@ def test_automation_requires_sustained_rss_and_pressure(service):
     advance(service, 300)
     service.automate()
     assert service.proc.signals == ["TERM"]
+
+
+def test_thirty_second_rule_uses_real_sample_sequence_without_sleeping(service):
+    threshold = 2 * 1024**3
+    service.configure({
+        "operation": "rule", "key": key(service), "consent": True,
+        "rssBytes": threshold, "durationSeconds": 30, "pressureBelow": 15,
+    })
+    service.configure({"operation": "pause", "paused": False})
+
+    # The first above-threshold observation starts the timer. Six subsequent
+    # five-second records are required before an action is eligible.
+    service.automate()
+    observed = []
+    for _ in range(5):
+        record_memory(service, threshold + 512 * 1024**2)
+        observed.append(service.snapshot()["processes"][0]["rssBytes"])
+        assert service.proc.signals == []
+
+    record_memory(service, threshold + 512 * 1024**2)
+    observed.append(service.snapshot()["processes"][0]["rssBytes"])
+
+    assert observed == [threshold + 512 * 1024**2] * 6
+    assert service.proc.signals == ["TERM"]
+    event = service.snapshot()["events"][0]
+    assert event["automatic"] is True and event["outcome"] == "exited"
+
+
+def test_thirty_second_rule_resets_after_one_below_threshold_record(service):
+    threshold = 2 * 1024**3
+    service.configure({
+        "operation": "rule", "key": key(service), "consent": True,
+        "rssBytes": threshold, "durationSeconds": 30, "pressureBelow": 15,
+    })
+    service.configure({"operation": "pause", "paused": False})
+    service.automate()
+
+    for _ in range(5):
+        record_memory(service, threshold + 1)
+    record_memory(service, threshold)  # Equality is not above the threshold.
+    for _ in range(6):
+        record_memory(service, threshold + 1)
+        assert service.proc.signals == []
+
+    record_memory(service, threshold + 1)
+    assert service.proc.signals == ["TERM"]
+
+
+def test_thirty_second_rule_requires_pressure_strictly_below_limit(service, monkeypatch):
+    pressure = SimpleNamespace(value=15)
+    monkeypatch.setattr(service, "_sample_pressure_headroom", lambda now: pressure.value)
+    service.configure({
+        "operation": "rule", "key": key(service), "consent": True,
+        "rssBytes": 2 * 1024**3, "durationSeconds": 30, "pressureBelow": 15,
+    })
+    service.configure({"operation": "pause", "paused": False})
+    service.automate()
+
+    for _ in range(6):
+        record_memory(service, 3 * 1024**3)
+    assert service.proc.signals == []
+
+    pressure.value = 14
+    record_memory(service, 3 * 1024**3)
+    assert service.proc.signals == ["TERM"]
+
+
+def test_thirty_second_history_is_ordered_but_not_called_ten_minute_growth(service):
+    target = key(service)
+    base = 1024**3
+    expected = [base + step * 64 * 1024**2 for step in range(1, 7)]
+
+    for rss in expected:
+        record_memory(service, rss)
+
+    samples = service.history(target)["samples"]
+    assert [sample["rssBytes"] for sample in samples[-6:]] == expected
+    assert [round(sample["secondsAgo"]) for sample in samples[-6:]] == [25, 20, 15, 10, 5, 0]
+    row = service.snapshot()["processes"][0]
+    assert row["historyReady"] is False
+    assert row["growing"] is False
+    assert row["growthBytes"] is None
+
+
+def test_rule_matches_only_the_exact_recognized_helper(service, monkeypatch):
+    decoy = FakeProcess(
+        pid=322,
+        exe="/opt/node/bin/node",
+        args=["node", "app.js", "/x/typescript/lib/tsserver.js"],
+    )
+    monkeypatch.setattr(memory.psutil, "process_iter", lambda: [service.proc, decoy])
+    monkeypatch.setattr(memory.psutil, "Process", lambda pid: service.proc if pid == service.proc.pid else decoy)
+    service.sample()
+    target = key(service)
+    service.configure({
+        "operation": "rule", "key": target, "consent": True,
+        "rssBytes": 2 * 1024**3, "durationSeconds": 30, "pressureBelow": 15,
+    })
+    service.configure({"operation": "pause", "paused": False})
+    service.automate()
+
+    for _ in range(6):
+        record_memory(service, 3 * 1024**3)
+
+    assert service.proc.signals == ["TERM"]
+    assert decoy.signals == []
+    assert next(row for row in service.rows.values() if row["pid"] == decoy.pid)["helper"] is False
+
+
+def test_rule_update_is_deduplicated_persisted_and_deletable(service):
+    target = key(service)
+    first = service.configure({
+        "operation": "rule", "key": target, "consent": True,
+        "rssBytes": 2 * 1024**3, "durationSeconds": 30, "pressureBelow": 15,
+    })["settings"]["rules"][0]
+    updated = service.configure({
+        "operation": "rule", "key": target, "consent": True,
+        "rssBytes": 4 * 1024**3, "durationSeconds": 45, "pressureBelow": 12,
+    })["settings"]["rules"]
+
+    assert len(updated) == 1
+    assert updated[0]["id"] == first["id"]
+    assert (updated[0]["rssBytes"], updated[0]["durationSeconds"], updated[0]["pressureBelow"]) == (
+        4 * 1024**3, 45, 12,
+    )
+    restored = memory.MemoryService(service.config, threading.Lock())
+    assert restored.settings["rules"] == updated
+
+    result = service.configure({"operation": "delete-rule", "id": first["id"]})
+    assert result["settings"]["rules"] == []
+    assert json.loads(service.path.read_text())["rules"] == []
 
 
 def test_cooldown_survives_service_restart(service):
