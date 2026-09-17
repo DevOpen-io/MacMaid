@@ -10,6 +10,12 @@
 
 MacMaid helps you understand what is using space on your Mac and clean reviewed, recoverable targets without turning maintenance into a risk. It is built for normal user accounts, does not ask you to run the app with `sudo`, and keeps destructive actions behind review/confirmation flows.
 
+## <img src="assets/triangle-alert.svg" alt="Warning" width="32" align="top"> Important safety notice
+
+> **Some tools and features in this project were developed with AI assistance.**
+>
+> They are reviewed and tested by the maintainer, but no cleanup utility can be guaranteed risk-free. **Review selected targets carefully, keep backups of important data, and use the software at your own risk.**
+
 ---
 
 ## Installation
