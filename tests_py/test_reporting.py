@@ -4,11 +4,15 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from macmaid import cleaner as cleaner_module, web
+import pytest
+
+from macmaid import cleaner as cleaner_module, features, web
 from macmaid.cleaner import Cleaner
 from macmaid.config import Config
 from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
 from macmaid.reporting import FreeSpaceProbe, MEASUREMENT_CAVEAT
+from macmaid.review import snapshot_plan
+from macmaid.system import CommandResult
 
 
 def item(path: Path, size: int, action: ActionType = ActionType.REMOVE_PATH, label: str = "item") -> CleanupItem:
@@ -82,6 +86,52 @@ def test_history_api_totals_only_explicit_estimated_reclaim(monkeypatch):
     assert payload["totalEstimatedReclaimed"] == 100
     assert payload["totalProcessedEstimated"] == 1600
     assert "Trash" in payload["measurementCaveat"]
+
+
+def test_snapshot_thinning_audits_command_target_and_observed_measurement(monkeypatch, tmp_path):
+    config, _ = configured(tmp_path, monkeypatch)
+    monkeypatch.setattr(features, "run_command", lambda *args, **kwargs: CommandResult(0, "thinned"))
+    monkeypatch.setattr(FreeSpaceProbe, "capture", classmethod(lambda cls, paths: type("Probe", (), {"finish": lambda self: (4096, ["measured"])} )()))
+
+    result = features.thin_snapshots(10 * 1024**3, config)
+
+    records = [json.loads(line) for line in config.operation_log.read_text().splitlines()]
+    audit, summary = records[-2:]
+    assert result["success"] and audit["recordType"] == "snapshot_thin"
+    assert audit["command"] == ["/usr/bin/tmutil", "thinlocalsnapshots", "/", str(10 * 1024**3), "4"]
+    assert audit["output"] == "thinned" and audit["observedFreeBytesDelta"] == 4096
+    assert summary["action"] == "snapshot_thin_summary" and summary["processedEstimatedBytes"] == 10 * 1024**3
+
+
+def test_snapshot_thinning_failure_is_audited(monkeypatch, tmp_path):
+    config, _ = configured(tmp_path, monkeypatch)
+    monkeypatch.setattr(features, "run_command", lambda *args, **kwargs: CommandResult(1, stderr="tmutil failed"))
+    monkeypatch.setattr(FreeSpaceProbe, "capture", classmethod(lambda cls, paths: type("Probe", (), {"finish": lambda self: (None, ["unavailable"])} )()))
+
+    result = features.thin_snapshots(20 * 1024**3, config)
+
+    records = [json.loads(line) for line in config.operation_log.read_text().splitlines()]
+    assert not result["success"]
+    assert records[-2]["result"] == "failed" and records[-2]["error"] == "tmutil failed"
+    assert records[-1]["result"] == "partial" and records[-1]["failed"] == 1
+
+
+def test_snapshot_review_shows_target_and_automatic_management_warning():
+    plan = snapshot_plan(50)
+    assert plan.estimated_bytes == 50 * 1024**3
+    assert "automatically" in plan.impact
+    assert "not an estimate or guarantee" in plan.estimate_note
+
+
+def test_snapshot_review_is_localized_for_tui():
+    text = snapshot_plan(10).text("tr")
+    assert "Apple yerel snapshot'ları" in text
+    assert "Öğeler: 1" in text
+
+
+def test_snapshot_review_rejects_non_positive_target():
+    with pytest.raises(ValueError, match="positive"):
+        snapshot_plan(0)
 
 
 def test_measurement_failure_is_explicit_and_audit_summary_is_structured(monkeypatch, tmp_path):

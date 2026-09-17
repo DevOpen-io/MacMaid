@@ -33,11 +33,12 @@ from .features import (
     OPTIMIZATIONS, OPTIMIZATION_UNAVAILABLE_REASON, AppComponent, ApplicationManager, InstalledApplication,
     ProjectArtifact, ProjectPurgeManager, RecoveryCenter, apply_macmaid_brew_update,
     doctor, history, list_snapshots, macmaid_brew_update_status, run_optimization, system_status,
+    thin_snapshots,
 )
 from .models import CleanupItem, CleanupProfile, RiskLevel, ScanResult
 from .review import (
     ReviewPlan, analyzer_trash_plan, application_plan, cleanup_plan, developer_plan,
-    macmaid_update_plan, optimization_plan, purge_plan,
+    macmaid_update_plan, optimization_plan, purge_plan, snapshot_plan,
 )
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
 from .system import human_bytes, macos_permission_report, run_command
@@ -653,6 +654,11 @@ class MacMaidTUI(App[None]):
             event.stop()
             self._open_full_disk_access_settings()
             return
+        if self.current_page == "more-results" and self.more_kind == "snapshots" and event.key in {"1", "2", "5"}:
+            event.prevent_default()
+            event.stop()
+            self._confirm_snapshot_thin({"1": 10, "2": 20, "5": 50}[event.key])
+            return
         if event.key != "enter":
             return
         if self.current_page == "operation":
@@ -734,7 +740,7 @@ class MacMaidTUI(App[None]):
         self.current_page = "review"
         self.query_one("#pages", ContentSwitcher).current = "page-review"
         self.query_one("#review-title", Static).update(plan.title)
-        self.query_one("#review-body", Static).update(plan.text())
+        self.query_one("#review-body", Static).update(plan.text(self.language))
         prompt = "Plan onaylansın mı? [y/N]"
         if plan.requires_extra_opt_in:
             prompt += "  · USER DATA/MANUAL için iki ayrı y onayı gerekir"
@@ -2035,7 +2041,14 @@ class MacMaidTUI(App[None]):
     def _history_text(records: list[dict[str, Any]]) -> str:
         lines = []
         for record in records:
-            if record.get("recordType") == "operation_summary":
+            if record.get("recordType") == "snapshot_thin":
+                observed = record.get("observedFreeBytesDelta")
+                measured = "ölçülemedi" if observed is None else human_bytes(abs(int(observed))) + (" artış" if observed >= 0 else " azalış")
+                outcome = record.get("output") or record.get("error") or "çıktı yok"
+                lines.append(f"{record.get('timestamp', '')} {record.get('result', ''):<9} snapshot thinning\n"
+                             f"  Hedef {human_bytes(record.get('requestedReclaimBytes', 0))} · tahmin yok · gözlenen fark {measured}\n"
+                             f"  {' '.join(record.get('command', []))}: {outcome}")
+            elif record.get("recordType") == "operation_summary":
                 observed = record.get("observedFreeBytesDelta")
                 observed_text = "ölçülemedi" if observed is None else f"{human_bytes(abs(int(observed)))} {'artış' if observed >= 0 else 'azalış'}"
                 lines.append(
@@ -2081,7 +2094,15 @@ class MacMaidTUI(App[None]):
                 age = next((int(part[:-1]) for part in parts if part.endswith("d") and part[:-1].isdigit()), None)
                 result = LargeOldFileScanner(min_bytes=size_map[size_key], older_than_days=age).scan_result(cancellation=token)
                 self._scan_update(self._finish_more_scan, kind, result); return
-            elif kind == "snapshots": text = "\n".join(list_snapshots()) or "Local snapshot bulunamadı."
+            elif kind == "snapshots":
+                snapshots = "\n".join(list_snapshots()) or self._ui("No local snapshots found.")
+                text = self._ui(
+                    "Local APFS / Time Machine snapshots:\n{snapshots}\n\n"
+                    "Apple normally manages these snapshots automatically. Use thinning only for an immediate space need; "
+                    "local recovery snapshots may be removed, while backup-disk history is unaffected.\n\n"
+                    "Choose a target to open the review screen:  [1] 10 GB   [2] 20 GB   [5] 50 GB\n"
+                    "The target is not guaranteed; tmutil frees only space Time Machine can reclaim."
+                ).format(snapshots=snapshots)
             elif kind == "doctor": text = "\n".join(f"{x['name']:<30} {x['value']}" for x in doctor())
             elif kind == "permissions": text = self._permission_report_text(macos_permission_report(self.config.home))
             elif kind == "history": text = self._history_text(RecoveryCenter(self.config).entries(100))
@@ -2097,6 +2118,8 @@ class MacMaidTUI(App[None]):
         self.query_one("#more-progress", ProgressBar).update(total=100, progress=100)
         if kind == "permissions":
             self.query_one("#more-hint", Static).update("O  Tam Disk Erişimi ayarlarını aç  ·  R Yenile  ·  Esc Geri")
+        elif kind == "snapshots":
+            self.query_one("#more-hint", Static).update(self._ui("1  Review 10 GB · 2  20 GB · 5  50 GB · R Refresh · Esc Back"))
         self._set_state("more", f"{kind} hazır")
 
     def _finish_more_scan(self, kind: str, result: ScanResult) -> None:
@@ -2121,6 +2144,27 @@ class MacMaidTUI(App[None]):
             for i, item in enumerate(self.more_result.items): table.add_row(self._selection_cell(i in self.more_selected), self._risk_cell(item.risk), human_bytes(item.estimated_bytes), item.label, str(item.path or ""))
         self._restore_cursor(table, cursor)
         if table.row_count: self._update_row_detail("more-table", table.cursor_row)
+
+    def _confirm_snapshot_thin(self, target_gb: int) -> None:
+        self._confirm(snapshot_plan(target_gb), lambda: self._snapshot_thin_worker(target_gb))
+
+    @work(thread=True, exclusive=True, group="snapshot-thin")
+    def _snapshot_thin_worker(self, target_gb: int) -> None:
+        before = self._system_snapshot()
+        self.call_from_thread(self._begin_operation, self._ui("Thinning Time Machine snapshots · {target} GB target").format(target=target_gb), 1, before)
+        try:
+            result = thin_snapshots(target_gb * 1024**3, self.config)
+            after = self._system_snapshot()
+            observed = result.get("observedFreeBytesDelta")
+            measured = self._ui("unavailable") if observed is None else human_bytes(abs(int(observed))) + (self._ui(" increase") if observed >= 0 else self._ui(" decrease"))
+            output = str(result.get("output") or result.get("error") or self._ui("tmutil produced no output"))
+            summary = self._ui("{target} GB target · measured free-space change {measured}\n{output}").format(target=target_gb, measured=measured, output=output)
+            self.call_from_thread(self._operation_item, 1, 1, "tmutil thinlocalsnapshots", "success" if result["success"] else "failed")
+            title = self._ui("Snapshot thinning completed" if result["success"] else "Snapshot thinning failed")
+            self.call_from_thread(self._complete_operation, title, summary, before, after, failed=not result["success"])
+        except Exception as exc:
+            after = self._system_snapshot()
+            self.call_from_thread(self._complete_operation, self._ui("Snapshot thinning failed"), str(exc), before, after, failed=True)
 
     def _confirm_more_apply(self) -> None:
         if not self.more_result or not self.more_selected:

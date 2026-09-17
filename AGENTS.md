@@ -23,6 +23,10 @@ The project version remains the sole versioning source. Agents must never create
 
 Add or update release-facing tests when version surfaces change, and verify the relevant test suite before reporting completion.
 
+## UI Localization
+
+Every user-visible string added or changed in the TUI or Web UI must have Turkish and English translations. Add both entries to the shared localization catalog and render the string through the existing localization helper; do not introduce untranslated UI copy, including empty states, hints, confirmations, errors, progress, and history text.
+
 ## Web UI Icons
 
 All user-interface icons must come from the Lucide icon set (`lucide-icons`). Do not mix emoji, SF Symbols, bespoke glyphs, or unrelated icon packs for UI actions/navigation/status indicators. When a new icon is needed in the Web UI, use the existing Lucide rendering helper and add the Lucide icon path there if it is not already available.

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
 from .developer import DeveloperItem
+from .i18n import translate
 from .features import AppComponent, InstalledApplication, ProjectArtifact
 from .models import ActionType, CleanupItem, RiskLevel
 from .system import human_bytes
@@ -73,14 +74,15 @@ class ReviewPlan:
             "items": [item.web_dict() for item in self.items],
         }
 
-    def text(self) -> str:
-        lines = [self.impact, f"Items: {len(self.items)} · scanned estimate: {human_bytes(self.estimated_bytes)}"]
+    def text(self, language: str = "en") -> str:
+        localize = lambda value: translate(value, language)
+        lines = [localize(self.impact), localize("Items: {count} · scanned estimate: {size}").format(count=len(self.items), size=human_bytes(self.estimated_bytes))]
         for item in self.items:
-            close = f" · close {item.requires_app_closed}" if item.requires_app_closed else ""
-            data = " · USER DATA OPT-IN" if item.user_data else ""
-            lines.append(f"[{item.risk}] {item.label} · {item.action}{close}{data}\n  {item.target}\n  {item.reason}")
-        lines.append(self.estimate_note)
-        lines.append("Whitelist, path, ownership, symlink and running-state checks run again immediately before execution.")
+            close = localize(" · close {app}").format(app=item.requires_app_closed) if item.requires_app_closed else ""
+            data = localize(" · USER DATA OPT-IN") if item.user_data else ""
+            lines.append(f"[{item.risk}] {localize(item.label)} · {localize(item.action)}{close}{data}\n  {localize(item.target)}\n  {localize(item.reason)}")
+        lines.append(localize(self.estimate_note))
+        lines.append(localize("Whitelist, path, ownership, symlink and running-state checks run again immediately before execution."))
         return "\n\n".join(lines)
 
 
@@ -143,9 +145,16 @@ def analyzer_trash_plan(paths: Sequence[Path], sizes: Mapping[Path, int] | None 
 
 
 def snapshot_plan(target_gb: int) -> ReviewPlan:
-    item = ReviewItem("time-machine-thin", "Thin local Time Machine snapshots", f"Target: {target_gb} GB",
-                      "tmutil thinlocalsnapshots", "AGGRESSIVE", "Time Machine chooses reclaimable local snapshots")
-    return ReviewPlan("Thin Time Machine snapshots", (item,), "This may remove local recovery snapshots; backup history on the backup disk is not selected.")
+    if target_gb <= 0:
+        raise ValueError("Snapshot thinning target must be positive")
+    target_bytes = target_gb * 1024**3
+    item = ReviewItem("time-machine-thin", "Thin local Time Machine snapshots", f"Reclaim target: {target_gb} GB",
+                      "tmutil thinlocalsnapshots", "AGGRESSIVE", "Time Machine chooses reclaimable local snapshots", target_bytes)
+    return ReviewPlan(
+        "Thin Time Machine snapshots", (item,),
+        "Apple normally manages local snapshots automatically. Use this only for an immediate space need; local recovery snapshots may be removed, while backup-disk history is not selected.",
+        "Requested reclaim target is not an estimate or guarantee. Time Machine decides what is reclaimable; measured free-space change is recorded after the command.",
+    )
 
 
 def macmaid_update_plan(status: Mapping[str, object]) -> ReviewPlan:

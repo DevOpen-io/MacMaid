@@ -735,18 +735,32 @@ def list_snapshots() -> list[str]:
 
 
 def thin_snapshots(bytes_to_free: int, config: Config | None = None) -> dict[str, Any]:
+    """Ask Time Machine to reclaim local snapshots; its target is not a guarantee."""
+    if os.geteuid() == 0:
+        raise PermissionError("MacMaid must run as your normal user, never with sudo/root")
+    requested = max(0, bytes_to_free)
     cleaner = Cleaner(config)
     cleaner._ensure_audit_safe()
     free_space = FreeSpaceProbe.capture([Path("/")])
-    result = run_command("/usr/bin/tmutil", ["thinlocalsnapshots", "/", str(max(0, bytes_to_free)), "4"], timeout=600)
+    command = ["thinlocalsnapshots", "/", str(requested), "4"]
+    result = run_command("/usr/bin/tmutil", command, timeout=600)
     observed, notes = free_space.finish()
-    if result.succeeded:
-        cleaner.log_space_summary(
-            "snapshot_thin_summary", scanned=0, processed=0, reclaimed=0,
-            trash_moved=0, observed=observed, unknown=1, notes=notes,
-        )
+    audit = {
+        "timestamp": datetime.now(timezone.utc).isoformat(), "recordType": "snapshot_thin",
+        "action": "tmutil thinlocalsnapshots", "command": ["/usr/bin/tmutil", *command],
+        "requestedReclaimBytes": requested, "estimatedReclaimedBytes": 0,
+        "observedFreeBytesDelta": observed, "unknownReclaimCount": int(result.succeeded),
+        "result": "success" if result.succeeded else "failed",
+        "output": result.stdout, "error": result.stderr, "measurementNotes": notes,
+    }
+    cleaner._append_record(audit)
+    cleaner.log_space_summary(
+        "snapshot_thin_summary", scanned=requested, processed=requested if result.succeeded else 0,
+        reclaimed=0, trash_moved=0, observed=observed, unknown=int(result.succeeded), notes=notes,
+        failed=int(not result.succeeded),
+    )
     return {"success": result.succeeded, "output": result.stdout, "error": result.stderr,
-            "requestedReclaimBytes": max(0, bytes_to_free), "estimatedReclaimedBytes": 0,
+            "requestedReclaimBytes": requested, "estimatedReclaimedBytes": 0,
             "observedFreeBytesDelta": observed, "unknownReclaimCount": int(result.succeeded),
             "measurementNotes": notes}
 

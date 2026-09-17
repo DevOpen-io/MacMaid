@@ -39,20 +39,12 @@ Discover → Classify → PathSafety → Whitelist → Preview → Confirmation 
 
 ## Öncelik 2 — Görsel Disk Keşfi ve Snapshot Yönetimi
 
-### Storage Treemap
-
-- [ ] Disk Analyzer verisini kullanan terminal uyumlu treemap / boyut dağılımı görünümü ekle.
-- [ ] Klasör boyutu, yüzde oranı ve dosya sayısını göster.
-- [ ] Drill-down ve üst dizine dönüşü destekle.
-- [ ] Seçili yolu Finder'da açma aksiyonu ekle.
-- [ ] Trash'e taşıma öncesinde standart PathSafety, whitelist ve onay akışını kullan.
-
 ### Time Machine Snapshot Thinning
 
-- [ ] Yerel APFS snapshot listesinin yanında 10 / 20 / 50 GB hedefli thinning seçeneklerini sun.
-- [ ] Apple'ın snapshot'ları otomatik yönettiğini ve işlemin yalnızca acil alan ihtiyacı için olduğunu açıkça belirt.
-- [ ] Uygulama öncesinde hedef reclaim miktarını ve etkisini onay ekranında göster.
-- [ ] Komut sonucu, hata ve tahmini/ölçülen kazanımı history'ye yaz.
+- [x] Yerel APFS snapshot listesinin yanında 10 / 20 / 50 GB hedefli thinning seçeneklerini sun.
+- [x] Apple'ın snapshot'ları otomatik yönettiğini ve işlemin yalnızca acil alan ihtiyacı için olduğunu açıkça belirt.
+- [x] Uygulama öncesinde hedef reclaim miktarını ve etkisini onay ekranında göster.
+- [x] Komut sonucu, hata ve tahmini/ölçülen kazanımı history'ye yaz.
 
 ## Öncelik 3 — Mevcut Dosya Araçları İçin Filtre Paritesi
 
