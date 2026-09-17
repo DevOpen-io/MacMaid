@@ -63,9 +63,9 @@ Discover → Classify → PathSafety → Whitelist → Preview → Confirmation 
 
 ### Large & Old Files
 
-- [ ] Boyut filtresi ile yaş filtresini aynı ekranda bağımsız seçilebilir yap.
-- [ ] Yaş seçenekleri: tümü, 30, 90, 180 ve 365 gün.
-- [ ] Mevcut 500 MB / 1 GB / 5 GB / 10 GB boyut eşiklerini koru.
+- [x] Boyut filtresi ile yaş filtresini aynı ekranda bağımsız seçilebilir yap.
+- [x] Yaş seçenekleri: tümü, 30, 90, 180 ve 365 gün.
+- [x] Mevcut 500 MB / 1 GB / 5 GB / 10 GB boyut eşiklerini koru.
 
 ## Öncelik 4 — TUI İşlem Geri Bildirimi
 

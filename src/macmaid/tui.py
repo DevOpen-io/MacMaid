@@ -255,6 +255,7 @@ class MacMaidTUI(App[None]):
         self.leftover_cache: ScanResult | None = None; self.leftover_mtimes: dict[str, float] = {}; self.leftover_cache_includes_data = False
         self.installer_age_days = 30; self.installer_cache: ScanResult | None = None; self.installer_mtimes: dict[str, float] = {}
         self.smart_download_age_days = 30; self.smart_download_cache: ScanResult | None = None; self.smart_download_mtimes: dict[str, float] = {}
+        self.large_size_bytes = 500 * 1000**2; self.large_age_days: int | None = None; self.large_cache: ScanResult | None = None; self.large_mtimes: dict[str, float] = {}
         self.more_result: ScanResult | None = None; self.more_selected: set[int] = set()
         self.update_status: dict[str, Any] | None = None
         self.whitelist_lines: list[str] = []
@@ -431,11 +432,7 @@ class MacMaidTUI(App[None]):
             ("files-browser-storage", "◉  Browser Storage", "Inspect cache, site data, cookies and session boundaries"),
             ("files-smart-downloads", "↓  Smart Downloads", "Classify installers, archives, incomplete downloads and duplicates"),
             ("files-duplicates", "⧉  Duplicate Files", "Find byte-for-byte matches; nothing is selected automatically"),
-            ("files-large-files-500mb", "◫  Large & Old >500 MB", "Scan HOME except Library; no automatic selection"),
-            ("files-large-files-1gb", "◫  Large & Old >1 GB", "Scan HOME except Library; no automatic selection"),
-            ("files-large-files-5gb", "◫  Large & Old >5 GB", "Scan HOME except Library; no automatic selection"),
-            ("files-large-files-10gb", "◫  Large & Old >10 GB", "Scan HOME except Library; no automatic selection"),
-            ("files-large-files-500mb-90d", "◫  Old Large >500 MB / 90d", "Apply both size and age filters"),
+            ("files-large-files", "◫  Large & Old Files", "Choose independent size and age filters after one read-only scan"),
             ("back", "←  Back", "Return to the main menu"),
         ]), Static("↑↓ / j k  Navigate     Enter  Select     Esc/B  Back", classes="hint"))
 
@@ -664,6 +661,16 @@ class MacMaidTUI(App[None]):
             event.stop()
             self._confirm_snapshot_thin({"1": 10, "2": 20, "5": 50}[event.key])
             return
+        if self.current_page == "more-results" and self.more_kind and self.more_kind.startswith("large-files") and event.key.casefold() in {"0", "1", "2", "3", "4", "a", "b", "c", "d", "e"}:
+            event.prevent_default()
+            event.stop()
+            key = event.key.casefold()
+            if key.isdigit():
+                self.large_size_bytes = {"0": 0, "1": 500 * 1000**2, "2": 1000**3, "3": 5 * 1000**3, "4": 10 * 1000**3}[key]
+            else:
+                self.large_age_days = {"a": None, "b": 30, "c": 90, "d": 180, "e": 365}[key]
+            self._apply_large_file_filter()
+            return
         if self.current_page == "more-results" and self.more_kind == "smart-downloads" and event.key in {"1", "2", "3", "4"}:
             event.prevent_default()
             event.stop()
@@ -866,6 +873,11 @@ class MacMaidTUI(App[None]):
         if action.startswith("files-"):
             self.more_origin = "files"
             self.more_kind = action.removeprefix("files-")
+            if self.more_kind.startswith("large-files"):
+                sizes = {"500mb": 500 * 1000**2, "1gb": 1000**3, "5gb": 5 * 1000**3, "10gb": 10 * 1000**3}
+                parts = self.more_kind.split("-")
+                self.large_size_bytes = sizes[next((part for part in parts if part in sizes), "500mb")]
+                self.large_age_days = next((int(part[:-1]) for part in parts if part.endswith("d") and part[:-1].isdigit()), None)
             self._show_results("more")
             self._load_more(self.more_kind)
             return
@@ -2128,12 +2140,12 @@ class MacMaidTUI(App[None]):
             elif kind == "duplicates":
                 result = DuplicateFinder().scan_result(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind.startswith("large-files"):
-                size_map = {"500mb": 500 * 1000**2, "1gb": 1000**3, "5gb": 5 * 1000**3, "10gb": 10 * 1000**3}
-                parts = kind.split("-")
-                size_key = next((part for part in parts if part in size_map), "500mb")
-                age = next((int(part[:-1]) for part in parts if part.endswith("d") and part[:-1].isdigit()), None)
-                result = LargeOldFileScanner(min_bytes=size_map[size_key], older_than_days=age).scan_result(cancellation=token)
-                self._scan_update(self._finish_more_scan, kind, result); return
+                # Scan the lowest supported threshold once; size and age controls filter this cache.
+                # "All" means every supported large-file candidate (500 MB+), not every file in HOME.
+                # Traversing and retaining arbitrary small files would make the TUI unresponsive.
+                result = LargeOldFileScanner(min_bytes=500 * 1000**2).scan_result(cancellation=token)
+                mtimes = {item.id: item.path.stat().st_mtime for item in result.items if item.path is not None and item.path.exists()}
+                self._scan_update(self._finish_large_files, result, mtimes); return
             elif kind == "snapshots":
                 snapshots = "\n".join(list_snapshots()) or self._ui("No local snapshots found.")
                 text = self._ui(
@@ -2166,6 +2178,19 @@ class MacMaidTUI(App[None]):
         elif kind == "snapshots":
             self.query_one("#more-hint", Static).update(self._ui("1  Review 10 GB · 2  20 GB · 5  50 GB · R Refresh · Esc Back"))
         self._set_state("more", f"{kind} hazır")
+
+    def _finish_large_files(self, result: ScanResult, mtimes: dict[str, float]) -> None:
+        self.scan_cancellations.pop("more", None)
+        self.large_cache = result
+        self.large_mtimes = mtimes
+        self._apply_large_file_filter()
+
+    def _apply_large_file_filter(self) -> None:
+        if self.large_cache is None:
+            return
+        cutoff = None if self.large_age_days is None else time.time() - self.large_age_days * 86400
+        items = [item for item in self.large_cache.items if item.estimated_bytes >= self.large_size_bytes and (cutoff is None or self.large_mtimes.get(item.id, 0) < cutoff)]
+        self._finish_more_scan("large-files", ScanResult(items, self.large_cache.notes, self.large_cache.status, self.large_cache.issues))
 
     def _finish_smart_downloads(self, result: ScanResult, mtimes: dict[str, float]) -> None:
         self.scan_cancellations.pop("more", None)
@@ -2216,7 +2241,12 @@ class MacMaidTUI(App[None]):
         self.scan_cancellations.pop("more", None)
         manual_review_only = kind in {"duplicates", "smart-downloads"} or kind.startswith("large-files")
         self.more_result = result; self.more_selected = (set() if manual_review_only else {i for i, item in enumerate(result.items) if item.risk is not RiskLevel.MANUAL_ONLY}) if result.is_complete else set()
-        if kind == "smart-downloads":
+        if kind.startswith("large-files"):
+            size = self._ui("All supported sizes (500 MB+)") if self.large_size_bytes == 0 else human_bytes(self.large_size_bytes)
+            age = self._ui("All ages") if self.large_age_days is None else self._ui("{days} days or older").format(days=self.large_age_days)
+            self.query_one("#more-output", Static).update(self._ui("Large files: at least {size} · age: {age}\nSize: 0 All · 1 500 MB · 2 1 GB · 3 5 GB · 4 10 GB\nAge: A All · B 30 days · C 90 days · D 180 days · E 365 days · R Refresh").format(size=size, age=age))
+            self.query_one("#more-hint", Static).update(self._ui("0–4 Size · A–E Age · Space Select · Enter Continue · Esc Back"))
+        elif kind == "smart-downloads":
             age = self._ui("{days} days or older").format(days=self.smart_download_age_days)
             self.query_one("#more-output", Static).update(self._ui("Old downloads: {age}\n1 30 days · 2 90 days · 3 180 days · 4 365 days · R Refresh").format(age=age))
             self.query_one("#more-hint", Static).update(self._ui("1 30 days · 2 90 days · 3 180 days · 4 365 days · Space Select · Enter Continue · Esc Back"))
