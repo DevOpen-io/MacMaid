@@ -130,6 +130,32 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      - name: Generate itemized release notes
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
+          RANGE="${PREV_TAG:+$PREV_TAG..}$GITHUB_SHA"
+          {
+            echo "## What's Changed"
+            echo
+            git log --no-merges --format='%s' "$RANGE" | while IFS= read -r subject; do
+              cleaned=$(printf '%s' "$subject" | sed -E \
+                -e 's/^[a-zA-Z]+(\([^)]*\))?:[[:space:]]*//' \
+                -e 's/^[Bb]ump version to [^ ]+ and //' \
+                -e 's/^[Uu]pdate version to [^ ]+ and //')
+              if [ -n "$cleaned" ]; then
+                printf -- '- %s%s\n' "$(printf '%s' "${cleaned:0:1}" | tr '[:lower:]' '[:upper:]')" "${cleaned:1}"
+              fi
+            done
+            echo
+            if [ -n "$PREV_TAG" ]; then
+              echo "**Full Changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$PREV_TAG...$TAG"
+            else
+              echo "**Full Changelog**: https://github.com/$GITHUB_REPOSITORY/commits/$TAG"
+            fi
+          } > release-notes.md
+          cat release-notes.md
       - name: Publish release assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -139,7 +165,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" artifacts/* --clobber
           else
-            gh release create "$TAG" artifacts/* --title "MacMaid $VERSION" --generate-notes
+            gh release create "$TAG" artifacts/* --title "MacMaid $VERSION" --notes-file release-notes.md
           fi
 
   update-homebrew-tap:
