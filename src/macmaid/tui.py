@@ -2155,19 +2155,19 @@ class MacMaidTUI(App[None]):
             if kind == "leftovers":
                 # Discover every age once; changing the age pill only filters this cached result.
                 result = scan_leftovers(self.config, 0, self.leftover_include_data, cancellation=token)
-                mtimes = {item.id: item.path.stat().st_mtime for item in result.items if item.path is not None and item.path.exists()}
+                mtimes = {item.id: mtime for item in result.items if (mtime := self._safe_mtime(item.path)) is not None}
                 self._scan_update(self._finish_leftovers, result, mtimes, self.leftover_include_data); return
             elif kind == "installers":
                 # Discover every age once; changing the age filter only updates cached rows.
                 result = scan_installers(0, cancellation=token)
-                mtimes = {item.id: item.path.stat().st_mtime for item in result.items if item.path is not None and item.path.exists()}
+                mtimes = {item.id: mtime for item in result.items if (mtime := self._safe_mtime(item.path)) is not None}
                 self._scan_update(self._finish_installers, result, mtimes); return
             elif kind == "browser-storage":
                 result = BrowserStorageInspector().scan_result(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
             elif kind == "smart-downloads":
                 # Discover once, then apply the selected age threshold from cached metadata.
                 result = SmartDownloadsScanner(older_than_days=0).scan_result(cancellation=token)
-                mtimes = {item.id: item.path.stat().st_mtime for item in result.items if item.path is not None and item.path.exists()}
+                mtimes = {item.id: mtime for item in result.items if (mtime := self._safe_mtime(item.path)) is not None}
                 self._scan_update(self._finish_smart_downloads, result, mtimes); return
             elif kind == "duplicates":
                 result = DuplicateFinder().scan_result(cancellation=token); self._scan_update(self._finish_more_scan, kind, result); return
@@ -2176,7 +2176,7 @@ class MacMaidTUI(App[None]):
                 # "All" means every supported large-file candidate (500 MB+), not every file in HOME.
                 # Traversing and retaining arbitrary small files would make the TUI unresponsive.
                 result = LargeOldFileScanner(min_bytes=500 * 1000**2).scan_result(cancellation=token)
-                mtimes = {item.id: item.path.stat().st_mtime for item in result.items if item.path is not None and item.path.exists()}
+                mtimes = {item.id: mtime for item in result.items if (mtime := self._safe_mtime(item.path)) is not None}
                 self._scan_update(self._finish_large_files, result, mtimes); return
             elif kind == "snapshots":
                 snapshots = "\n".join(list_snapshots()) or self._ui("No local snapshots found.")
@@ -2291,6 +2291,8 @@ class MacMaidTUI(App[None]):
             data = self._ui("included (manual review only)") if self.leftover_include_data else self._ui("excluded")
             self.query_one("#more-output", Static).update(self._ui("Age: {age} · Application Support/Containers data: {data}\nA All · 1 7 days · 2 14 days · 3 30 days · D Toggle application data (off by default) · R Refresh").format(age=age, data=data))
             self.query_one("#more-hint", Static).update(self._ui("A All · 1 7 days · 2 14 days · 3 30 days · D Toggle application data · Space Select · Enter Continue · Esc Back"))
+        elif kind == "duplicates" and not result.items:
+            self.query_one("#more-output", Static).update(self._ui("Kopya dosya bulunamadı."))
         elif manual_review_only and not result.items:
             self.query_one("#more-output", Static).update("Filtreye uyan dosya bulunamadı. Large & Old varsayılan olarak HOME altında tarar, ~/Library ve symlinkleri atlar; farklı eşik için More menüsünden başka Large & Old filtresi seç.")
         else:
@@ -2378,6 +2380,15 @@ class MacMaidTUI(App[None]):
         }
         label, style = labels.get(name, (name, "#aeb3ba"))
         return Text(label, style=style)
+
+    @staticmethod
+    def _safe_mtime(path: Path | None) -> float | None:
+        if path is None:
+            return None
+        try:
+            return path.stat().st_mtime
+        except OSError:
+            return None
 
     @staticmethod
     def _restore_cursor(table: DataTable, cursor: int | None) -> None:

@@ -72,6 +72,7 @@ _EN: Final[dict[str, str]] = {
     "L Canlı olayları aç/kapat · İşlem sürüyor · lütfen terminali kapatma": "L Toggle live events · Operation in progress · do not close the terminal",
     "Enter  Ana menüye dön  ·  Q  Çıkış": "Enter Main menu · Q Quit",
     "Geçmiş boş.": "History is empty.", "Local snapshot bulunamadı.": "No local snapshot found.",
+    "Kopya dosya bulunamadı.": "No duplicate files found.",
     "Hedef": "Target", "tahmin yok": "no estimate", "gözlenen fark": "observed change", "artış": "increase", "azalış": "decrease", "ölçülemedi": "unavailable", "çıktı yok": "no output",
     "Whitelist kaydedildi · sonraki işlemden önce yeniden denetlenecek": "Whitelist saved · it will be checked again before the next operation",
     "Tamamlanacak konum önerisi yok": "No location suggestion to complete", "Eklemek için mutlak bir yol veya glob gir": "Enter an absolute path or glob to add",
@@ -127,6 +128,7 @@ _TR: Final[dict[str, str]] = {
     "Class": "Sınıf", "Project": "Proje", "Artifact": "Artefakt", "Task": "Görev", "Description": "Açıklama",
     "R Refresh · Q / Esc Back": "R Yenile · Q / Esc Geri",
     "No local snapshots found.": "Yerel snapshot bulunamadı.",
+    "No duplicate files found.": "Kopya dosya bulunamadı.",
     "Local APFS / Time Machine snapshots:\n{snapshots}\n\nApple normally manages these snapshots automatically. Use thinning only for an immediate space need; local recovery snapshots may be removed, while backup-disk history is unaffected.\n\nChoose a target to open the review screen:  [1] 10 GB   [2] 20 GB   [5] 50 GB\nThe target is not guaranteed; tmutil frees only space Time Machine can reclaim.": "Yerel APFS / Time Machine snapshot'ları:\n{snapshots}\n\nApple bu snapshot'ları normalde otomatik yönetir. Thinning yalnızca acil boş alan ihtiyacı içindir; yerel kurtarma snapshot'ları kaldırılabilir, yedek diskteki geçmiş etkilenmez.\n\nHedef seç ve onay ekranını aç:  [1] 10 GB   [2] 20 GB   [5] 50 GB\nHedef bir garanti değildir; tmutil yalnızca Time Machine'in reclaim edebildiği alanı boşaltır.",
     "1  Review 10 GB · 2  20 GB · 5  50 GB · R Refresh · Esc Back": "1  10 GB · 2  20 GB · 5  50 GB hedefini incele  ·  R Yenile  ·  Esc Geri",
     "Thinning Time Machine snapshots · {target} GB target": "Time Machine snapshot'ları inceltiliyor · {target} GB hedef",
@@ -290,6 +292,8 @@ _EN_FRAGMENTS: Final[tuple[tuple[str, str], ...]] = tuple(sorted({
     "gözlenen boş alan farkı": "observed free-space delta", "manager etkisi bilinmiyor": "manager effect unknown",
     "Dosya sistemi genelindeki bu fark MacMaid'e kesin atfedilemez; APFS clone/snapshot/sparse dosya ve eşzamanlı etkinlik etkileyebilir.": "This file-system-wide difference cannot be attributed solely to MacMaid; APFS clones, snapshots, sparse files and concurrent activity may affect it.",
     "ÖNCE": "BEFORE", "SONRA": "AFTER", "Boş": "Free", "Termal": "Thermal",
+    "Hedef ": "Target ", " · tahmin yok · ": " · no estimate · ", " · gözlenen fark ": " · observed change ",
+    "çıktı yok": "no output", "İşlenen tahmin": "Estimated processed targets",
     "artış": "increase", "azalış": "decrease", "ölçülemedi": "not measured", "bilinmeyen hata": "unknown error",
 }.items(), key=lambda item: len(item[0]), reverse=True))
 
@@ -308,6 +312,7 @@ _TR_FRAGMENTS: Final[tuple[tuple[str, str], ...]] = tuple(sorted({
     "◇  Leftovers": "◇  Kalıntılar", "↓  Installers": "↓  Yükleyiciler", "◷  Snapshots": "◷  Anlık Görüntüler",
     "+  Doctor": "+  Tanılama", "◉  Permissions": "◉  İzinler", "⚙  Settings": "⚙  Ayarlar",
     "≡  History": "≡  Geçmiş", "✓  Whitelist": "✓  Koruma Listesi",
+    "Reclaim target: ": "Geri kazanım hedefi: ",
     " Navigate": " Gezin", " Select": " Seç", " Continue": " Devam", " Stop scan": " Taramayı durdur",
     " Back": " Geri", " Cancel": " İptal", " Open": " Aç", " Remove": " Kaldır", " Rescan": " Yeniden tara",
     " Enter  Run": " Enter  Çalıştır", " Scan": " Tara", " Jump": " Git", " Parent": " Üst dizin", " Review": " İncele",
