@@ -505,6 +505,8 @@ const I18N = {
     "common.cancel": "Cancel",
     "common.discard": "Cancel",
     "common.delete": "Delete",
+    "common.clean": "Clean",
+    "common.cleaning": "Cleaning...",
     "common.move_to_trash": "Move to Trash",
     "modal.title": "Confirm Action",
     "modal.aria_close": "Close dialog",
@@ -1059,6 +1061,8 @@ const I18N = {
     "common.cancel": "İptal",
     "common.discard": "Vazgeç",
     "common.delete": "Sil",
+    "common.clean": "Temizle",
+    "common.cleaning": "Temizleniyor...",
     "common.move_to_trash": "Çöpe Taşı",
     "modal.title": "İşlem Onayı",
     "modal.aria_close": "Pencereyi kapat",
@@ -1735,6 +1739,7 @@ function renderInPageProgress(p) {
   // Map sub-services to their top-level tab dot
   const serviceToTab = {
     'devcaches': 'developer',
+    'developer-caches': 'developer',
     'developer': 'developer',
     'runtimes': 'developer',
     'environments': 'developer',
@@ -1744,6 +1749,10 @@ function renderInPageProgress(p) {
     'leftovers': 'more',
     'installers': 'more',
     'largefiles': 'more',
+    'large-files': 'more',
+    'browser-storage': 'more',
+    'smart-downloads': 'more',
+    'duplicates': 'more',
     'snapshots': 'more',
     'doctor': 'more',
     'history': 'more',
@@ -1763,6 +1772,14 @@ function renderInPageProgress(p) {
 
   let card = document.getElementById(`${service}-progress-card`);
   let activePrefix = service;
+  if (!card) {
+    const cardAliases = { 'developer-caches': 'devcaches', 'large-files': 'largefiles' };
+    const aliasPrefix = cardAliases[service];
+    if (aliasPrefix) {
+      card = document.getElementById(`${aliasPrefix}-progress-card`);
+      if (card) activePrefix = aliasPrefix;
+    }
+  }
   if (!card && (service === 'developer' || serviceToTab[service] === 'developer')) {
     const activeDevTab = document.querySelector('#pane-developer .sub-pane.active')?.id?.replace('subpane-dev-', '') || 'storage';
     const devProgressPrefixes = { storage: 'devstorage', caches: 'devcaches', runtimes: 'runtimes', environments: 'environments', tools: 'devtools', sdks: 'sdks' };
@@ -2115,7 +2132,7 @@ async function executeClean() {
           startLiveProgressPolling(isDryRun ? t('clean.action_simulating', 'Simulating cleanup…') : t('clean.action_cleaning_items', 'Cleaning selected items…'));
           const btn = document.getElementById('btn-execute-clean');
           btn.disabled = true;
-          btn.innerHTML = `<span>Temizleniyor...</span>`;
+          btn.innerHTML = `<span>${t('common.cleaning', 'Cleaning...')}</span>`;
 
           try {
             const res = await fetch('/api/clean', {
@@ -2131,7 +2148,7 @@ async function executeClean() {
             fetchStatus();
           } catch (err) {
             showOperationOutcome('error', err.message);
-            showToast(`Hata: ${err.message}`, 'error');
+            showToast(`${t('toast.error_prefix', 'Error: ')}${err.message}`, 'error');
           } finally {
             stopLiveProgressPolling();
             btn.disabled = false;
@@ -2385,7 +2402,7 @@ async function scanInstallers() {
     });
 
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Hata: ${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('toast.error_prefix', 'Error: ')}${escapeHtml(err.message)}</td></tr>`;
   } finally {
     stopLiveProgressPolling();
   }
@@ -2415,6 +2432,8 @@ async function executeInstallersClean() {
           if (!authorized) return;
           hideModal();
           startLiveProgressPolling();
+          const actionBtn = document.getElementById('btn-execute-installers-clean');
+          if (actionBtn) actionBtn.disabled = true;
           try {
             const res = await fetch('/api/installers/clean', {
               method: 'POST',
@@ -2427,8 +2446,9 @@ async function executeInstallersClean() {
             showOutcomeToast(data);
             scanInstallers();
           } catch (e) {
-            showToast(`Hata: ${e.message}`, 'error');
+            showToast(`${t('toast.error_prefix', 'Error: ')}${e.message}`, 'error');
           } finally {
+            if (actionBtn) actionBtn.disabled = false;
             stopLiveProgressPolling();
           }
         }
@@ -2488,7 +2508,7 @@ async function scanLeftovers() {
     });
 
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Hata: ${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('toast.error_prefix', 'Error: ')}${escapeHtml(err.message)}</td></tr>`;
   } finally {
     stopLiveProgressPolling();
   }
@@ -2511,13 +2531,15 @@ async function executeLeftoversClean() {
     [
       { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
       {
-        text: 'Sil',
+        text: t('common.delete', 'Delete'),
         class: 'btn-danger',
         onClick: async () => {
           const authorized = reviewedPayload(payload, reviewResponse);
           if (!authorized) return;
           hideModal();
           startLiveProgressPolling();
+          const actionBtn = document.getElementById('btn-execute-leftovers-clean');
+          if (actionBtn) actionBtn.disabled = true;
           try {
             const res = await fetch('/api/leftovers/clean', {
               method: 'POST',
@@ -2530,8 +2552,9 @@ async function executeLeftoversClean() {
             showOutcomeToast(data);
             scanLeftovers();
           } catch (e) {
-            showToast(`Hata: ${e.message}`, 'error');
+            showToast(`${t('toast.error_prefix', 'Error: ')}${e.message}`, 'error');
           } finally {
+            if (actionBtn) actionBtn.disabled = false;
             stopLiveProgressPolling();
           }
         }
@@ -2637,7 +2660,7 @@ function renderAnalyzerSnapshot(data, requestId) {
               showOutcomeToast(data);
               runDiskAnalyzer(state.currentAnalyzePath, { force: true });
             } catch (error) {
-              showToast(`Hata: ${error.message}`, 'error');
+              showToast(`${t('toast.error_prefix', 'Error: ')}${error.message}`, 'error');
               showOperationOutcome('error', error.message);
             } finally { stopLiveProgressPolling(); }
           }}
@@ -2702,7 +2725,7 @@ async function runDiskAnalyzer(targetPath = null, options = {}) {
     await fetchAnalyzerSnapshot(path, requestId, { start: true, force: options.force === true });
   } catch (err) {
     if (requestId !== state.analyzerRequestId) return;
-    folderBars.innerHTML = `<div class="empty-state">Hata: ${escapeHtml(err.message)}</div>`;
+    folderBars.innerHTML = `<div class="empty-state">${t('toast.error_prefix', 'Error: ')}${escapeHtml(err.message)}</div>`;
     showOperationOutcome('error', err.message);
     stopLiveProgressPolling();
   }
@@ -2757,7 +2780,7 @@ async function scanProjectArtifacts() {
 
     renderPurgeArtifacts();
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Hata: ${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${t('toast.error_prefix', 'Error: ')}${escapeHtml(err.message)}</td></tr>`;
   } finally {
     stopLiveProgressPolling();
   }
@@ -2838,7 +2861,7 @@ async function executePurge() {
             showOutcomeToast(data);
             scanProjectArtifacts();
           } catch (e) {
-            showToast(`Hata: ${e.message}`, 'error');
+            showToast(`${t('toast.error_prefix', 'Error: ')}${e.message}`, 'error');
           } finally {
             stopLiveProgressPolling();
           }
@@ -2941,7 +2964,7 @@ async function scanDeveloperCaches() {
     });
 
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Hata: ${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${t('toast.error_prefix', 'Error: ')}${escapeHtml(err.message)}</td></tr>`;
   } finally {
     stopLiveProgressPolling();
   }
@@ -2964,13 +2987,15 @@ async function executeDeveloperCachesClean() {
     [
       { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
       {
-        text: 'Temizle',
+        text: t('common.clean', 'Clean'),
         class: 'btn-danger',
         onClick: async () => {
           const authorized = reviewedPayload(payload, reviewResponse);
           if (!authorized) return;
           hideModal();
           startLiveProgressPolling();
+          const actionBtn = document.getElementById('btn-execute-devcaches-clean');
+          if (actionBtn) actionBtn.disabled = true;
           try {
             const res = await fetch('/api/developer/caches/clean', {
               method: 'POST',
@@ -2983,8 +3008,9 @@ async function executeDeveloperCachesClean() {
             showOutcomeToast(data);
             scanDeveloperCaches();
           } catch (e) {
-            showToast(`Hata: ${e.message}`, 'error');
+            showToast(`${t('toast.error_prefix', 'Error: ')}${e.message}`, 'error');
           } finally {
+            if (actionBtn) actionBtn.disabled = false;
             stopLiveProgressPolling();
           }
         }
@@ -3129,7 +3155,7 @@ async function scanDeveloperRuntimes() {
     });
     highlightCollectionDiff(tbody, previousItems, items, 6);
   } catch (err) {
-    if (!previousItems.length) tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Hata: ${escapeHtml(err.message)}</td></tr>`;
+    if (!previousItems.length) tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${t('toast.error_prefix', 'Error: ')}${escapeHtml(err.message)}</td></tr>`;
     showOperationOutcome('error', err.message);
   } finally {
     endCollectionRefresh(tbody);
@@ -3180,7 +3206,7 @@ async function scanDeveloperEnvironments() {
     });
     highlightCollectionDiff(tbody, previousItems, items, 5);
   } catch (err) {
-    if (!previousItems.length) tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Hata: ${escapeHtml(err.message)}</td></tr>`;
+    if (!previousItems.length) tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('toast.error_prefix', 'Error: ')}${escapeHtml(err.message)}</td></tr>`;
     showOperationOutcome('error', err.message);
   } finally {
     endCollectionRefresh(tbody);
@@ -3235,7 +3261,7 @@ async function scanDeveloperTools() {
     });
     highlightCollectionDiff(tbody, previousItems, items, 5);
   } catch (err) {
-    if (!previousItems.length) tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Hata: ${escapeHtml(err.message)}</td></tr>`;
+    if (!previousItems.length) tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('toast.error_prefix', 'Error: ')}${escapeHtml(err.message)}</td></tr>`;
     showOperationOutcome('error', err.message);
   } finally {
     endCollectionRefresh(tbody);
@@ -3286,7 +3312,7 @@ async function scanDeveloperSDKs() {
     });
     highlightCollectionDiff(tbody, previousItems, items, 5);
   } catch (err) {
-    if (!previousItems.length) tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Hata: ${escapeHtml(err.message)}</td></tr>`;
+    if (!previousItems.length) tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('toast.error_prefix', 'Error: ')}${escapeHtml(err.message)}</td></tr>`;
     showOperationOutcome('error', err.message);
   } finally {
     endCollectionRefresh(tbody);
@@ -3310,7 +3336,7 @@ async function fetchSnapshotsList() {
     const data = await res.json();
     box.textContent = data.raw || t('more.empty_snapshots_found', 'No snapshots found.');
   } catch (err) {
-    box.textContent = `Hata: ${err.message}`;
+    box.textContent = `${t('toast.error_prefix', 'Error: ')}${err.message}`;
   } finally {
     stopLiveProgressPolling();
   }
@@ -3351,7 +3377,7 @@ async function executeSnapshotThin() {
             showToast(`${t('toast.snapshot_thinned', 'Snapshot thinning request completed · actual manager impact unknown · ')}${observed}${t('outcome.not_strictly_macmaid', ' (not strictly attributable to MacMaid)')}`, 'success');
             fetchSnapshotsList();
           } catch (e) {
-            showToast(`Hata: ${e.message}`, 'error');
+            showToast(`${t('toast.error_prefix', 'Error: ')}${e.message}`, 'error');
           } finally {
             stopLiveProgressPolling();
           }
@@ -3424,7 +3450,7 @@ async function runSingleOptimizeTask(taskId) {
         });
         const data = await readAPIResponse(res);
         SoundEffects.playSuccess(); showToast(`${t('toast.task_completed', 'Task completed: ')}${data.message || t('hud.ok', 'Successful')}`, 'success');
-      } catch (err) { showToast(`Hata: ${err.message}`, 'error'); }
+      } catch (err) { showToast(`${t('toast.error_prefix', 'Error: ')}${err.message}`, 'error'); }
       finally { stopLiveProgressPolling(); }
     }}
   ]);
@@ -3705,7 +3731,7 @@ async function cleanBrowserCache() {
     const reviewResponse = await requestOperationReview('/api/browser-storage/clean', payload);
     showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
       { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      { text: 'Cache Temizle', class: 'btn-danger', onClick: async () => {
+      { text: t('common.clean', 'Clean'), class: 'btn-danger', onClick: async () => {
         const authorized = reviewedPayload(payload, reviewResponse);
         if (!authorized) return;
         hideModal();
@@ -4638,7 +4664,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           const result = await readAPIResponse(res);
           SoundEffects.playSuccess(); showToast(`${result.executed}/${result.total} ${t('toast.tasks_completed_count', 'maintenance tasks completed.')}`, 'success');
-        } catch (e) { showToast(`Hata: ${e.message}`, 'error'); }
+        } catch (e) { showToast(`${t('toast.error_prefix', 'Error: ')}${e.message}`, 'error'); }
         finally { stopLiveProgressPolling(); }
       }}
     ]);
