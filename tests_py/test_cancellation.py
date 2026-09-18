@@ -220,14 +220,13 @@ def test_analyzer_cancel_stops_active_walk_and_exposes_terminal_state(monkeypatc
     root = tmp_path / "root"; child = root / "child"; child.mkdir(parents=True)
     started = threading.Event(); stopped = threading.Event()
 
-    def slow_walk(target, threshold, top, cancelled):
+    def slow_walk(self, job, index, ctx, generation, cancelled, helper=False):
         started.set()
         while not cancelled.wait(0.01):
             pass
         stopped.set()
-        return 0, []
 
-    monkeypatch.setattr(IncrementalAnalyzer, "_walk", staticmethod(slow_walk))
+    monkeypatch.setattr(IncrementalAnalyzer, "_walk", slow_walk)
     analyzer = IncrementalAnalyzer(max_workers=1)
     try:
         analyzer.snapshot(root, start=True)
@@ -243,7 +242,12 @@ def test_analyzer_cancel_stops_active_walk_and_exposes_terminal_state(monkeypatc
 
 def test_analyzer_measurement_failure_is_partial_not_complete(monkeypatch, tmp_path):
     root = tmp_path / "root"; (root / "child").mkdir(parents=True)
-    monkeypatch.setattr(IncrementalAnalyzer, "_walk", staticmethod(lambda *args: (_ for _ in ()).throw(PermissionError("denied"))))
+
+    def fail_root(ctx):
+        ctx.result.root_error = f"{ctx.target}: denied"
+        return True
+
+    monkeypatch.setattr(IncrementalAnalyzer, "_walk_root", staticmethod(fail_root))
     analyzer = IncrementalAnalyzer(max_workers=1)
     try:
         analyzer.snapshot(root, start=True)

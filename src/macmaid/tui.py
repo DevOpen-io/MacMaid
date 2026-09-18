@@ -1527,15 +1527,17 @@ class MacMaidTUI(App[None]):
         self.analyzer_snapshot = result; self.analyzer_path = Path(result["path"]); self._render_analysis(result)
 
     def _render_analysis(self, result: dict[str, Any]) -> None:
-        table = self.query_one("#analyzer-table", DataTable); cursor = table.cursor_row if table.row_count else 0; table.clear(); icons = {"ready": "✓", "scanning": "◌", "pending": "·", "failed": "!", "cancelled": "×"}
+        table = self.query_one("#analyzer-table", DataTable); cursor = table.cursor_row if table.row_count else 0; table.clear(); icons = {"ready": "✓", "scanning": "◌", "pending": "·", "failed": "!", "cancelled": "×", "partial": "◐"}
         for e in result.get("entries", []):
-            percent = e.get("percent", 0)
-            table.add_row(icons.get(e["state"], "·"), e.get("humanBytes", "—") if e["state"] == "ready" else "measuring…", self._compact_bar(percent / 100, 10) if e["state"] == "ready" else "[··········]", "▸" if e["directory"] else "·", e["name"], e["path"])
-        self._restore_cursor(table, cursor); done = result.get("completed", 0) + result.get("failed", 0); total = result.get("total", 0); self.query_one("#analyzer-progress", ProgressBar).update(total=max(total, 1), progress=done if total else 1)
+            percent = e.get("percent", 0); measured = e["state"] in {"ready", "partial"}
+            size = f"{'~' if e['state'] == 'partial' else ''}{e.get('humanBytes', '—')}" if measured else "measuring…"
+            table.add_row(icons.get(e["state"], "·"), size, self._compact_bar(percent / 100, 10) if measured else "[··········]", "▸" if e["directory"] else "·", e["name"], e["path"])
+        self._restore_cursor(table, cursor); done = result.get("completed", 0) + result.get("failed", 0) + result.get("partial", 0); total = result.get("total", 0); self.query_one("#analyzer-progress", ProgressBar).update(total=max(total, 1), progress=done if total else 1)
         if result.get("isCancelled"):
             suffix = f"iptal edildi · {done}/{total} ölçüldü · sonuç eksik"
-        elif result.get("isComplete") and result.get("failed"):
-            suffix = f"kısmi tamamlandı · {result['failed']} ölçüm hatası"
+        elif result.get("isComplete") and (result.get("failed") or result.get("partial")):
+            incomplete = result.get("failed", 0) + result.get("partial", 0)
+            suffix = self._ui("kısmi tamamlandı · {count} eksik ölçüm").format(count=incomplete)
         else:
             suffix = "tamamlandı" if result.get("isComplete") else f"{done}/{total} · {result.get('currentScanPath') or 'sırada'}"
         self._set_state("analyzer", f"{result['path']} · {human_bytes(result.get('totalBytes', 0))} ölçüldü · {suffix}{' · cache' if result.get('cached') else ''}")

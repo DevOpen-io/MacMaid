@@ -3083,6 +3083,8 @@ input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.42; }
 .folder-bar-item.is-measuring { border-color: var(--primary-border); }
 .folder-bar-item.is-measuring .folder-size-wrap strong { color: var(--primary); }
 .folder-bar-item.is-failed { opacity: 0.62; }
+.folder-bar-item.is-partial { border-color: rgba(245, 158, 11, 0.45); }
+.folder-bar-item.is-partial .folder-size-wrap strong { color: var(--yellow); }
 .folder-bar-fill.indeterminate {
   background: linear-gradient(90deg, transparent 0%, var(--primary) 45%, transparent 100%);
   background-size: 45% 100%;

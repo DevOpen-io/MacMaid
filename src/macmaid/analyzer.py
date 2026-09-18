@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import stat
 import threading
 import time
+from collections import deque
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,6 +34,7 @@ class AnalyzerJob:
     last_accessed: float = field(default_factory=time.monotonic)
     completed: int = 0
     failed: int = 0
+    partial: int = 0
     current_scan_path: str | None = None
     largest_files: dict[str, dict[str, Any]] = field(default_factory=dict)
     issues: list[str] = field(default_factory=list)
@@ -43,7 +46,59 @@ class AnalyzerJob:
 
     @property
     def is_complete(self) -> bool:
-        return self.completed + self.failed >= len(self.entries)
+        return self.completed + self.failed + self.partial >= len(self.entries)
+
+
+@dataclass(slots=True)
+class _DirScan:
+    """Per-directory scan output; merged into a ``_WalkContext`` under its lock."""
+
+    subdirs: list[Path] = field(default_factory=list)
+    links: list[tuple[int, int, int, int]] = field(default_factory=list)
+    largest: list[dict[str, Any]] = field(default_factory=list)
+    apparent: int = 0
+    disk: int = 0
+    files: int = 0
+    inaccessible: int = 0
+    boundary: int = 0
+    open_failed: bool = False
+
+
+@dataclass(slots=True)
+class _WalkResult:
+    apparent: int = 0
+    disk: int = 0
+    files: int = 0
+    inaccessible: int = 0
+    boundary: int = 0
+    largest: list[dict[str, Any]] = field(default_factory=list)
+    root_error: str | None = None
+
+
+class _WalkContext:
+    """Shared measurement state for one top-level entry.
+
+    Directory workers drain a common frontier instead of each owning one
+    child, so a single large subtree can use the whole worker pool without a
+    nested ``ThreadPoolExecutor``. Helpers are ordinary futures on the shared
+    executor and never block on each other, which keeps the pool deadlock-free.
+    """
+
+    __slots__ = ("target", "threshold", "top", "dirs", "pending", "helpers",
+                 "capacity", "lock", "result", "inodes", "root_dev")
+
+    def __init__(self, target: Path, threshold: int, top: int, capacity: int) -> None:
+        self.target = target
+        self.threshold = threshold
+        self.top = top
+        self.dirs: deque[Path] = deque()
+        self.pending = 0
+        self.helpers = 0
+        self.capacity = capacity
+        self.lock = threading.Lock()
+        self.result = _WalkResult()
+        self.inodes: set[tuple[int, int]] = set()
+        self.root_dev: int | None = None
 
 
 class IncrementalAnalyzer:
@@ -186,104 +241,184 @@ class IncrementalAnalyzer:
             entry = job.entries[index]
             entry["state"] = "scanning"
             job.current_scan_path = entry["path"]
-        target = Path(entry["path"])
+        ctx = _WalkContext(Path(entry["path"]), job.min_file_bytes, job.top, self._max_workers - 1)
+        self._walk(job, index, ctx, generation, cancelled)
+
+    def _walk(self, job: AnalyzerJob, index: int, ctx: _WalkContext, generation: int,
+              cancelled: threading.Event, helper: bool = False) -> None:
+        """Drain ``ctx.dirs``; whichever worker empties it finalizes the entry.
+
+        The entry worker seeds the root; helper futures submitted to the same
+        executor share the frontier. Workers never wait on futures, so the
+        shared pool cannot deadlock and a cancelled job simply drains itself.
+        """
         try:
-            size, largest, file_count = self._walk(target, job.min_file_bytes, job.top, cancelled)
-        except Exception as exc:
-            with self._lock:
-                if self._jobs.get(job.path) is job and job.generation == generation and not cancelled.is_set():
-                    entry["state"] = "failed"
-                    job.failed += 1
-                    job.issues.append(f"{target}: {exc}")
-                    if job.is_complete:
-                        job.current_scan_path = None
+            if not helper and ctx.root_dev is None:
+                if self._walk_root(ctx):
+                    self._finish_entry(job, index, ctx, generation, cancelled)
+                    return
+            while True:
+                with ctx.lock:
+                    if (cancelled.is_set() or job.generation != generation
+                            or self._jobs.get(job.path) is not job or not ctx.dirs):
+                        return
+                    directory = ctx.dirs.popleft()
+                batch = self._scan_directory(directory, ctx, cancelled)
+                with ctx.lock:
+                    if batch.open_failed and directory == ctx.target:
+                        ctx.result.root_error = f"{ctx.target}: could not be read"
+                    ctx.result.apparent += batch.apparent
+                    ctx.result.disk += batch.disk
+                    ctx.result.files += batch.files
+                    ctx.result.inaccessible += batch.inaccessible
+                    ctx.result.boundary += batch.boundary
+                    for dev, ino, size, used in batch.links:
+                        key = (dev, ino)
+                        if key not in ctx.inodes:
+                            ctx.inodes.add(key)
+                            ctx.result.apparent += size
+                            ctx.result.disk += used
+                    ctx.result.largest.extend(batch.largest)
+                    if len(ctx.result.largest) > ctx.top * 3:
+                        ctx.result.largest = sorted(ctx.result.largest, key=lambda item: -item["bytes"])[: ctx.top]
+                    ctx.dirs.extend(batch.subdirs)
+                    ctx.pending += len(batch.subdirs) - 1
+                    finished = ctx.pending == 0
+                    while not finished and ctx.helpers < ctx.capacity and len(ctx.dirs) >= 3:
+                        ctx.helpers += 1
+                        self._executor.submit(self._walk, job, index, ctx, generation, cancelled, True)
+                if finished:
+                    self._finish_entry(job, index, ctx, generation, cancelled)
+                    return
+        finally:
+            if helper:
+                with ctx.lock:
+                    ctx.helpers -= 1
+
+    @staticmethod
+    def _walk_root(ctx: _WalkContext) -> bool:
+        """Stat the entry target. Returns True when the entry is already decided."""
+        try:
+            info = os.stat(ctx.target, follow_symlinks=False)
+        except OSError as exc:
+            ctx.result.root_error = f"{ctx.target}: {exc}"
+            return True
+        ctx.root_dev = info.st_dev
+        ctx.result.disk += info.st_blocks * 512
+        if not stat.S_ISDIR(info.st_mode):
+            ctx.result.apparent += info.st_size
+            ctx.result.files = 1
+            if info.st_size >= ctx.threshold:
+                ctx.result.largest.append({
+                    "name": ctx.target.name, "path": str(ctx.target), "bytes": info.st_size,
+                    "diskBytes": info.st_blocks * 512, "directory": False, "viewOnly": _view_only(ctx.target),
+                })
+            return True
+        ctx.dirs.append(ctx.target)
+        ctx.pending = 1
+        return False
+
+    @staticmethod
+    def _scan_directory(directory: Path, ctx: _WalkContext, cancelled: threading.Event) -> _DirScan:
+        batch = _DirScan()
+        try:
+            with os.scandir(directory) as iterator:
+                for child in iterator:
+                    if cancelled.is_set():
+                        break
+                    try:
+                        if child.is_symlink():
+                            continue
+                        info = child.stat(follow_symlinks=False)
+                    except OSError:
+                        batch.inaccessible += 1
+                        continue
+                    if stat.S_ISDIR(info.st_mode):
+                        if info.st_dev != ctx.root_dev:
+                            batch.boundary += 1
+                            continue
+                        batch.disk += info.st_blocks * 512
+                        batch.subdirs.append(Path(child.path))
+                        continue
+                    size = info.st_size
+                    used = info.st_blocks * 512
+                    batch.files += 1
+                    if info.st_nlink > 1:
+                        batch.links.append((info.st_dev, info.st_ino, size, used))
                     else:
-                        self._submit_next_locked(job)
-            return
+                        batch.apparent += size
+                        batch.disk += used
+                    if size >= ctx.threshold:
+                        batch.largest.append({
+                            "name": child.name, "path": child.path, "bytes": size,
+                            "diskBytes": used, "directory": False, "viewOnly": _view_only(Path(child.path)),
+                        })
+        except OSError:
+            batch.inaccessible += 1
+            batch.open_failed = True
+        return batch
+
+    def _finish_entry(self, job: AnalyzerJob, index: int, ctx: _WalkContext,
+                      generation: int, cancelled: threading.Event) -> None:
+        result = ctx.result
         with self._lock:
             if cancelled.is_set() or job.generation != generation or self._jobs.get(job.path) is not job:
                 return
-            entry["bytes"] = size
-            entry["fileCount"] = file_count
-            entry["state"] = "ready"
-            job.completed += 1
-            for item in largest:
-                job.largest_files[item["path"]] = item
-            if len(job.largest_files) > job.top * 4:
-                keep = sorted(job.largest_files.values(), key=lambda item: -item["bytes"])[: job.top]
-                job.largest_files = {item["path"]: item for item in keep}
+            entry = job.entries[index]
+            if result.root_error is not None:
+                entry["state"] = "failed"
+                job.failed += 1
+                job.issues.append(result.root_error)
+            else:
+                entry["bytes"] = result.apparent
+                entry["diskBytes"] = result.disk
+                entry["fileCount"] = result.files
+                if result.inaccessible:
+                    entry["state"] = "partial"
+                    entry["inaccessible"] = result.inaccessible
+                    job.issues.append(f"{entry['path']}: {result.inaccessible} analyzer entries were inaccessible; result is incomplete")
+                    job.partial += 1
+                else:
+                    entry["state"] = "ready"
+                    job.completed += 1
+                if result.boundary:
+                    entry["skippedFilesystems"] = result.boundary
+                for item in result.largest:
+                    job.largest_files[item["path"]] = item
+                if len(job.largest_files) > job.top * 4:
+                    keep = sorted(job.largest_files.values(), key=lambda item: -item["bytes"])[: job.top]
+                    job.largest_files = {item["path"]: item for item in keep}
             if job.is_complete:
                 job.current_scan_path = None
             else:
                 self._submit_next_locked(job)
 
-    @staticmethod
-    def _walk(target: Path, threshold: int, top: int, cancelled: threading.Event) -> tuple[int, list[dict[str, Any]], int]:
-        if cancelled.is_set():
-            return 0, []
-        try:
-            if not target.is_dir():
-                size = target.stat().st_size
-                largest = [{"name": target.name, "path": str(target), "bytes": size, "directory": False, "viewOnly": _view_only(target)}] if size >= threshold else []
-                return size, largest, 1
-        except OSError:
-            raise
-        total = 0
-        largest: list[dict[str, Any]] = []
-        inaccessible = 0
-        file_count = 0
-        stack = [target]
-        while stack and not cancelled.is_set():
-            directory = stack.pop()
-            try:
-                with os.scandir(directory) as iterator:
-                    for child in iterator:
-                        if cancelled.is_set():
-                            break
-                        try:
-                            if child.is_symlink():
-                                continue
-                            if child.is_dir(follow_symlinks=False):
-                                stack.append(Path(child.path))
-                                continue
-                            stat = child.stat(follow_symlinks=False)
-                        except OSError:
-                            inaccessible += 1
-                            continue
-                        total += stat.st_size
-                        file_count += 1
-                        if stat.st_size >= threshold:
-                            path = Path(child.path)
-                            largest.append({"name": child.name, "path": child.path, "bytes": stat.st_size, "directory": False, "viewOnly": _view_only(path)})
-                            if len(largest) > top * 3:
-                                largest = sorted(largest, key=lambda item: -item["bytes"])[:top]
-            except OSError:
-                inaccessible += 1
-                continue
-        if inaccessible and not cancelled.is_set():
-            raise PermissionError(f"{inaccessible} analyzer entries were inaccessible; result is incomplete")
-        return total, sorted(largest, key=lambda item: -item["bytes"])[:top], file_count
-
     def _serialize(self, job: AnalyzerJob, *, cached: bool) -> dict[str, Any]:
-        total_bytes = sum(int(entry["bytes"]) for entry in job.entries if entry["state"] == "ready")
+        measured = {"ready", "partial"}
+        total_bytes = sum(int(entry["bytes"]) for entry in job.entries if entry["state"] in measured)
+        total_disk = sum(int(entry.get("diskBytes", 0)) for entry in job.entries if entry["state"] in measured)
         entries = [dict(entry) for entry in job.entries]
         if job.is_complete:
             entries.sort(key=lambda entry: (-int(entry["bytes"]), entry["name"].casefold()))
         for entry in entries:
             entry["isDirectory"] = entry["directory"]
             entry["humanBytes"] = human_bytes(int(entry["bytes"]))
+            entry["humanDiskBytes"] = human_bytes(int(entry.get("diskBytes", 0)))
             entry["fileCount"] = int(entry.get("fileCount", 0))
-            entry["percent"] = int(entry["bytes"] / total_bytes * 100) if total_bytes and entry["state"] == "ready" else 0
+            entry["percent"] = int(entry["bytes"] / total_bytes * 100) if total_bytes and entry["state"] in measured else 0
         largest = sorted(job.largest_files.values(), key=lambda item: -item["bytes"])[: job.top]
         return {
             "path": str(job.path),
             "parent": str(job.path.parent),
             "totalBytes": total_bytes,
             "humanTotal": human_bytes(total_bytes),
+            "totalDiskBytes": total_disk,
+            "humanTotalDisk": human_bytes(total_disk),
             "entries": entries,
-            "largestFiles": [dict(item, humanBytes=human_bytes(item["bytes"])) for item in largest],
+            "largestFiles": [dict(item, humanBytes=human_bytes(item["bytes"]), humanDiskBytes=human_bytes(int(item.get("diskBytes", 0)))) for item in largest],
             "cached": cached,
             "completed": job.completed,
+            "partial": job.partial,
             "total": len(job.entries),
             "failed": job.failed,
             "issues": list(job.issues),
@@ -293,7 +428,7 @@ class IncrementalAnalyzer:
             "isComplete": job.is_complete,
             "isPaused": job.paused,
             "isCancelled": job.was_cancelled,
-            "status": "cancelled" if job.was_cancelled else "partial" if job.failed else "complete" if job.is_complete else "scanning",
+            "status": "cancelled" if job.was_cancelled else "partial" if (job.failed or job.partial) else "complete" if job.is_complete else "scanning",
         }
 
     def progress(self) -> dict[str, Any]:
@@ -301,13 +436,13 @@ class IncrementalAnalyzer:
             job = self._jobs.get(self._active_path) if self._active_path else None
             if job is None:
                 return {"active": False}
-            done = job.completed + job.failed
+            done = job.completed + job.failed + job.partial
             total = len(job.entries)
             return {
                 "active": not job.is_complete and not job.was_cancelled,
                 "service": "analyzer",
                 "action": "Dizin arka planda analiz ediliyor",
-                "phase": "İPTAL EDİLDİ" if job.was_cancelled else "TARANIYOR" if not job.is_complete else "KISMİ" if job.failed else "TAMAMLANDI",
+                "phase": "İPTAL EDİLDİ" if job.was_cancelled else "TARANIYOR" if not job.is_complete else "KISMİ" if (job.failed or job.partial) else "TAMAMLANDI",
                 "path": job.current_scan_path or str(job.path),
                 "completed": done,
                 "total": total,

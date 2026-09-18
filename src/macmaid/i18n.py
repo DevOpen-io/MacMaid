@@ -307,6 +307,7 @@ _EN_FRAGMENTS: Final[tuple[tuple[str, str], ...]] = tuple(sorted({
     " tamamlandı": " completed", " başarısız": " failed", " iptal edildi": " cancelled",
     " öğe": " items", " hata": " errors", " atlandı": " skipped", " erişilebilir": " accessible",
     " ölçüldü": " measured", " ölçülüyor…": " measuring…", " kısmi sonuç": " partial result",
+    "kısmi tamamlandı · {count} eksik ölçüm": "partially complete · {count} incomplete measurements",
     "tahmini geri kazanım": "estimated reclaim", "işlenen hedef tahmini": "estimated processed targets",
     "GÖZLENEN BOŞ ALAN FARKI": "OBSERVED FREE-SPACE DELTA",
     "gözlenen boş alan farkı": "observed free-space delta", "manager etkisi bilinmiyor": "manager effect unknown",

@@ -577,6 +577,7 @@ const I18N = {
     "analyzer.unreadable": "Unreadable",
     "analyzer.measuring": "Measuring…",
     "analyzer.queued": "Queued",
+    "analyzer.partial_tip": "Partial measurement — some entries were inaccessible",
     "analyzer.enter_dir": "Enter this directory",
     "analyzer.no_large_files": "No files above threshold in this directory.",
     "analyzer.files_pending": "Files will appear here as they are processed…",
@@ -1124,6 +1125,7 @@ const I18N = {
     "analyzer.unreadable": "Okunamadı",
     "analyzer.measuring": "Ölçülüyor…",
     "analyzer.queued": "Sırada",
+    "analyzer.partial_tip": "Kısmi ölçüm — bazı girdilere erişilemedi",
     "analyzer.enter_dir": "Bu dizinin içine gir",
     "analyzer.no_large_files": "Bu dizinde eşik üstü dosya yok.",
     "analyzer.files_pending": "Dosyalar hazır oldukça burada gösterilecek…",
@@ -2549,15 +2551,18 @@ function renderAnalyzerSnapshot(data, requestId) {
   } else {
     folderBars.innerHTML = entries.map(entry => {
       const ready = entry.state === 'ready';
+      const partial = entry.state === 'partial';
       const scanning = entry.state === 'scanning';
       const failed = entry.state === 'failed';
-      const sizeLabel = ready ? (entry.humanBytes || formatBytes(entry.bytes)) : (failed ? t('analyzer.unreadable', 'Unreadable') : (scanning ? t('analyzer.measuring', 'Measuring…') : t('analyzer.queued', 'Queued')));
-      const percentLabel = ready ? `${entry.percent || 0}%` : '';
-      const rowClass = ready ? 'is-ready' : (failed ? 'is-failed' : 'is-measuring');
-      const barClass = ready ? '' : 'indeterminate';
-      const width = ready ? Math.max(2, entry.percent || 0) : 100;
+      const measured = ready || partial;
+      const sizeLabel = measured ? `${partial ? '~' : ''}${entry.humanBytes || formatBytes(entry.bytes)}` : (failed ? t('analyzer.unreadable', 'Unreadable') : (scanning ? t('analyzer.measuring', 'Measuring…') : t('analyzer.queued', 'Queued')));
+      const percentLabel = measured ? `${entry.percent || 0}%` : '';
+      const rowClass = ready ? 'is-ready' : (partial ? 'is-partial' : (failed ? 'is-failed' : 'is-measuring'));
+      const barClass = measured ? '' : 'indeterminate';
+      const width = measured ? Math.max(2, entry.percent || 0) : 100;
+      const title = partial ? t('analyzer.partial_tip', 'Partial measurement — some entries were inaccessible') : (entry.isDirectory ? t('analyzer.enter_dir', 'Enter this directory') : t('common.th_file', 'File'));
       return `
-        <div class="folder-bar-item ${rowClass}" data-path="${escapeHtml(entry.path)}" data-directory="${entry.isDirectory}" tabindex="${entry.isDirectory ? '0' : '-1'}" ${entry.isDirectory ? 'role="button"' : ''} title="${entry.isDirectory ? t('analyzer.enter_dir', 'Enter this directory') : t('common.th_file', 'File')}">
+        <div class="folder-bar-item ${rowClass}" data-path="${escapeHtml(entry.path)}" data-directory="${entry.isDirectory}" tabindex="${entry.isDirectory ? '0' : '-1'}" ${entry.isDirectory ? 'role="button"' : ''} title="${escapeHtml(title)}">
           <div class="folder-bar-header">
             <span class="folder-name">
               <span class="folder-icon">${lucideIcon(entry.isDirectory ? 'folder' : 'file')}</span>
