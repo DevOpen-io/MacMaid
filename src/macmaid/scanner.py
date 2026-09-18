@@ -11,9 +11,13 @@ from .config import Config
 from .models import (
     ActionType, CleanupAction, CleanupCategory, CleanupItem, CleanupProfile, RiskLevel, ScanResult,
 )
+from .safety import manual_cache_allowed
 from .system import process_running, run_command, size_of, sizes_of, which
 
 Progress = Callable[[int, str, str], None]
+
+# Caches below this size are not worth listing a cleanup row for.
+_MIN_CACHE_BYTES = 1_048_576
 
 
 class Scanner:
@@ -346,20 +350,22 @@ class PackageManagerCacheScanner:
                 failed: list[Path] = []
                 size = size_of(path, cancel=token.check,
                                on_error=lambda target, message: (issues.append(f"{target}: {message}"), failed.append(target)))
-                if size == 0 and not failed:
+                if size < _MIN_CACHE_BYTES and not failed:
                     return
             items.append(CleanupItem(CleanupCategory.PACKAGE_MANAGERS, label, path, size, risk, f"Uses {manager}'s supported cleanup operation; project data is outside this target.", CleanupAction(ActionType.COMMAND, command, arguments)))
 
         def manual(label: str, manager: str, path: Path) -> None:
             token.check()
-            if not path.exists() or self.config.is_whitelisted(path): return
+            if not path.exists() or self.config.is_whitelisted(path) or not manual_cache_allowed(manager, path): return
             size = size_of(path, cancel=token.check, on_error=lambda target, message: issues.append(f"{target}: {message}"))
-            if size: items.append(CleanupItem(CleanupCategory.PACKAGE_MANAGERS, label + " · manual fallback", path, size, RiskLevel.MANUAL_ONLY, "Default OFF; requires a second interactive confirmation and a strict cache-only allowlist.", CleanupAction(ActionType.MANUAL_CACHE_FALLBACK, fallback_manager=manager)))
+            if size >= _MIN_CACHE_BYTES: items.append(CleanupItem(CleanupCategory.PACKAGE_MANAGERS, label + " · manual fallback", path, size, RiskLevel.MANUAL_ONLY, "Default OFF; requires a second interactive confirmation and a strict cache-only allowlist.", CleanupAction(ActionType.MANUAL_CACHE_FALLBACK, fallback_manager=manager)))
 
         brew = which("brew")
         if brew:
             raw = probe(brew, ["--cache"]).stdout
-            native("Homebrew cleanup", "brew", ["cleanup", "--prune=all"], Path(raw) if raw.startswith("/") else home / "Library/Caches/Homebrew", RiskLevel.SAFE, brew)
+            brew_root = Path(raw) if raw.startswith("/") else home / "Library/Caches/Homebrew"
+            native("Homebrew cleanup", "brew", ["cleanup", "--prune=all"], brew_root / "downloads", RiskLevel.SAFE, brew)
+            manual("Homebrew API/bootsnap caches", "brew-downloads", brew_root)
         pnpm = which("pnpm")
         if pnpm:
             raw = probe(pnpm, ["store", "path"]).stdout
@@ -367,7 +373,7 @@ class PackageManagerCacheScanner:
         uv = which("uv")
         if uv:
             raw = probe(uv, ["cache", "dir"]).stdout
-            native("uv cache prune", "uv", ["cache", "prune"], Path(raw) if raw.startswith("/") else None, RiskLevel.SAFE, uv)
+            native("uv cache clean", "uv", ["cache", "clean"], Path(raw) if raw.startswith("/") else None, RiskLevel.SAFE, uv)
         go = which("go")
         if go:
             raw = probe(go, ["env", "GOCACHE"]).stdout
@@ -393,12 +399,22 @@ class PackageManagerCacheScanner:
             native("Composer cache clear", "composer", ["clear-cache"], Path(raw) if raw.startswith("/") else None, RiskLevel.MODERATE, composer)
         dotnet = which("dotnet")
         if dotnet:
+            locals_list = probe(dotnet, ["nuget", "locals", "all", "--list"]).stdout
+            local_paths = {}
+            for line in locals_list.splitlines():
+                name, _, value = line.partition(":")
+                if name.strip() and value.strip().startswith("/"):
+                    local_paths[name.strip()] = Path(value.strip())
             for location in ("http-cache", "temp", "plugins-cache"):
-                native(f".NET / NuGet {location}", "dotnet", ["nuget", "locals", location, "--clear"], None, RiskLevel.MODERATE, dotnet)
+                native(f".NET / NuGet {location}", "dotnet", ["nuget", "locals", location, "--clear"], local_paths.get(location), RiskLevel.MODERATE, dotnet)
         npm = which("npm")
         if npm:
             raw = probe(npm, ["config", "get", "cache"]).stdout
-            native("npm cache clean", "npm", ["cache", "clean", "--force"], Path(raw) if raw.startswith("/") else home / ".npm", RiskLevel.AGGRESSIVE, npm)
+            npm_root = Path(raw) if raw.startswith("/") else home / ".npm"
+            native("npm cache clean", "npm", ["cache", "clean", "--force"], npm_root / "_cacache", RiskLevel.AGGRESSIVE, npm)
+            manual("npx package cache", "npm", npm_root / "_npx")
+            manual("npm binary caches", "npm", npm_root / "_libvips")
+            manual("npm request logs", "npm", npm_root / "_logs")
         conda = which("conda")
         if conda:
             try: roots = [Path(p) for p in __import__("json").loads(probe(conda, ["info", "--json"], 20).stdout).get("pkgs_dirs", [])]

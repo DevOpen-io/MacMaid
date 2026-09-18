@@ -653,6 +653,8 @@ const I18N = {
     "outcome.trash_moved": "Moved to Trash ",
     "outcome.no_freed": " (space not reclaimed)",
     "outcome.manager_unknown": " manager impact unknown",
+    "outcome.skipped_count": "skipped",
+    "outcome.failed_count": "failed",
     "outcome.diff_unmeasured": "observed free space difference unmeasured",
     "outcome.not_strictly_macmaid": " (not strictly attributable to MacMaid)",
     "status.charging": "Charging ⚡",
@@ -1205,6 +1207,8 @@ const I18N = {
     "outcome.trash_moved": "Trash'e taşınan ",
     "outcome.no_freed": " (alan boşalmadı)",
     "outcome.manager_unknown": " manager etkisi bilinmiyor",
+    "outcome.skipped_count": "atlandı",
+    "outcome.failed_count": "başarısız",
     "outcome.diff_unmeasured": "gözlenen boş alan farkı ölçülemedi",
     "outcome.not_strictly_macmaid": " (MacMaid’e kesin atfedilemez)",
     "status.charging": "Şarj Ediliyor ⚡",
@@ -2122,7 +2126,7 @@ async function executeClean() {
             const result = await readAPIResponse(res);
             Confetti.launch();
             SoundEffects.playSuccess();
-            showToast(operationOutcomeText(result), 'success');
+            showOutcomeToast(result);
             document.getElementById('scan-results-box').classList.add('hidden');
             fetchStatus();
           } catch (err) {
@@ -2315,7 +2319,7 @@ async function uninstallSelectedApp() {
             const data = await readAPIResponse(res);
             Confetti.launch();
             SoundEffects.playSuccess();
-            showToast(`${app.name} ${t('toast.uninstalled', 'uninstalled')} · ${operationOutcomeText(data)}`, 'success');
+            showOutcomeToast(data, `${app.name} ${t('toast.uninstalled', 'uninstalled')} · `);
             state.selectedApp = null;
             document.getElementById('app-detail-view').classList.add('hidden');
             document.getElementById('app-detail-empty').classList.remove('hidden');
@@ -2420,7 +2424,7 @@ async function executeInstallersClean() {
             const data = await readAPIResponse(res);
             Confetti.launch();
             SoundEffects.playSuccess();
-            showToast(operationOutcomeText(data), 'success');
+            showOutcomeToast(data);
             scanInstallers();
           } catch (e) {
             showToast(`Hata: ${e.message}`, 'error');
@@ -2523,7 +2527,7 @@ async function executeLeftoversClean() {
             const data = await readAPIResponse(res);
             Confetti.launch();
             SoundEffects.playSuccess();
-            showToast(operationOutcomeText(data), 'success');
+            showOutcomeToast(data);
             scanLeftovers();
           } catch (e) {
             showToast(`Hata: ${e.message}`, 'error');
@@ -2630,7 +2634,7 @@ function renderAnalyzerSnapshot(data, requestId) {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized)
               });
               const data = await readAPIResponse(response);
-              showToast(operationOutcomeText(data), 'success');
+              showOutcomeToast(data);
               runDiskAnalyzer(state.currentAnalyzePath, { force: true });
             } catch (error) {
               showToast(`Hata: ${error.message}`, 'error');
@@ -2831,7 +2835,7 @@ async function executePurge() {
             const data = await readAPIResponse(res);
             Confetti.launch();
             SoundEffects.playSuccess();
-            showToast(operationOutcomeText(data), 'success');
+            showOutcomeToast(data);
             scanProjectArtifacts();
           } catch (e) {
             showToast(`Hata: ${e.message}`, 'error');
@@ -2976,7 +2980,7 @@ async function executeDeveloperCachesClean() {
             const data = await readAPIResponse(res);
             Confetti.launch();
             SoundEffects.playSuccess();
-            showToast(operationOutcomeText(data), 'success');
+            showOutcomeToast(data);
             scanDeveloperCaches();
           } catch (e) {
             showToast(`Hata: ${e.message}`, 'error');
@@ -3067,7 +3071,7 @@ function showDeveloperItemModal(item, onRefresh) {
               });
               const resData = await readAPIResponse(res);
               Confetti.launch(); SoundEffects.playSuccess();
-              showToast(`${title} ${t('toast.uninstalled', 'uninstalled')} · ${operationOutcomeText(resData)}`, 'success');
+              showOutcomeToast(resData, `${title} ${t('toast.uninstalled', 'uninstalled')} · `);
               if (typeof onRefresh === 'function') await onRefresh();
             } catch (e) {
               showToast(`${t('toast.uninstall_failed', 'Uninstall failed: ')}${e.message}`, 'error'); showOperationOutcome('error', e.message);
@@ -3652,7 +3656,7 @@ async function trashTreemapPath(path) {
         if (!authorized) return;
         hideModal();
         const result = await readAPIResponse(await fetch('/api/treemap/trash', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) }));
-        showToast(operationOutcomeText(result), 'success');
+        showOutcomeToast(result);
         fetchTreemap(treemapPath, true);
       }}
     ]);
@@ -3706,7 +3710,7 @@ async function cleanBrowserCache() {
         if (!authorized) return;
         hideModal();
         const result = await readAPIResponse(await fetch('/api/browser-storage/clean', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) }));
-        showToast(operationOutcomeText(result), 'success');
+        showOutcomeToast(result);
         fetchBrowserStorage();
       }}
     ]);
@@ -3751,7 +3755,7 @@ async function trashSmartDownloadPath(path) {
         if (!authorized) return;
         hideModal();
         const result = await readAPIResponse(await fetch('/api/smart-downloads/trash', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) }));
-        showToast(operationOutcomeText(result), 'success');
+        showOutcomeToast(result);
         fetchSmartDownloads();
       }}
     ]);
@@ -3802,7 +3806,7 @@ async function trashLargeFilePath(path) {
         if (!authorized) return;
         hideModal();
         const result = await readAPIResponse(await fetch('/api/large-files/trash', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) }));
-        showToast(operationOutcomeText(result), 'success');
+        showOutcomeToast(result);
         fetchLargeFiles();
       }}
     ]);
@@ -3855,7 +3859,7 @@ async function trashDuplicatePath(path) {
         hideModal();
         const res = await fetch('/api/duplicates/trash', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) });
         const result = await readAPIResponse(res);
-        showToast(operationOutcomeText(result), 'success');
+        showOutcomeToast(result);
         fetchDuplicates();
       }}
     ]);
@@ -4193,6 +4197,12 @@ function operationOutcomeText(result) {
     parts.push(`${t('outcome.trash_moved', 'Moved to Trash ')}${result.humanTrashMovedEstimate || formatBytes(result.trashMovedEstimatedBytes)}${t('outcome.no_freed', ' (space not reclaimed)')}`);
   }
   if (Number(result.unknownReclaimCount || 0) > 0) parts.push(`${result.unknownReclaimCount}${t('outcome.manager_unknown', ' manager impact unknown')}`);
+  if (Number(result.skipped || 0) > 0) parts.push(`${result.skipped} ${t('outcome.skipped_count', 'skipped')}`);
+  if (Number(result.failed || 0) > 0) {
+    parts.push(`${result.failed} ${t('outcome.failed_count', 'failed')}`);
+    const detail = (result.details || []).find(entry => entry && !entry.startsWith('DRY RUN'));
+    if (detail) parts.push(detail);
+  }
   if (result.observedFreeBytesDelta === null || result.observedFreeBytesDelta === undefined) {
     parts.push(t('outcome.diff_unmeasured', 'observed free space difference unmeasured'));
   } else {
@@ -4200,6 +4210,11 @@ function operationOutcomeText(result) {
     parts.push(`${t('more.observed_free_space', 'observed free space ')}${result.humanObservedFreeDelta} ${dir}${t('outcome.not_strictly_macmaid', ' (not strictly attributable to MacMaid)')}`);
   }
   return parts.join(' · ');
+}
+
+function showOutcomeToast(result, prefix = '') {
+  const failed = Number(result.failed || 0);
+  showToast(`${prefix}${operationOutcomeText(result)}`, failed > 0 ? 'warning' : 'success');
 }
 
 function reviewedPayload(payload, reviewResponse) {

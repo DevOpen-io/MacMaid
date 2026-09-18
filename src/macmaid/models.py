@@ -113,7 +113,8 @@ class ScanResult:
 
 @dataclass(slots=True)
 class OperationResult:
-    # `freed` remains for API compatibility. It is an estimate and never includes Trash moves or unknown manager effects.
+    # `freed` remains for API compatibility. It is an estimate: it includes verified manager-command
+    # reductions but never Trash moves or unverifiable manager effects.
     freed: int = 0
     failed: int = 0
     skipped: int = 0

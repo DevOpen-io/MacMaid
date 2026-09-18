@@ -12,7 +12,7 @@ from .config import Config
 from .models import ActionType, CleanupAction, CleanupCategory, CleanupItem, OperationResult, RiskLevel
 from .reporting import FreeSpaceProbe
 from .safety import PathSafety, PathSafetyError, manual_cache_allowed
-from .system import move_to_trash_exclusive, process_running, remove_validated_path, run_command, size_of, unique_trash_destination
+from .system import human_bytes, move_to_trash_exclusive, process_running, remove_validated_path, run_command, size_of, unique_trash_destination
 
 
 class Cleaner:
@@ -73,8 +73,15 @@ class Cleaner:
                     result.trash_moved_estimated_bytes += max(0, item.estimated_bytes)
                     reclaim_status = "moved_to_trash_not_reclaimed"
                 elif item.action.kind in (ActionType.COMMAND, ActionType.COMMAND_WITH_CACHE_FALLBACK):
-                    result.unknown_reclaim_count += 1
-                    reclaim_status = "unknown_manager_effect"
+                    if item.path is not None and before > 0 and after >= before:
+                        raise RuntimeError(f"{item.action.executable} reported success but {human_bytes(after)} remains in {item.path}")
+                    reclaimed = max(0, before - after)
+                    if reclaimed:
+                        result.freed += reclaimed
+                        reclaim_status = "verified_reduction"
+                    else:
+                        result.unknown_reclaim_count += 1
+                        reclaim_status = "unknown_manager_effect"
                 else:
                     reclaimed = max(0, before - after)
                     result.freed += reclaimed

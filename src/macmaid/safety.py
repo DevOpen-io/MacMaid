@@ -127,7 +127,8 @@ def manual_cache_allowed(manager: str, path: Path) -> bool:
     exact = {
         "pipx": [home / ".local/pipx/.cache", home / "Library/Caches/pipx", home / ".cache/pipx"],
         "pip": [home / "Library/Caches/pip", home / ".cache/pip"],
-        "npm": [home / ".npm"], "bun": [home / ".bun/install/cache"],
+        "npm": [home / ".npm", home / ".npm/_npx", home / ".npm/_libvips", home / ".npm/_logs"],
+        "bun": [home / ".bun/install/cache"],
         "go": [home / "Library/Caches/go-build", home / ".cache/go-build"],
         "brew-downloads": [home / "Library/Caches/Homebrew", home / ".cache/Homebrew"],
         "gradle": [home / ".gradle/caches"], "cargo-registry": [home / ".cargo/registry/cache"],

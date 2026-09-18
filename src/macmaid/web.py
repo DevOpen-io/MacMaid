@@ -399,17 +399,29 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             total = sum(item.bytes for item in projects)
             return {"artifacts": [dict(item.web_dict(), id=str(item.path), humanBytes=human_bytes(item.bytes), selectedByDefault=item.selected, restoreClass="DEPENDENCY" if item.dependency else "LOCAL REBUILD") for item in projects], "totalBytes": total, "humanTotal": human_bytes(total)}
         if path == "/api/installers":
-            result = scan_installers(int(query.get("olderThan", "30")))
+            state.progress.start("installers", "Scanning installer images")
+            try:
+                result = scan_installers(int(query.get("olderThan", "30")))
+            except Exception:
+                state.progress.finish("Installer scan failed", percent=0)
+                raise
             with state.lock:
                 state.installers = result
                 self._bump_generation("installers")
+            state.progress.finish(f"Installer scan completed · {len(result.items)} items")
             return {"status": result.status, "isComplete": result.is_complete, "issues": result.issues, "notes": result.notes,
                     "installers": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
         if path == "/api/leftovers":
-            result = scan_leftovers(state.config, int(query.get("olderThan", "30")), query.get("includeData") == "true")
+            state.progress.start("leftovers", "Scanning application leftovers")
+            try:
+                result = scan_leftovers(state.config, int(query.get("olderThan", "30")), query.get("includeData") == "true")
+            except Exception:
+                state.progress.finish("Leftover scan failed", percent=0)
+                raise
             with state.lock:
                 state.leftovers = result
                 self._bump_generation("leftovers")
+            state.progress.finish(f"Leftover scan completed · {len(result.items)} items")
             return {"status": result.status, "isComplete": result.is_complete, "issues": result.issues, "notes": result.notes,
                     "leftovers": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
         if path == "/api/treemap":
@@ -503,10 +515,16 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             return {"sections": [section.web_dict() for section in sections], "totalBytes": total,
                     "humanTotal": human_bytes(total)}
         if path == "/api/developer/caches":
-            result = PackageManagerCacheScanner(state.config).scan()
+            state.progress.start("devcaches", "Scanning package manager caches")
+            try:
+                result = PackageManagerCacheScanner(state.config).scan()
+            except Exception:
+                state.progress.finish("Package cache scan failed", percent=0)
+                raise
             with state.lock:
                 state.dev_caches = result
                 self._bump_generation("developer-caches")
+            state.progress.finish(f"Package cache scan completed · {len(result.items)} caches")
             return {"status": result.status, "isComplete": result.is_complete, "issues": result.issues, "notes": result.notes,
                     "items": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
         if path.startswith("/api/developer/"):
@@ -721,6 +739,8 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             plan = cleanup_plan("Apply selected tool results", items)
             if review := self._review_gate(scope, body, plan): return review
             result = self._execute_cleanup(scope, "Cleaning selected items", items)
+            with state.lock:
+                setattr(state, {"installers": "installers", "leftovers": "leftovers", "developer-caches": "dev_caches"}[scope], None)
             return _operation_payload(result)
         if path == "/api/apps/uninstall":
             app_key = self._request_path_key(body.get("path", ""))
@@ -805,6 +825,8 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             plan = cleanup_plan("Clean browser safe cache areas", items)
             if review := self._review_gate("browser-storage", body, plan): return review
             result = self._execute_cleanup("browser-storage", "Cleaning browser caches", items)
+            with state.lock:
+                state.browser_storage = None
             return _operation_payload(result)
         if path == "/api/smart-downloads/trash":
             requested = self._known_request_paths(body.get("paths", []), state.smart_downloads, "Smart Downloads item was not present in latest scan")
