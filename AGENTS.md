@@ -1,5 +1,14 @@
 # MacMaid Agent Rules
 
+## Shared Core Services
+
+CLI, TUI, and Web/Application UI must all use the same feature and core implementations (`scanner.py`, `cleaner.py`, `analyzer.py`, `features.py`, `developer.py`, `safety.py`, `system.py`). UI layers must not contain their own business logic, filesystem traversal, disk measurement, or safety checks; they serve only as adapters/presentation over the shared core services.
+
+- Never duplicate scanning, deletion, uninstall, purge, or analysis logic inside `cli.py`, `tui.py`, `web.py`, or `WebUI/`.
+- When a surface needs behavior the core lacks, extend the core module first, then call it from the UI layer.
+- A safety fix or feature change must land in the shared core so every surface inherits it; never fix a shared operation in only one interface.
+- Dependency direction is one-way: UI layers may import core modules, but core modules must never import `cli.py`, `tui.py`, `web.py`, or `WebUI/` code.
+
 ## Versioning
 
 After every user-visible code change, update the release version before completing the task. MacMaid uses Semantic Versioning (`MAJOR.MINOR.PATCH`):

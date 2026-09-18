@@ -176,6 +176,21 @@ class IncrementalAnalyzer:
             self._active_path = path
             return self._serialize(job, cached=cached)
 
+    def scan(self, raw: str | Path, *, top: int = 30, min_file_bytes: int = 1_048_576,
+             poll_interval: float = 0.05) -> dict[str, Any]:
+        """Blocking variant of :meth:`snapshot` for non-UI consumers.
+
+        Drives one analysis job to completion and returns the final snapshot.
+        UI surfaces keep using ``snapshot`` so navigation, pause and focus
+        semantics stay interactive.
+        """
+        result = self.snapshot(raw, start=True, top=top, min_file_bytes=min_file_bytes)
+        path = Path(result["path"])
+        while not result["isComplete"] and not result["isCancelled"]:
+            time.sleep(poll_interval)
+            result = self.snapshot(path, top=top, min_file_bytes=min_file_bytes)
+        return result
+
     def _pause_locked(self, job: AnalyzerJob) -> None:
         job.cancelled.set()
         for future in job.futures:

@@ -18,6 +18,7 @@ from typing import Any, Callable, Iterable
 
 import psutil
 
+from .analyzer import IncrementalAnalyzer
 from .cancellation import CancellationToken
 from .cleaner import Cleaner
 from .config import Config
@@ -417,26 +418,21 @@ class ProjectPurgeManager:
 
 def analyze_directory(path: Path, top: int = 30, min_file_bytes: int = 100_000_000) -> dict[str, Any]:
     path = path.expanduser().absolute()
+    analyzer = IncrementalAnalyzer()
     try:
-        children = list(path.iterdir())
-    except OSError as exc:
+        result = analyzer.scan(path, top=top, min_file_bytes=min_file_bytes)
+    except ValueError as exc:
         return {"path": str(path), "entries": [], "error": str(exc)}
-    measured = sizes_of(children)
-    entries = []
-    for child in sorted(children, key=lambda item: -measured.get(item, 0))[:max(1, top)]:
-        view_only = child == Path.home() / "Library" or child.suffix == ".app" or ".photoslibrary" in child.name.lower()
-        entries.append({"name": child.name, "path": str(child), "bytes": measured.get(child, 0), "directory": child.is_dir(), "viewOnly": view_only})
-    largest = []
-    for directory, names, files in os.walk(path, followlinks=False):
-        names[:] = [name for name in names if not name.startswith(".") and not name.endswith((".app", ".photoslibrary"))]
-        for name in files:
-            if name.startswith("."): continue
-            candidate = Path(directory) / name
-            try: size = candidate.stat().st_size
-            except OSError: continue
-            if size >= min_file_bytes: largest.append({"name": name, "path": str(candidate), "bytes": size, "directory": False, "viewOnly": False})
-    largest.sort(key=lambda item: -item["bytes"])
-    return {"path": str(path), "parent": str(path.parent), "entries": entries, "largestFiles": largest[:max(1, top)]}
+    finally:
+        analyzer.shutdown()
+    entries = sorted(
+        ({"name": item["name"], "path": item["path"], "bytes": int(item.get("diskBytes", item["bytes"])),
+          "directory": item["directory"], "viewOnly": item["viewOnly"]} for item in result["entries"]),
+        key=lambda item: -item["bytes"])[: max(1, top)]
+    largest = [{"name": item["name"], "path": item["path"], "bytes": item["bytes"],
+                "directory": item["directory"], "viewOnly": item["viewOnly"]}
+               for item in result["largestFiles"][: max(1, top)]]
+    return {"path": result["path"], "parent": result["parent"], "entries": entries, "largestFiles": largest}
 
 
 _HEALTH_PROBE_TTL_SECONDS = 30.0

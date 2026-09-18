@@ -398,3 +398,42 @@ def test_queued_dir_swapped_to_symlink_is_not_traversed(tmp_path: Path, monkeypa
         assert entry["fileCount"] == 0
     finally:
         analyzer.shutdown()
+
+
+def test_scan_blocks_until_job_completes(tmp_path: Path) -> None:
+    (tmp_path / "alpha").mkdir()
+    (tmp_path / "alpha" / "blob.bin").write_bytes(b"a" * 2048)
+    (tmp_path / "beta.bin").write_bytes(b"b" * 512)
+    analyzer = IncrementalAnalyzer()
+    try:
+        result = analyzer.scan(tmp_path, min_file_bytes=1)
+        assert result["isComplete"] is True
+        assert result["status"] == "complete"
+        assert {entry["name"] for entry in result["entries"]} == {"alpha", "beta.bin"}
+        assert any(item["path"].endswith("blob.bin") for item in result["largestFiles"])
+    finally:
+        analyzer.shutdown()
+
+
+def test_analyze_directory_preserves_cli_result_shape(tmp_path: Path) -> None:
+    from macmaid.features import analyze_directory
+    (tmp_path / "big").mkdir()
+    (tmp_path / "big" / "payload.bin").write_bytes(b"p" * 4096)
+    (tmp_path / "small.bin").write_bytes(b"s" * 256)
+    result = analyze_directory(tmp_path, top=10, min_file_bytes=1000)
+    assert result["path"] == str(tmp_path)
+    assert result["parent"] == str(tmp_path.parent)
+    assert [item["name"] for item in result["entries"]] == ["big", "small.bin"]
+    for item in result["entries"]:
+        assert set(item) == {"name", "path", "bytes", "directory", "viewOnly"}
+    assert result["largestFiles"] and result["largestFiles"][0]["path"].endswith("payload.bin")
+    for item in result["largestFiles"]:
+        assert set(item) == {"name", "path", "bytes", "directory", "viewOnly"}
+
+
+def test_analyze_directory_error_shape_matches_legacy_contract(tmp_path: Path) -> None:
+    from macmaid.features import analyze_directory
+    missing = tmp_path / "not-a-dir"
+    result = analyze_directory(missing)
+    assert result == {"path": str(missing), "entries": [], "error": result["error"]}
+    assert "largestFiles" not in result and "parent" not in result
