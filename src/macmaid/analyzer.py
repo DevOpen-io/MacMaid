@@ -62,6 +62,7 @@ class _DirScan:
     inaccessible: int = 0
     boundary: int = 0
     open_failed: bool = False
+    open_error: str = ""
 
 
 @dataclass(slots=True)
@@ -85,7 +86,7 @@ class _WalkContext:
     """
 
     __slots__ = ("target", "threshold", "top", "dirs", "pending", "helpers",
-                 "capacity", "lock", "result", "inodes", "root_dev")
+                 "finished", "capacity", "lock", "result", "inodes", "root_dev")
 
     def __init__(self, target: Path, threshold: int, top: int, capacity: int) -> None:
         self.target = target
@@ -94,6 +95,7 @@ class _WalkContext:
         self.dirs: deque[Path] = deque()
         self.pending = 0
         self.helpers = 0
+        self.finished = False
         self.capacity = capacity
         self.lock = threading.Lock()
         self.result = _WalkResult()
@@ -230,7 +232,10 @@ class IncrementalAnalyzer:
                 continue
             generation = job.generation
             cancelled = job.cancelled
-            future = self._executor.submit(self._measure_entry, job, index, generation, cancelled)
+            try:
+                future = self._executor.submit(self._measure_entry, job, index, generation, cancelled)
+            except RuntimeError:
+                return
             job.futures.append(future)
             return
 
@@ -254,7 +259,12 @@ class IncrementalAnalyzer:
         """
         try:
             if not helper and ctx.root_dev is None:
-                if self._walk_root(ctx):
+                try:
+                    decided = self._walk_root(ctx)
+                except Exception as exc:
+                    ctx.result.root_error = f"{ctx.target}: {exc}"
+                    decided = True
+                if decided:
                     self._finish_entry(job, index, ctx, generation, cancelled)
                     return
             while True:
@@ -263,31 +273,48 @@ class IncrementalAnalyzer:
                             or self._jobs.get(job.path) is not job or not ctx.dirs):
                         return
                     directory = ctx.dirs.popleft()
-                batch = self._scan_directory(directory, ctx, cancelled)
-                with ctx.lock:
-                    if batch.open_failed and directory == ctx.target:
-                        ctx.result.root_error = f"{ctx.target}: could not be read"
-                    ctx.result.apparent += batch.apparent
-                    ctx.result.disk += batch.disk
-                    ctx.result.files += batch.files
-                    ctx.result.inaccessible += batch.inaccessible
-                    ctx.result.boundary += batch.boundary
-                    for dev, ino, size, used in batch.links:
-                        key = (dev, ino)
-                        if key not in ctx.inodes:
-                            ctx.inodes.add(key)
-                            ctx.result.apparent += size
-                            ctx.result.disk += used
-                    ctx.result.largest.extend(batch.largest)
-                    if len(ctx.result.largest) > ctx.top * 3:
-                        ctx.result.largest = sorted(ctx.result.largest, key=lambda item: -item["bytes"])[: ctx.top]
-                    ctx.dirs.extend(batch.subdirs)
-                    ctx.pending += len(batch.subdirs) - 1
-                    finished = ctx.pending == 0
-                    while not finished and ctx.helpers < ctx.capacity and len(ctx.dirs) >= 3:
-                        ctx.helpers += 1
-                        self._executor.submit(self._walk, job, index, ctx, generation, cancelled, True)
-                if finished:
+                finish = False
+                try:
+                    if os.path.islink(directory):
+                        batch = _DirScan(inaccessible=1)
+                    else:
+                        batch = self._scan_directory(directory, ctx, cancelled)
+                    with ctx.lock:
+                        if batch.open_failed and directory == ctx.target:
+                            ctx.result.root_error = f"{ctx.target}: {batch.open_error or 'could not be read'}"
+                        ctx.result.apparent += batch.apparent
+                        ctx.result.disk += batch.disk
+                        ctx.result.files += batch.files
+                        ctx.result.inaccessible += batch.inaccessible
+                        ctx.result.boundary += batch.boundary
+                        for dev, ino, size, used in batch.links:
+                            key = (dev, ino)
+                            if key not in ctx.inodes:
+                                ctx.inodes.add(key)
+                                ctx.result.apparent += size
+                                ctx.result.disk += used
+                        ctx.result.largest.extend(batch.largest)
+                        if len(ctx.result.largest) > ctx.top * 3:
+                            ctx.result.largest = sorted(ctx.result.largest, key=lambda item: -item["bytes"])[: ctx.top]
+                        ctx.dirs.extend(batch.subdirs)
+                        ctx.pending += len(batch.subdirs) - 1
+                        if ctx.pending == 0 and not ctx.finished:
+                            ctx.finished = True
+                            finish = True
+                        while not finish and ctx.helpers < ctx.capacity and len(ctx.dirs) >= 3:
+                            try:
+                                self._executor.submit(self._walk, job, index, ctx, generation, cancelled, True)
+                            except RuntimeError:
+                                break
+                            ctx.helpers += 1
+                except Exception as exc:
+                    with ctx.lock:
+                        ctx.result.root_error = f"{directory}: {exc}"
+                        ctx.dirs.clear()
+                        if not ctx.finished:
+                            ctx.finished = True
+                            finish = True
+                if finish:
                     self._finish_entry(job, index, ctx, generation, cancelled)
                     return
         finally:
@@ -304,6 +331,9 @@ class IncrementalAnalyzer:
             ctx.result.root_error = f"{ctx.target}: {exc}"
             return True
         ctx.root_dev = info.st_dev
+        if stat.S_ISLNK(info.st_mode):
+            ctx.result.root_error = f"{ctx.target}: entry became a symlink during scan"
+            return True
         ctx.result.disk += info.st_blocks * 512
         if not stat.S_ISDIR(info.st_mode):
             ctx.result.apparent += info.st_size
@@ -353,9 +383,10 @@ class IncrementalAnalyzer:
                             "name": child.name, "path": child.path, "bytes": size,
                             "diskBytes": used, "directory": False, "viewOnly": _view_only(Path(child.path)),
                         })
-        except OSError:
+        except OSError as exc:
             batch.inaccessible += 1
             batch.open_failed = True
+            batch.open_error = str(exc)
         return batch
 
     def _finish_entry(self, job: AnalyzerJob, index: int, ctx: _WalkContext,

@@ -358,3 +358,43 @@ def test_concurrent_scan_counts_match_sequential(tmp_path: Path) -> None:
     finally:
         sequential.shutdown()
         parallel.shutdown()
+
+
+def test_internal_walk_error_fails_closed_instead_of_stuck(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "root"
+    (root / "a").mkdir(parents=True)
+    (root / "a" / "f.bin").write_bytes(b"x" * 64)
+
+    def boom(directory, ctx, cancelled):
+        raise RuntimeError("internal failure")
+
+    monkeypatch.setattr(IncrementalAnalyzer, "_scan_directory", staticmethod(boom))
+    analyzer = IncrementalAnalyzer(max_workers=1)
+    try:
+        result = _wait_complete(analyzer, root)
+        entry = next(item for item in result["entries"] if item["name"] == "a")
+        assert entry["state"] == "failed"
+        assert result["failed"] == 1
+        assert result["isComplete"] is True
+    finally:
+        analyzer.shutdown()
+
+
+def test_queued_dir_swapped_to_symlink_is_not_traversed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "loot.bin").write_bytes(b"z" * 9999)
+    root = tmp_path / "root"
+    (root / "victim").mkdir(parents=True)
+    (root / "victim" / "keep.bin").write_bytes(b"k" * 10)
+    real_islink = os.path.islink
+    monkeypatch.setattr(os.path, "islink", lambda p: True if Path(p).name == "victim" else real_islink(p))
+    analyzer = IncrementalAnalyzer(max_workers=1)
+    try:
+        result = _wait_complete(analyzer, root)
+        entry = next(item for item in result["entries"] if item["name"] == "victim")
+        assert entry["state"] == "partial"
+        assert entry["bytes"] == 0
+        assert entry["fileCount"] == 0
+    finally:
+        analyzer.shutdown()
