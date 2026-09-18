@@ -44,6 +44,7 @@ class BrowserStorageArea:
 class BrowserStorageInspector:
     def __init__(self) -> None:
         home = Path.home()
+        self.issues: list[str] = []
         self.browsers = [
             BrowserDefinition("Safari", home / "Library/Safari", "Safari.app", ("Default",), ()),
             BrowserDefinition("Google Chrome", home / "Library/Application Support/Google/Chrome", "Google Chrome.app"),
@@ -56,6 +57,7 @@ class BrowserStorageInspector:
 
     def scan(self, *, cancellation: CancellationToken | None = None) -> list[BrowserStorageArea]:
         token = cancellation or CancellationToken()
+        self.issues = []
         areas: list[BrowserStorageArea] = []
         for browser in self.browsers:
             token.check()
@@ -66,9 +68,12 @@ class BrowserStorageInspector:
                 areas.extend(self._areas(browser, profile, token))
         return sorted(areas, key=lambda item: (item.browser, item.profile, item.kind))
 
-    def scan_result(self, *, cancellation: CancellationToken | None = None) -> ScanResult:
-        items = [self._cleanup_item(area) for area in self.scan(cancellation=cancellation) if area.cleanable]
-        return ScanResult(items=items)
+    def scan_result(self, *, cancellation: CancellationToken | None = None,
+                    areas: list[BrowserStorageArea] | None = None) -> ScanResult:
+        areas = self.scan(cancellation=cancellation) if areas is None else areas
+        items = [self._cleanup_item(area) for area in areas if area.cleanable]
+        notes = ["Some browser data was not fully accessible; grant Full Disk Access for complete coverage."] if self.issues else []
+        return ScanResult(items=items, notes=notes, status="complete", issues=list(self.issues))
 
     def _profiles(self, browser: BrowserDefinition) -> Iterable[Path]:
         if browser.name == "Safari":
@@ -76,14 +81,33 @@ class BrowserStorageInspector:
             return
         try:
             children = list(browser.root.iterdir())
-        except OSError:
+        except OSError as exc:
+            self.issues.append(f"{browser.name}: {browser.root}: {exc}")
             return
         if browser.name == "Firefox":
-            yield from (item for item in children if item.is_dir() and not item.is_symlink())
+            profiles = [item for item in children if item.is_dir() and not item.is_symlink()]
+            if not profiles:
+                self.issues.append(f"{browser.name}: no profiles found under {browser.root}")
+            yield from profiles
             return
-        for child in children:
-            if child.is_dir() and not child.is_symlink() and (child.name in browser.profile_names or any(child.name.startswith(prefix) for prefix in browser.profile_prefixes)):
-                yield child
+        matched = [child for child in children
+                   if child.is_dir() and not child.is_symlink()
+                   and (child.name in browser.profile_names or any(child.name.startswith(prefix) for prefix in browser.profile_prefixes))]
+        if not matched:
+            self.issues.append(f"{browser.name}: no profiles found under {browser.root}")
+        yield from matched
+
+    def _present(self, path: Path) -> bool:
+        try:
+            path.lstat()
+            return True
+        except FileNotFoundError:
+            return False
+        except PermissionError as exc:
+            self.issues.append(f"{path}: {exc}")
+            return False
+        except OSError:
+            return False
 
     def _areas(self, browser: BrowserDefinition, profile: Path, token: CancellationToken) -> list[BrowserStorageArea]:
         running = browser.name if process_running(browser.process) else None
@@ -117,10 +141,11 @@ class BrowserStorageInspector:
         areas = []
         for kind, path, cleanable, risk, reason in specs:
             token.check()
-            if not path.exists():
+            if not self._present(path):
                 continue
             areas.append(BrowserStorageArea(browser.name, profile.name, kind, path,
-                                            size_of(path, cancel=token.check), risk, cleanable, reason, running if cleanable else None))
+                                            size_of(path, cancel=token.check, on_error=lambda target, message: self.issues.append(f"{target}: {message}")),
+                                            risk, cleanable, reason, running if cleanable else None))
         return areas
 
     @staticmethod

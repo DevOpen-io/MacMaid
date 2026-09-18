@@ -36,7 +36,7 @@
             </div>
             <div class="brand-text-wrap">
               <span class="brand-name">MacMaid <span class="badge-pro">PRO</span></span>
-              <span class="version-tag">v0.13.2 Python</span>
+              <span class="version-tag">v0.13.3 Python</span>
             </div>
           </div>
         </div>
@@ -1779,6 +1779,32 @@
               </div>
               <button class="btn btn-primary" id="btn-scan-large-files"><span class="inline-lucide" data-lucide="file-search"></span><span data-i18n="more.btn_scan_large">Scan Large/Old</span></button>
             </div>
+            <div class="inpage-progress-card hidden" id="largefiles-progress-card">
+              <div class="inpage-progress-header">
+                <div class="inpage-title-group">
+                  <span class="live-pulse-dot"></span>
+                  <span class="inpage-action-label" id="largefiles-action-label" data-i18n="more.action_scanning_large">Scanning Large/Old Files...</span>
+                  <span class="inpage-phase-badge" id="largefiles-phase-badge" data-i18n="clean.phase_working">WORKING</span>
+                </div>
+                <div class="inpage-stats-group">
+                  <span class="inpage-count" id="largefiles-progress-count"></span>
+                  <span class="inpage-percent" id="largefiles-progress-percent">0%</span>
+                </div>
+              </div>
+              <div class="inpage-progress-track">
+                <div class="inpage-progress-fill" id="largefiles-progress-bar" style="width: 0%;"></div>
+              </div>
+              <div class="inpage-path-ticker">
+                <span class="inpage-path-icon" data-lucide="folder-open"></span>
+                <span class="inpage-path-text" id="largefiles-path-text" data-i18n="clean.path_preparing">Preparing...</span>
+              </div>
+              <div class="inpage-logs-drawer">
+                <button class="inpage-logs-btn" type="button" data-log-service="largefiles">
+                  <span id="largefiles-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
+                </button>
+                <div class="inpage-logs-container hidden" id="largefiles-logs-container"></div>
+              </div>
+            </div>
             <div class="glass-card">
               <div class="config-row" style="margin-bottom: 16px;">
                 <label class="control-label" data-i18n="more.lbl_min_size">Min size:</label>
@@ -2148,7 +2174,7 @@
               <div class="settings-info-grid">
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.version_label">Version</div>
-                  <div class="settings-info-value settings-info-mono">0.13.2 (Python 3.11+)</div>
+                  <div class="settings-info-value settings-info-mono">0.13.3 (Python 3.11+)</div>
                 </div>
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.safety_label">Safety Model</div>

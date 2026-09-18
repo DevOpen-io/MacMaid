@@ -978,6 +978,16 @@ textarea,
   color: var(--text-dim);
 }
 
+.scan-notice {
+  padding: 12px 14px;
+  border-left: 3px solid var(--yellow);
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--yellow);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.scan-notice small { color: var(--text-dim); }
+
 /* Cleaner Tab Styles */
 .scan-config-card {
   padding: 14px 20px;

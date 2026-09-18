@@ -71,9 +71,13 @@ class ProgressState:
                 self.value["logs"] = [*self.value["logs"][-59:], f"{phase}: {path}"]
 
     def update_items(self, completed: int, total: int, phase: str, path: str = "", detail: str = "") -> None:
-        total = max(1, total)
-        completed = max(0, min(completed, total))
-        percent = min(99, int(completed / total * 100))
+        if total > 0:
+            completed = max(0, min(completed, total))
+            percent = min(99, int(completed / total * 100))
+        else:
+            completed = max(0, completed)
+            total = 0
+            percent = -1
         with self.lock:
             self.value.update(
                 percent=percent,
@@ -440,7 +444,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
         if path == "/api/browser-storage":
             inspector = BrowserStorageInspector()
             areas = inspector.scan()
-            result = inspector.scan_result()
+            result = inspector.scan_result(areas=areas)
             clean_ids = {str(item.path): item.id for item in result.items}
             with state.lock:
                 state.browser_storage = result
@@ -448,6 +452,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             total = sum(area.bytes for area in areas)
             safe = sum(area.bytes for area in areas if area.cleanable)
             return {"areas": [dict(area.web_dict(), itemId=clean_ids.get(str(area.path), "")) for area in areas], "items": [dict(item.web_dict(), humanBytes=human_bytes(item.estimated_bytes)) for item in result.items],
+                    "issues": result.issues, "notes": result.notes,
                     "totalBytes": total, "humanTotal": human_bytes(total), "safeCacheBytes": safe, "humanSafeCache": human_bytes(safe)}
         if path == "/api/smart-downloads":
             files = SmartDownloadsScanner(older_than_days=int(query.get("olderThanDays", "30"))).scan()
@@ -461,11 +466,20 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             roots = [Path(query["path"]).expanduser().absolute()] if query.get("path") else None
             min_bytes = SIZE_FILTERS.get(str(query.get("minSize", "500MB")), SIZE_FILTERS["500MB"])
             older = int(query["olderThanDays"]) if query.get("olderThanDays") else None
-            files = LargeOldFileScanner(min_bytes=min_bytes, older_than_days=older).scan(roots)
+            state.progress.start("largefiles", "Büyük ve eski dosyalar taranıyor")
+            try:
+                files = LargeOldFileScanner(min_bytes=min_bytes, older_than_days=older).scan(
+                    roots,
+                    progress=lambda seen, current: state.progress.update_items(seen, 0, "Taranıyor", str(current)),
+                )
+            except Exception:
+                state.progress.finish("Large/old scan failed", percent=0)
+                raise
             with state.lock:
                 state.large_files = {item.path for item in files}
                 self._bump_generation("large-files")
             total = sum(item.bytes for item in files)
+            state.progress.finish(f"Large/old scan completed · {len(files)} candidates")
             return {"files": [item.web_dict() for item in files], "totalBytes": total,
                     "humanTotal": human_bytes(total), "selectedByDefault": []}
         if path == "/api/duplicates":

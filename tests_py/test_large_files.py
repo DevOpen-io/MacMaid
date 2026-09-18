@@ -87,3 +87,28 @@ def test_web_large_file_cleanup_requires_scan_and_review(monkeypatch, tmp_path):
 
 def test_size_filters_match_roadmap():
     assert set(SIZE_FILTERS) == {"500MB", "1GB", "5GB", "10GB"}
+
+
+def test_large_old_scan_reports_progress(tmp_path, monkeypatch):
+    home = _home(tmp_path, monkeypatch)
+    for index in range(3):
+        (home / "Downloads" / f"file{index}.bin").write_bytes(b"x" * 20)
+    calls = []
+
+    LargeOldFileScanner(min_bytes=10).scan(
+        [home / "Downloads"], progress=lambda seen, current: calls.append((seen, current)),
+    )
+
+    assert calls and calls[-1][0] >= 1
+    assert all(isinstance(current, Path) for _, current in calls)
+
+
+def test_progress_update_items_zero_total_is_indeterminate():
+    progress = web.ProgressState()
+    progress.start("largefiles", "scanning")
+
+    progress.update_items(42, 0, "Taranıyor", "/some/path")
+
+    assert progress.value["percent"] == -1
+    assert progress.value["completed"] == 42
+    assert progress.value["total"] == 0

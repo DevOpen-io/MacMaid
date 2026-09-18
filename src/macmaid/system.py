@@ -173,6 +173,42 @@ def which(name: str) -> str | None:
     return shutil.which(name)
 
 
+def ensure_tool_search_path() -> None:
+    """Append well-known tool install locations to PATH when they are missing.
+
+    Finder, LaunchAgent and .app launches receive a minimal PATH that lacks
+    Homebrew and version-manager bins. Interactive terminals already contain
+    these directories, which makes this merge a no-op outside GUI contexts.
+    """
+    home = Path.home()
+    static_dirs: list[Path] = [
+        Path("/opt/homebrew/bin"), Path("/opt/homebrew/sbin"),
+        Path("/usr/local/bin"), Path("/usr/local/sbin"),
+        home / ".local/bin", home / ".volta/bin", home / ".bun/bin",
+        home / ".deno/bin", home / ".cargo/bin",
+        home / ".asdf/shims", home / ".local/share/mise/shims",
+    ]
+    versioned: list[Path] = []
+    for parent in (home / ".nvm/versions/node", home / ".local/share/mise/installs/node",
+                   home / ".asdf/installs/nodejs", home / ".local/state/fnm_multishells"):
+        try:
+            versioned.extend(sorted(parent.glob("*/bin"), key=str, reverse=True))
+        except OSError:
+            continue
+    current = [part for part in os.environ.get("PATH", "").split(os.pathsep) if part]
+    known = set(current)
+    additions: list[str] = []
+    for candidate in (*static_dirs, *versioned):
+        try:
+            if candidate.is_dir() and str(candidate) not in known:
+                known.add(str(candidate))
+                additions.append(str(candidate))
+        except OSError:
+            continue
+    if additions:
+        os.environ["PATH"] = os.pathsep.join([*current, *additions])
+
+
 def process_running(needle: str) -> bool:
     pgrep = which("pgrep") or "/usr/bin/pgrep"
     result = run_command(pgrep, ["-f", "--", re.escape(needle)], timeout=5)

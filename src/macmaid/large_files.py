@@ -4,7 +4,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 from .cancellation import CancellationToken
 from .models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel, ScanResult
@@ -50,19 +50,21 @@ class LargeOldFileScanner:
         self.older_than_days = older_than_days
         self.max_files = max_files
 
-    def scan(self, roots: Iterable[Path] | None = None, *, cancellation: CancellationToken | None = None) -> list[LargeOldFile]:
+    def scan(self, roots: Iterable[Path] | None = None, *, cancellation: CancellationToken | None = None,
+             progress: Callable[[int, Path], None] | None = None) -> list[LargeOldFile]:
         token = cancellation or CancellationToken()
         found: list[LargeOldFile] = []
         default_roots = [Path.home()]
         for root in roots or default_roots:
-            self._scan_root(Path(root).expanduser().absolute(), found, token)
+            self._scan_root(Path(root).expanduser().absolute(), found, token, progress)
         return sorted(found, key=lambda item: (-item.bytes, str(item.path)))
 
     def scan_result(self, roots: Iterable[Path] | None = None, *, cancellation: CancellationToken | None = None) -> ScanResult:
         items = [self._cleanup_item(item) for item in self.scan(roots, cancellation=cancellation)]
         return ScanResult(items=items)
 
-    def _scan_root(self, root: Path, found: list[LargeOldFile], token: CancellationToken) -> None:
+    def _scan_root(self, root: Path, found: list[LargeOldFile], token: CancellationToken,
+                   progress: Callable[[int, Path], None] | None = None) -> None:
         root = PathSafety._lexical(root)
         home = Path.home()
         if root != home and home not in root.parents:
@@ -71,6 +73,7 @@ class LargeOldFileScanner:
             return
         stack = [root]
         seen = 0
+        last_report = 0.0
         cutoff = time.time() - self.older_than_days * 86400 if self.older_than_days is not None else None
         while stack:
             token.check()
@@ -89,6 +92,9 @@ class LargeOldFileScanner:
                             elif entry.is_file(follow_symlinks=False):
                                 info = entry.stat(follow_symlinks=False)
                                 seen += 1
+                                if progress is not None and time.monotonic() - last_report >= 0.15:
+                                    last_report = time.monotonic()
+                                    progress(seen, current)
                                 if seen > self.max_files:
                                     return
                                 if info.st_size < self.min_bytes:

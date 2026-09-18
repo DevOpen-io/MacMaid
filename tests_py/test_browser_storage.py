@@ -82,3 +82,79 @@ def test_web_browser_smart_clean_blocks_without_scan(tmp_path):
     handler.server = SimpleNamespace(state=SimpleNamespace(browser_storage=None))
     with pytest.raises(ValueError):
         handler._route_post("/api/browser-storage/clean", {"itemIds": []})
+
+
+def test_browser_storage_denied_root_surfaces_issue(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    chrome = home / "Library/Application Support/Google/Chrome"
+    chrome.mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setattr(browser_storage, "process_running", lambda _: False)
+    real_iterdir = Path.iterdir
+
+    def denied_iterdir(self):
+        if self == chrome:
+            raise PermissionError("Operation not permitted")
+        return real_iterdir(self)
+
+    monkeypatch.setattr(Path, "iterdir", denied_iterdir)
+    inspector = BrowserStorageInspector()
+
+    assert inspector.scan() == []
+    assert any("Google Chrome" in issue for issue in inspector.issues)
+
+
+def test_browser_storage_root_without_profiles_surfaces_issue(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / "Library/Application Support/Google/Chrome/Crashpad").mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setattr(browser_storage, "process_running", lambda _: False)
+    inspector = BrowserStorageInspector()
+
+    inspector.scan()
+
+    assert any("Google Chrome" in issue and "no profiles" in issue for issue in inspector.issues)
+
+
+def test_browser_storage_denied_area_path_surfaces_issue(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    profile = home / "Library/Application Support/Google/Chrome/Default"
+    (profile / "Cache").mkdir(parents=True)
+    cookies = profile / "Cookies"
+    cookies.write_text("cookie")
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setattr(browser_storage, "process_running", lambda _: False)
+    real_lstat = Path.lstat
+
+    def denied_lstat(self, *args, **kwargs):
+        if self == cookies:
+            raise PermissionError("Operation not permitted")
+        return real_lstat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "lstat", denied_lstat)
+    inspector = BrowserStorageInspector()
+
+    inspector.scan()
+
+    assert any(str(cookies) in issue for issue in inspector.issues)
+
+
+def test_browser_storage_scan_result_exposes_issues_and_notes(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    chrome = home / "Library/Application Support/Google/Chrome"
+    chrome.mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setattr(browser_storage, "process_running", lambda _: False)
+    real_iterdir = Path.iterdir
+
+    def denied_iterdir(self):
+        if self == chrome:
+            raise PermissionError("Operation not permitted")
+        return real_iterdir(self)
+
+    monkeypatch.setattr(Path, "iterdir", denied_iterdir)
+    result = BrowserStorageInspector().scan_result()
+
+    assert result.status == "complete"
+    assert any("Google Chrome" in issue for issue in result.issues)
+    assert any("Full Disk Access" in note for note in result.notes)

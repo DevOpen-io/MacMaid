@@ -24,7 +24,7 @@ from .models import CleanupProfile
 from .smart_downloads import SmartDownloadsScanner
 from .review import cleanup_plan, optimization_plan, purge_plan, snapshot_plan
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
-from .system import human_bytes, is_interactive
+from .system import ensure_tool_search_path, human_bytes, is_interactive
 
 try:
     from rich.console import Console
@@ -372,6 +372,7 @@ def main(argv: list[str] | None = None) -> None:
     if os.geteuid() == 0 and not any(flag in argv for flag in ("-h", "--help", "--version")):
         print("MacMaid sudo/root ile çalıştırılamaz. Normal kullanıcı hesabınla yeniden başlat.", file=sys.stderr)
         raise SystemExit(2)
+    ensure_tool_search_path()
     if not argv:
         _interactive_menu(); return
     args = _parser().parse_args(argv)

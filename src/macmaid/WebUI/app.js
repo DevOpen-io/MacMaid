@@ -401,6 +401,7 @@ const I18N = {
     "more.installers_desc": "Old disk images and installation packages in Downloads and Desktop.",
     "more.btn_scan_installers": "Scan Installers",
     "more.action_scanning_installers": "Scanning Installers...",
+    "more.action_scanning_large": "Scanning Large/Old Files...",
     "more.lbl_min_age": "Minimum Age:",
     "more.filter_all_images": "All (All Images)",
     "more.filter_30d": "30 days",
@@ -629,10 +630,13 @@ const I18N = {
     "more.treemap_failed": "Treemap failed: ",
     "more.action_scanning_browsers_sub": "Scanning browser storage…",
     "more.empty_browsers_found": "No browser storage found.",
+    "more.access_denied": "macOS denied access to some locations. Grant Full Disk Access in System Settings → Privacy & Security for complete results.",
     "more.action_scanning_downloads_sub": "Scanning smart downloads…",
     "more.empty_downloads_found": "No smart download candidates found.",
     "more.action_scanning_large_sub": "Scanning large and old files…",
     "more.empty_large_found": "No large or old files matching filters found.",
+    "more.large_scan_failed": "Large/old scan failed: ",
+    "more.large_clean_failed": "Large/old cleanup failed: ",
     "more.action_scanning_duplicates_sub": "Scanning duplicates…",
     "more.empty_duplicates_found": "No byte-for-byte duplicates found.",
     "more.empty_history_found": "No recorded history operations found.",
@@ -949,6 +953,7 @@ const I18N = {
     "more.installers_desc": "İndirilenler ve Masaüstündeki eski imaj ve kurulum paketleri.",
     "more.btn_scan_installers": "Yükleyicileri Tara",
     "more.action_scanning_installers": "Yükleyiciler Taranıyor...",
+    "more.action_scanning_large": "Büyük/Eski Dosyalar Taranıyor...",
     "more.lbl_min_age": "Minimum Yaş:",
     "more.filter_all_images": "Tümü (Tüm İmajlar)",
     "more.filter_30d": "30 gün",
@@ -1177,10 +1182,13 @@ const I18N = {
     "more.treemap_failed": "Treemap başarısız: ",
     "more.action_scanning_browsers_sub": "Browser storage taranıyor…",
     "more.empty_browsers_found": "Browser storage bulunamadı.",
+    "more.access_denied": "macOS bazı konumlara erişimi engelledi. Tam sonuç için Sistem Ayarları → Gizlilik ve Güvenlik → Tam Disk Erişimi izni verin.",
     "more.action_scanning_downloads_sub": "Smart Downloads taranıyor…",
     "more.empty_downloads_found": "Smart Downloads adayı bulunamadı.",
     "more.action_scanning_large_sub": "Large/old files taranıyor…",
     "more.empty_large_found": "Filtrelere uyan large/old file bulunamadı.",
+    "more.large_scan_failed": "Large/old taraması başarısız: ",
+    "more.large_clean_failed": "Large/old temizliği başarısız: ",
     "more.action_scanning_duplicates_sub": "Duplicate taranıyor…",
     "more.empty_duplicates_found": "Byte-for-byte duplicate bulunamadı.",
     "more.empty_history_found": "Kayıtlı geçmiş işlem bulunamadı.",
@@ -1731,6 +1739,7 @@ function renderInPageProgress(p) {
     'sdks': 'developer',
     'leftovers': 'more',
     'installers': 'more',
+    'largefiles': 'more',
     'snapshots': 'more',
     'doctor': 'more',
     'history': 'more',
@@ -2451,11 +2460,11 @@ async function scanLeftovers() {
     syncMasterCheckbox('master-leftovers-chk', actionableCount, state.selectedLeftovers.size);
 
     if (state.leftovers.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.empty_leftovers_found', 'No orphaned leftover files found.')}</td></tr>`;
+      tbody.innerHTML = accessNoticeRow(data.issues, 5) + `<tr><td colspan="5" class="empty-state">${t('more.empty_leftovers_found', 'No orphaned leftover files found.')}</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = state.leftovers.map(item => `
+    tbody.innerHTML = accessNoticeRow(data.issues, 5) + state.leftovers.map(item => `
       <tr>
         <td><input type="checkbox" class="leftover-chk" data-id="${item.id}" ${item.risk === 'MANUAL' ? 'disabled' : 'checked'}></td>
         <td><strong>${escapeHtml(item.label)}</strong></td>
@@ -2903,11 +2912,11 @@ async function scanDeveloperCaches() {
     syncMasterCheckbox('master-devcaches-chk', actionableCount, state.selectedDevCaches.size);
 
     if (state.devCaches.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${t('dev.empty_caches_found', 'No developer caches found.')}</td></tr>`;
+      tbody.innerHTML = accessNoticeRow(data.issues, 6) + `<tr><td colspan="6" class="empty-state">${t('dev.empty_caches_found', 'No developer caches found.')}</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = state.devCaches.map(item => `
+    tbody.innerHTML = accessNoticeRow(data.issues, 6) + state.devCaches.map(item => `
       <tr>
         <td><input type="checkbox" class="devcache-chk" data-id="${item.id}" ${item.risk === 'MANUAL' ? 'disabled' : 'checked'}></td>
         <td><strong>${escapeHtml(item.label)}</strong></td>
@@ -3654,6 +3663,12 @@ async function trashTreemapPath(path) {
 // Browser Storage Inspector
 // =========================================================
 
+function accessNoticeRow(issues, colspan) {
+  const denied = (issues || []).filter(issue => /denied|permitted/i.test(issue));
+  if (!denied.length) return '';
+  return `<tr><td colspan="${colspan}"><div class="scan-notice">${escapeHtml(t('more.access_denied', 'macOS denied access to some locations. Grant Full Disk Access in System Settings → Privacy & Security for complete results.'))}<br><small>${denied.slice(0, 3).map(escapeHtml).join(' · ')}${denied.length > 3 ? ` · +${denied.length - 3}` : ''}</small></div></td></tr>`;
+}
+
 async function fetchBrowserStorage() {
   const tbody = document.getElementById('tbody-browser-storage');
   if (!tbody) return;
@@ -3662,7 +3677,7 @@ async function fetchBrowserStorage() {
     const data = await readAPIResponse(await fetch('/api/browser-storage'));
     state.browserStorage = data;
     document.getElementById('browser-safe-cache').textContent = data.humanSafeCache || '0 B';
-    tbody.innerHTML = (data.areas || []).map(area => {
+    tbody.innerHTML = accessNoticeRow(data.issues, 6) + ((data.areas || []).map(area => {
       const checked = area.cleanable ? 'checked' : '';
       const disabled = area.cleanable ? '' : 'disabled';
       const riskClass = area.cleanable ? 'highlight-green' : 'text-muted';
@@ -3672,7 +3687,7 @@ async function fetchBrowserStorage() {
         <td><span class="${riskClass}">${escapeHtml(area.risk || '')}${area.cleanable ? ' · Smart Clean' : ' · Not auto-selected'}</span></td>
         <td>${escapeHtml(area.humanBytes || formatBytes(area.bytes || 0))}</td>
       </tr>`;
-    }).join('') || `<tr><td colspan="6" class="empty-state">${t('more.empty_browsers_found', 'No browser storage found.')}</td></tr>`;
+    }).join('') || `<tr><td colspan="6" class="empty-state">${t('more.empty_browsers_found', 'No browser storage found.')}</td></tr>`);
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${t('more.browser_scan_failed', 'Browser storage scan failed: ')}${escapeHtml(err.message)}</td></tr>`;
   }
@@ -3755,6 +3770,7 @@ async function fetchLargeFiles() {
   const size = document.getElementById('large-size-filter')?.value || '500MB';
   const age = document.getElementById('large-age-filter')?.value || '';
   tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.action_scanning_large_sub', 'Scanning large and old files…')}</td></tr>`;
+  startLiveProgressPolling();
   try {
     const params = new URLSearchParams({ minSize: size });
     if (age) params.set('olderThanDays', age);
@@ -3764,11 +3780,13 @@ async function fetchLargeFiles() {
       <td><strong>${escapeHtml(file.name || '')}</strong><br><span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(file.path)}</span></td>
       <td>${Number(file.ageDays || 0)}d</td>
       <td>${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
-      <td><button class="mini-btn large-file-trash" data-path="${escapeHtml(file.path)}">Move to Trash</button></td>
+      <td><button class="mini-btn large-file-trash" data-path="${escapeHtml(file.path)}">${t('common.move_to_trash', 'Move to Trash')}</button></td>
     </tr>`).join('') || `<tr><td colspan="5" class="empty-state">${t('more.empty_large_found', 'No large or old files matching filters found.')}</td></tr>`;
     tbody.querySelectorAll('.large-file-trash').forEach(button => button.addEventListener('click', () => trashLargeFilePath(button.dataset.path)));
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.large_scan_failed', 'Large/old scan failed: ')}${escapeHtml(err.message)}</td></tr>`;
+  } finally {
+    stopLiveProgressPolling();
   }
 }
 
@@ -3789,7 +3807,7 @@ async function trashLargeFilePath(path) {
       }}
     ]);
   } catch (err) {
-    showToast(`Large/old cleanup failed: ${err.message}`, 'error');
+    showToast(`${t('more.large_clean_failed', 'Large/old cleanup failed: ')}${err.message}`, 'error');
   }
 }
 

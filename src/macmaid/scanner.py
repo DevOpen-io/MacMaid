@@ -338,7 +338,16 @@ class PackageManagerCacheScanner:
             token.check()
             command = executable or which(manager)
             if not command or (path and self.config.is_whitelisted(path)): return
-            size = size_of(path, cancel=token.check, on_error=lambda target, message: issues.append(f"{target}: {message}")) if path else 0
+            if path is None:
+                size = 0
+            else:
+                if not path.exists() and not path.is_symlink():
+                    return
+                failed: list[Path] = []
+                size = size_of(path, cancel=token.check,
+                               on_error=lambda target, message: (issues.append(f"{target}: {message}"), failed.append(target)))
+                if size == 0 and not failed:
+                    return
             items.append(CleanupItem(CleanupCategory.PACKAGE_MANAGERS, label, path, size, risk, f"Uses {manager}'s supported cleanup operation; project data is outside this target.", CleanupAction(ActionType.COMMAND, command, arguments)))
 
         def manual(label: str, manager: str, path: Path) -> None:
@@ -418,8 +427,10 @@ class PackageManagerCacheScanner:
         if dart and pub.exists(): native("Dart/Flutter pub cache", "dart", ["pub", "cache", "clean", "--force"], pub, RiskLevel.AGGRESSIVE, dart)
         notes.append("Docker/Podman images and volumes are intentionally never auto-pruned because they may contain irreplaceable local data.")
         token.check()
+        if issues:
+            notes.append("Some locations were not fully accessible; grant Full Disk Access for complete coverage.")
         return ScanResult(sorted(items, key=lambda item: -item.estimated_bytes), notes,
-                          status="partial" if issues else "complete", issues=issues)
+                          status="complete", issues=issues)
 
 
 def scan_installers(older_than_days: int = 30, cancellation: CancellationToken | None = None) -> ScanResult:
@@ -447,13 +458,15 @@ def scan_installers(older_than_days: int = 30, cancellation: CancellationToken |
                 continue
             if old and path.is_file() and path.suffix.lower() in extensions:
                 items.append(CleanupItem(CleanupCategory.INSTALLERS, path.name, path, size_of(path, cancel=token.check, on_error=lambda target, message: issues.append(f"{target}: {message}")), RiskLevel.SAFE, "Old installer image; moved to Trash.", CleanupAction(ActionType.MOVE_TO_TRASH)))
-    return ScanResult(sorted(items, key=lambda item: -item.estimated_bytes), status="partial" if issues else "complete", issues=issues)
+    notes = ["Some locations were not fully accessible; grant Full Disk Access for complete coverage."] if issues else []
+    return ScanResult(sorted(items, key=lambda item: -item.estimated_bytes), notes, status="complete", issues=issues)
 
 
 def scan_leftovers(config: Config | None = None, older_than_days: int = 30, include_data: bool = False,
                    cancellation: CancellationToken | None = None) -> ScanResult:
     config = config or Config(); token = cancellation or CancellationToken(); issues: list[str] = []
     installed_ids: set[str] = set()
+    app_enumeration_complete = True
     for root in (Path("/Applications"), Path.home() / "Applications"):
         try:
             for app in root.rglob("*.app"):
@@ -470,6 +483,7 @@ def scan_leftovers(config: Config | None = None, older_than_days: int = 30, incl
             continue
         except OSError as exc:
             issues.append(f"{root}: {exc}")
+            app_enumeration_complete = False
     cutoff = time.time() - max(0, older_than_days) * 86400
     roots = [
         (Path.home() / "Library/Caches", RiskLevel.SAFE),
@@ -508,4 +522,8 @@ def scan_leftovers(config: Config | None = None, older_than_days: int = 30, incl
                 continue
             action = ActionType.REMOVE_PATH if risk is not RiskLevel.MANUAL_ONLY else ActionType.MANUAL_CACHE_FALLBACK
             items.append(CleanupItem(CleanupCategory.LEFTOVERS, path.name, path, size_of(path, cancel=token.check, on_error=lambda target, message: issues.append(f"{target}: {message}")), risk, "No matching installed app was found; exact identifier-shaped leftover.", CleanupAction(action)))
-    return ScanResult(sorted(items, key=lambda item: -item.estimated_bytes), status="partial" if issues else "complete", issues=issues)
+    notes = ["Some locations were not fully accessible; grant Full Disk Access for complete coverage."] if issues else []
+    # Without a complete installed-app inventory, identifier-shaped directories cannot be
+    # classified as orphans reliably; keep the result immutable in that case.
+    status = "complete" if app_enumeration_complete else "partial"
+    return ScanResult(sorted(items, key=lambda item: -item.estimated_bytes), notes, status=status, issues=issues)
