@@ -44,4 +44,9 @@ Every user-visible string added or changed in the TUI or Web UI must have Turkis
 
 ## Web UI Icons
 
-All user-interface icons must come from the Lucide icon set (`lucide-icons`). Do not mix emoji, SF Symbols, bespoke glyphs, or unrelated icon packs for UI actions/navigation/status indicators. When a new icon is needed in the Web UI, use the existing Lucide rendering helper and add the Lucide icon path there if it is not already available.
+All user-interface icons come from the shared `SF_SYMBOLS` catalog in `src/macmaid/WebUI/app.js`, named after the Apple SF Symbols they approximate (`gearshape`, `trash`, `memorychip`, `magnifyingglass`, …). SF Symbols itself cannot be embedded in a web surface, so each entry is a hand-drawn monochrome SVG approximation rendered through the shared `sfSymbol()` helper and hydrated from `data-icon` attributes.
+
+- Do not mix emoji, Unicode glyphs, or unrelated icon packs for UI actions/navigation/status indicators.
+- When a new icon is needed, add it once to `SF_SYMBOLS` and reference it by name — never hardcode per-surface icon choices.
+- Keep names aligned with real SF Symbol semantics so the same action maps to the same symbol everywhere (sidebar, cards, buttons, modals, Memory UI).
+- Terminal surfaces (CLI/TUI) use plain text and ASCII status markers (`+`, `x`, `!`, `~`, `.`, `*`); do not add Unicode icon glyphs there.

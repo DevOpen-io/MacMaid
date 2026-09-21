@@ -14,70 +14,76 @@ if (typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAge
   }
 }
 
-// Lucide icon primitives used by the Web UI. Keep all UI glyphs in this
-// single Lucide-compatible set instead of mixing emoji and platform symbols.
-const LUCIDE_ICONS = {
-  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
-  'app-window': '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><path d="M8 7h.01"/><path d="M12 7h.01"/>',
-  'arrow-down': '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
-  'arrow-up': '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
-  'arrow-up-down': '<path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/>',
-  boxes: '<path d="M2.97 12.92 12 17.5l9.03-4.58"/><path d="M2.97 17.92 12 22.5l9.03-4.58"/><path d="M12 2.5 2.97 7.08 12 11.66l9.03-4.58L12 2.5Z"/>',
-  braces: '<path d="M8 3H7a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-4a2 2 0 0 1 2-2 2 2 0 0 1-2-2V7a2 2 0 0 0-2-2h-1"/>',
-  'chart-pie': '<path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951C12.449 1.995 12 2.448 12 3v9Z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>',
-  check: '<path d="M20 6 9 17l-5-5"/>',
-  'circle-alert': '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
-  'circle-dot': '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/>',
-  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
-  'clock-3': '<circle cx="12" cy="12" r="10"/><path d="M12 6v6h6"/>',
-  copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
-  cpu: '<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M9 2v2"/><path d="M9 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/>',
-  database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>',
-  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
-  file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
-  'file-search': '<path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M4 10V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2h-4"/><circle cx="9" cy="15" r="3"/><path d="m11.5 17.5 2.5 2.5"/>',
-  folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 4A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
-  'folder-code': '<path d="M10 10.5 8 13l2 2.5"/><path d="m14 10.5 2 2.5-2 2.5"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 4A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
-  'folder-open': '<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.8 2.9l-2.2 4.4A2 2 0 0 1 17.8 18H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.7.9l.8 1.2a2 2 0 0 0 1.7.9H20a2 2 0 0 1 2 2v2"/>',
-  gem: '<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>',
-  globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
-  hammer: '<path d="m15 12-8.5 8.5a2.12 2.12 0 0 1-3-3L12 9"/><path d="M17.64 15 22 10.64"/><path d="m20.91 11.7-1.25-1.25c-.6-.6-.93-1.4-.93-2.25V7.6a2 2 0 0 0-.59-1.42l-1.32-1.32a2 2 0 0 0-1.42-.59h-.6c-.85 0-1.65-.33-2.25-.93L11.3 2.09"/>',
-  'hard-drive': '<line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/>',
-  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
-  list: '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>',
-  'memory-stick': '<path d="M6 19v-3"/><path d="M10 19v-3"/><path d="M14 19v-3"/><path d="M18 19v-3"/><path d="M8 11V9"/><path d="M16 11V9"/><path d="M12 11V9"/><path d="M2 15h20"/><path d="M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8H2Z"/>',
-  'more-horizontal': '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
-  package: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
-  'panels-top-left': '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>',
-  'refresh-cw': '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
-  save: '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8A2 2 0 0 1 21 8.8V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
-  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
-  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.8 17 5 19 5a1 1 0 0 1 1 1Z"/>',
-  'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.8 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/>',
-  'sliders-horizontal': '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
-  sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
-  stethoscope: '<path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/>',
-  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
-  terminal: '<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
-  'trash-2': '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
-  'trending-up': '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
-  'triangle-alert': '<path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
-  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
-  'volume-2': '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
-  'volume-x': '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/>',
-  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-  zap: '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14Z"/>',
+// System glyphs used by the Web UI, named after the SF Symbols they mirror.
+// SF Symbols itself cannot ship inside a web surface, so each entry is a
+// hand-drawn monochrome SVG approximation of the system symbol — filled
+// silhouettes for object icons, hairline strokes for instrument glyphs —
+// keeping one shared catalog instead of mixing emoji and icon packs.
+const SF_SYMBOLS = {
+  'app': ['fill', '<rect x="4" y="4" width="16" height="16" rx="4.4"/>'],
+  'archivebox': ['fill', '<path fill-rule="evenodd" d="M3 3.5h18a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1zM4 10h16l-.8 9.6a2 2 0 0 1-2 1.9H6.8a2 2 0 0 1-2-1.9L4 10zm5.5 2.2a1 1 0 0 0 0 2h5a1 1 0 0 0 0-2h-5z"/>'],
+  'arrow.clockwise': ['stroke', '<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 3.6v4h-4"/>'],
+  'arrow.down': ['stroke', '<path d="M12 4v16"/><path d="M5.5 13.5 12 20l6.5-6.5"/>'],
+  'arrow.down.circle': ['fill', '<path fill-rule="evenodd" d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zM8.2 11.7l1.2-1.2 1.8 1.8V6.8h1.6v5.5l1.8-1.8 1.2 1.2-3.8 3.8-3.8-3.8z"/>'],
+  'arrow.up': ['stroke', '<path d="M12 20V4"/><path d="M5.5 10.5 12 4l6.5 6.5"/>'],
+  'arrow.up.arrow.down': ['stroke', '<path d="M8 4v16"/><path d="M4.5 7.5 8 4l3.5 3.5"/><path d="M16 20V4"/><path d="M12.5 16.5 16 20l3.5-3.5"/>'],
+  'bolt': ['fill', '<path d="M13.1 2 4.6 13.6h5.3L8.8 22l8.7-11.6h-5.3L13.1 2z"/>'],
+  'chart.line.uptrend.xyaxis': ['stroke', '<path d="M4 4v15a1 1 0 0 0 1 1h15"/><path d="M7.5 14.5l3.5-3.5 2.5 2.5 5-5"/><path d="M15.6 8.5h3v3"/>'],
+  'checkmark': ['stroke', '<path d="M5 12.5l4.5 4.5L19 7.5"/>'],
+  'checkmark.circle': ['fill', '<path fill-rule="evenodd" d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zm4.8 6.7-6.2 6.2-3.4-3.4 1.2-1.2 2.2 2.2 5-5 1.2 1.2z"/>'],
+  'checkmark.shield': ['fill', '<path fill-rule="evenodd" d="M12 2.3l7.5 2.8v6.4c0 4.9-3.2 8-7.5 9.7-4.3-1.7-7.5-4.8-7.5-9.7V5.1L12 2.3zm4.6 7.2-5.6 5.6-2.7-2.7 1.1-1.1 1.6 1.6 4.5-4.5 1.1 1.1z"/>'],
+  'circle.circle': ['fill', '<path fill-rule="evenodd" d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zM12 3.7a8.3 8.3 0 1 1 0 16.6 8.3 8.3 0 0 1 0-16.6zM12 6.6a5.4 5.4 0 1 0 0 10.8 5.4 5.4 0 0 0 0-10.8zm0 1.8a3.6 3.6 0 1 1 0 7.2 3.6 3.6 0 0 1 0-7.2z"/>'],
+  'clock': ['stroke', '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.2l3.4 2"/>'],
+  'clock.arrow.circlepath': ['stroke', '<path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.5 3.5v4h-4"/><path d="M12 7.5v4.7l3.2 1.9"/>'],
+  'cpu': ['fill', '<path fill-rule="evenodd" d="M8 4h8a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4zM9.5 9.5h5v5h-5z"/><path d="M9.2 1.5h1.6v2.4H9.2V1.5zm4 0h1.6v2.4h-1.6V1.5zM9.2 20.1h1.6v2.4H9.2v-2.4zm4 0h1.6v2.4h-1.6v-2.4zM1.5 9.2h2.4v1.6H1.5V9.2zm0 4h2.4v1.6H1.5v-1.6zM20.1 9.2h2.4v1.6h-2.4V9.2zm0 4h2.4v1.6h-2.4v-1.6z"/><rect x="10" y="10" width="4" height="4" rx="0.6"/>'],
+  'curlybraces': ['fill', '<path d="M8.6 3.5c-1.8 0-2.9 1.1-2.9 2.9v3c0 1-.6 1.7-1.8 1.7v1.8c1.2 0 1.8.7 1.8 1.7v3c0 1.8 1.1 2.9 2.9 2.9h.8v-1.8h-.5c-.8 0-1.1-.4-1.1-1.2v-3.3c0-.9-.5-1.7-1.4-2.2.9-.5 1.4-1.3 1.4-2.2V6.4c0-.8.3-1.2 1.1-1.2h.5V3.5h-.8zm6.8 0c1.8 0 2.9 1.1 2.9 2.9v3c0 1 .6 1.7 1.8 1.7v1.8c-1.2 0-1.8.7-1.8 1.7v3c0 1.8-1.1 2.9-2.9 2.9h-.8v-1.8h.5c.8 0 1.1-.4 1.1-1.2v-3.3c0-.9.5-1.7 1.4-2.2-.9-.5-1.4-1.3-1.4-2.2V6.4c0-.8-.3-1.2-1.1-1.2h-.5V3.5h.8z"/>'],
+  'cylinder': ['fill', '<ellipse cx="12" cy="5.8" rx="8.5" ry="2.8"/><path d="M3.5 5.8v11.7c0 1.9 3.8 3.5 8.5 3.5s8.5-1.6 8.5-3.5V5.8c0 1.9-3.8 3.5-8.5 3.5s-8.5-1.6-8.5-3.5z"/>'],
+  'doc': ['stroke', '<path d="M6.5 3.5h6.8l5.2 5.2V19a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2V5.5a2 2 0 0 1 2-2z"/><path d="M13 3.5V9h5.5"/>'],
+  'doc.on.doc': ['fill', '<path d="M9.5 2.5H16a2.5 2.5 0 0 1 2.5 2.5v9a2.5 2.5 0 0 1-2.5 2.5H9.5A2.5 2.5 0 0 1 7 14V5a2.5 2.5 0 0 1 2.5-2.5z"/><path d="M5.5 6.5v10A4 4 0 0 0 9.5 20.5H17a2.5 2.5 0 0 1-1.8 2H5.7A3.7 3.7 0 0 1 2 18.8v-8.6a3.5 3.5 0 0 1 3.5-3.7z"/>'],
+  'doc.text.magnifyingglass': ['fill', '<path fill-rule="evenodd" d="M6.5 2.5h6.3l5.7 5.7v2.1a5.2 5.2 0 0 0-7.9 10.2H6.5a2 2 0 0 1-2-2V4.5a2 2 0 0 1 2-2zm5.8 1.7V8h3.8l-3.8-3.8zM8 9.2h4.8v1.5H8V9.2zm0 2.8h3.4v1.5H8V12z"/><path fill-rule="evenodd" d="M15.2 13a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2zm0 1.5a2.1 2.1 0 1 1 0 4.2 2.1 2.1 0 0 1 0-4.2zm-3.1 4.3 2.6 2.6a.9.9 0 0 0 1.3-1.3l-2.3-2.3c-.5.4-1 .7-1.6 1z"/>'],
+  'ellipsis.circle': ['fill', '<path fill-rule="evenodd" d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zM6.8 10.6a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8zm5.2 0a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8zm5.2 0a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8z"/>'],
+  'exclamationmark.circle': ['fill', '<path fill-rule="evenodd" d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zM10.9 6.5h2.2l-.3 7h-1.6l-.3-7zM12 15a1.3 1.3 0 1 1 0 2.6 1.3 1.3 0 0 1 0-2.6z"/>'],
+  'exclamationmark.triangle': ['fill', '<path fill-rule="evenodd" d="M12.9 3.8 21.9 19a1.5 1.5 0 0 1-1.3 2.2H3.4A1.5 1.5 0 0 1 2.1 19L11.1 3.8a1.5 1.5 0 0 1 1.8 0zM11 9.2l.2 4.8h1.6l.2-4.8H11zm1 6.4a1.35 1.35 0 1 0 0 2.7 1.35 1.35 0 0 0 0-2.7z"/>'],
+  'folder': ['fill', '<path d="M4.5 3.5h4.6c.6 0 1.1.2 1.5.7l1 1.3c.2.3.6.5 1 .5h7c1.4 0 2.4 1 2.4 2.4v9.2c0 1.4-1 2.4-2.4 2.4h-15C3.1 20 2 19 2 17.6V5.9C2 4.5 3.1 3.5 4.5 3.5z"/>'],
+  'folder.badge.gearshape': ['fill', '<path fill-rule="evenodd" d="M4.5 3.5h4.6c.6 0 1.1.2 1.5.7l1 1.3c.2.3.6.5 1 .5h7c1.4 0 2.4 1 2.4 2.4v9.2c0 1.4-1 2.4-2.4 2.4h-15C3.1 20 2 19 2 17.6V5.9C2 4.5 3.1 3.5 4.5 3.5zM16.8 10.6a4.9 4.9 0 1 0 0 9.8 4.9 4.9 0 0 0 0-9.8z"/><path fill-rule="evenodd" d="M16.3 12.4h1l.3 1.2 1 .4 1-.7.7.7-.7 1 .4 1 1.2.3v1l-1.2.3-.4 1 .7 1-.7.7-1-.7-1 .4-.3 1.2h-1l-.3-1.2-1-.4-1 .7-.7-.7.7-1-.4-1-1.2-.3v-1l1.2-.3.4-1-.7-1 .7-.7 1 .7 1-.4.3-1.2zm.5 2.5a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z"/>'],
+  'gearshape': ['fill', '<path fill-rule="evenodd" d="M10.8 2.2h2.4l.5 2.5 1.9.8 2.1-1.4 1.7 1.7-1.4 2.1.8 1.9 2.5.5v2.4l-2.5.5-.8 1.9 1.4 2.1-1.7 1.7-2.1-1.4-1.9.8-.5 2.5h-2.4l-.5-2.5-1.9-.8-2.1 1.4-1.7-1.7 1.4-2.1-.8-1.9-2.5-.5v-2.4l2.5-.5.8-1.9-1.4-2.1 1.7-1.7 2.1 1.4 1.9-.8.5-2.5zM12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2z"/>'],
+  'globe': ['stroke', '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.8 2.3 4.2 5.2 4.2 8.5s-1.4 6.2-4.2 8.5c-2.8-2.3-4.2-5.2-4.2-8.5s1.4-6.2 4.2-8.5z"/>'],
+  'hammer': ['fill', '<path d="M13.7 3.3l7 7-2 2-2.2-2.2-8.1 8.1a2.3 2.3 0 0 1-3.2-3.2l8.1-8.1-2.2-2.2 2.6-1.4z"/>'],
+  'info.circle': ['fill', '<path fill-rule="evenodd" d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zM12 6.6a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8zM10.9 11h2.2v6.5h-2.2V11z"/>'],
+  'internaldrive': ['fill', '<path fill-rule="evenodd" d="M4.5 3.5h15a2.5 2.5 0 0 1 2.5 2.5v12a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 18V6a2.5 2.5 0 0 1 2.5-2.5zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2.6a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8zM5.6 5.4h1.8v1.6H5.6V5.4z"/>'],
+  'list.bullet': ['fill', '<path d="M4 5.5a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zm0 5.1a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zm0 5.1a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zM8.5 5.6h12v2.4h-12V5.6zm0 5.1h12v2.4h-12v-2.4zm0 5.1h12v2.4h-12v-2.4z"/>'],
+  'magnifyingglass': ['stroke', '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.3 15.3 21 21"/>'],
+  'memorychip': ['fill', '<path fill-rule="evenodd" d="M7 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM9.4 9.4h5.2v5.2H9.4z"/><path d="M9 2.8h1.6v2.1H9V2.8zm3.2 0h1.6v2.1h-1.6V2.8zm3.2 0H17v2.1h-1.6V2.8zM9 19.1h1.6v2.1H9v-2.1zm3.2 0h1.6v2.1h-1.6v-2.1zm3.2 0H17v2.1h-1.6v-2.1zM2.8 9h2.1v1.6H2.8V9zm0 3.2h2.1v1.6H2.8v-1.6zm0 3.2h2.1V17H2.8v-1.6zM19.1 9h2.1v1.6h-2.1V9zm0 3.2h2.1v1.6h-2.1v-1.6zm0 3.2h2.1V17h-2.1v-1.6z"/>'],
+  'shield': ['fill', '<path d="M12 2.3l7.5 2.8v6.4c0 4.9-3.2 8-7.5 9.7-4.3-1.7-7.5-4.8-7.5-9.7V5.1L12 2.3z"/>'],
+  'slider.horizontal.3': ['stroke', '<path d="M4 6.5h16M4 12h16M4 17.5h16"/><circle cx="9" cy="6.5" r="2.1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2.1" fill="currentColor" stroke="none"/><circle cx="7" cy="17.5" r="2.1" fill="currentColor" stroke="none"/>'],
+  'sparkles': ['fill', '<path d="M12.6 3l1.8 5.6 5.6 1.8-5.6 1.8-1.8 5.6-1.8-5.6L5 10.4l5.6-1.8z"/><path d="M18.6 14.8l.9 2.7 2.7.9-2.7.9-.9 2.7-.9-2.7-2.7-.9 2.7-.9z"/><path d="M5.4 3.4l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>'],
+  'square.and.arrow.down': ['stroke', '<path d="M12 3v9"/><path d="M8.5 8.5 12 12l3.5-3.5"/><path d="M4.5 12.5v6a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-6"/>'],
+  'square.grid.2x2': ['fill', '<path d="M4.5 4h6a1 1 0 0 1 1 1v5.5a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm9 0h6a1 1 0 0 1 1 1v5.5a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM4.5 12.5h6a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-5.5a1 1 0 0 1 1-1zm9 0h6a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-5.5a1 1 0 0 1 1-1z"/>'],
+  'square.stack.3d.up': ['fill', '<path d="M12 3l8.8 4.4L12 11.8 3.2 7.4 12 3z"/><path d="M4.6 10.6l7.4 3.7 7.4-3.7 1.4 1.4-8.8 4.4-8.8-4.4 1.4-1.4z"/><path d="M4.6 15.1l7.4 3.7 7.4-3.7 1.4 1.4-8.8 4.4-8.8-4.4 1.4-1.4z"/>'],
+  'stethoscope': ['stroke', '<path d="M5.5 3.5H4M5.5 3.5h1.5M7 3.5v5a5 5 0 0 0 10 0v-5h-1.5M17 3.5h-1.5"/><path d="M12 13.5v2.5a4.5 4.5 0 0 0 9 0v-3"/><circle cx="21" cy="10.5" r="1.8"/>'],
+  'sun.max': ['fill', '<path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM11.1 1.8h1.8v2.6h-1.8V1.8zm0 17.6h1.8V22h-1.8v-2.6zM3.6 5.1l2 1.2-1 1.7-2-1.2 1-1.7zm14.8 13.1 2 1.2-1 1.7-2-1.2 1-1.7zM1.8 11.1h2.6v1.8H1.8v-1.8zm17.6 0H22v1.8h-2.6v-1.8zM3.6 18.9l1-1.7 2 1.2-1 1.7-2-1.2zm14.8-13.8 2-1.2 1 1.7-2 1.2-1-1.7z"/>'],
+  'speaker.slash': ['fill', '<path d="M11 3.5 6.8 7.5H3.5v9h3.3L11 20.5v-17z"/><path d="M15.6 9.9l1.4-1.4 2 2 2-2 1.4 1.4-2 2 2 2-1.4 1.4-2-2-2 2-1.4-1.4 2-2-2-2z"/>'],
+  'speaker.wave.2': ['fill', '<path d="M11 3.5 6.8 7.5H3.5v9h3.3L11 20.5v-17z"/><path d="M14.6 8.2a5 5 0 0 1 0 7.6l-1.2-1.2a3.3 3.3 0 0 0 0-5.2l1.2-1.2z"/><path d="M16.9 5.4a9 9 0 0 1 0 13.2l-1.2-1.2a7.2 7.2 0 0 0 0-10.8l1.2-1.2z"/>'],
+  'terminal': ['fill', '<path fill-rule="evenodd" d="M3.5 4h17a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-17a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2.8 4.3a.9.9 0 0 0 0 1.3l2.6 2.6-2.6 2.6a.9.9 0 1 0 1.3 1.3l3.3-3.3a.9.9 0 0 0 0-1.3L7.6 8.3a.9.9 0 0 0-1.3 0zm5.6 7h6v1.6h-6v-1.6z"/>'],
+  'trash': ['fill', '<path fill-rule="evenodd" d="M9.2 2.5h5.6l1 2h4.4v2H3.8v-2h4.4l1-2zM5.6 8.5h12.8l-1.1 12a2.2 2.2 0 0 1-2.2 2H8.9a2.2 2.2 0 0 1-2.2-2l-1.1-12zm3.7 2.8.4 8.2h1.4l-.4-8.2H9.3zm4 0h1.4l.4 8.2h-1.4l-.4-8.2z"/>'],
+  'tray.full': ['fill', '<path fill-rule="evenodd" d="M4 10.5h3.6l1.4 2.2c.3.5.8.8 1.4.8h3.2c.6 0 1.1-.3 1.4-.8l1.4-2.2H20a1.5 1.5 0 0 1 1.5 1.5v6.5a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5V12A1.5 1.5 0 0 1 4 10.5zM7 3.5h10v1.8H7V3.5zm1.5 3h7v1.8h-7V6.5z"/>'],
+  'waveform.path.ecg': ['stroke', '<path d="M2.5 12h4l2-7 4 14 3-9.5 1.5 2.5h4.5"/>'],
+  'xmark': ['fill', '<path d="M5.6 4.2 12 10.6l6.4-6.4a1 1 0 0 1 1.4 1.4L13.4 12l6.4 6.4a1 1 0 0 1-1.4 1.4L12 13.4l-6.4 6.4a1 1 0 0 1-1.4-1.4L10.6 12 4.2 5.6a1 1 0 0 1 1.4-1.4z"/>'],
 };
 
-function lucideIcon(name, className = '') {
-  const body = LUCIDE_ICONS[name] || LUCIDE_ICONS.info;
-  const classes = ['lucide', `lucide-${name}`, className].filter(Boolean).join(' ');
-  return `<svg class="${classes}" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+function sfSymbol(name, className = '') {
+  const entry = SF_SYMBOLS[name] || SF_SYMBOLS['info.circle'];
+  const slug = name.replace(/[^a-z0-9]+/gi, '-');
+  const classes = ['sf', `sf-${slug}`, className].filter(Boolean).join(' ');
+  const paint = entry[0] === 'fill'
+    ? 'fill="currentColor" stroke="none"'
+    : 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+  return `<svg class="${classes}" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" ${paint} aria-hidden="true">${entry[1]}</svg>`;
 }
 
-function renderLucideIcons(root = document) {
-  root.querySelectorAll('[data-lucide]').forEach(el => {
-    el.innerHTML = lucideIcon(el.dataset.lucide);
+function renderIcons(root = document) {
+  root.querySelectorAll('[data-icon]').forEach(el => {
+    el.innerHTML = sfSymbol(el.dataset.icon);
     el.setAttribute('aria-hidden', 'true');
   });
 }
@@ -1458,7 +1464,7 @@ function showToast(message, type = 'info') {
   const container = document.getElementById('toast-container');
   if (!container) return;
   const normalizedType = ['success', 'error', 'warning', 'info'].includes(type) ? type : 'info';
-  const icons = { success: 'check', error: 'circle-alert', warning: 'triangle-alert', info: 'info' };
+  const icons = { success: 'checkmark.circle', error: 'exclamationmark.circle', warning: 'exclamationmark.triangle', info: 'info.circle' };
   const titles = {
     success: t('toast.success_title', 'Completed'),
     error: t('toast.error_title', 'Action failed'),
@@ -1471,9 +1477,9 @@ function showToast(message, type = 'info') {
   toast.setAttribute('tabindex', '0');
   toast.setAttribute('aria-label', `${titles[normalizedType]}: ${message}. ${t('toast.close_tip', 'Dismiss notification')}`);
   toast.innerHTML = `
-    <span class="toast-icon" aria-hidden="true">${lucideIcon(icons[normalizedType])}</span>
+    <span class="toast-icon" aria-hidden="true">${sfSymbol(icons[normalizedType])}</span>
     <span class="toast-copy"><strong>${escapeHtml(titles[normalizedType])}</strong><span class="toast-msg">${escapeHtml(message)}</span></span>
-    <button class="toast-close" type="button" aria-label="${escapeHtml(t('toast.close_tip', 'Dismiss notification'))}">${lucideIcon('x')}</button>
+    <button class="toast-close" type="button" aria-label="${escapeHtml(t('toast.close_tip', 'Dismiss notification'))}">${sfSymbol('xmark')}</button>
   `;
   toast.addEventListener('click', () => dismissToast(toast));
   toast.addEventListener('keydown', event => {
@@ -1646,7 +1652,7 @@ function showOperationOutcome(type, message) {
   const percent = document.getElementById('global-operation-percent');
   if (title) title.textContent = type === 'error' ? t('hud.failed', 'Operation failed') : t('hud.success', 'Operation completed');
   if (detail) detail.textContent = message || (type === 'error' ? t('hud.unknown_error', 'Unknown error') : t('hud.ok', 'Successful'));
-  if (percent) percent.innerHTML = lucideIcon(type === 'error' ? 'circle-alert' : 'check');
+  if (percent) percent.innerHTML = sfSymbol(type === 'error' ? 'exclamationmark.circle' : 'checkmark.circle');
   const health = hud.querySelector('.operation-health span');
   if (health) health.textContent = type === 'error'
     ? t('hud.finished_error', 'Stopped with an error')
@@ -2220,7 +2226,7 @@ function renderAppsList() {
     });
   });
   container.querySelectorAll('.app-avatar img').forEach(img => {
-    img.addEventListener('error', () => { img.parentElement.innerHTML = img.dataset.fallback ? escapeHtml(img.dataset.fallback) : lucideIcon('app-window'); }, { once: true });
+    img.addEventListener('error', () => { img.parentElement.innerHTML = img.dataset.fallback ? escapeHtml(img.dataset.fallback) : sfSymbol('app'); }, { once: true });
   });
 }
 
@@ -2237,7 +2243,7 @@ async function selectApp(app) {
   const initial = app.name ? app.name.charAt(0).toUpperCase() : '';
   detailIcon.innerHTML = `<img src="/api/apps/icon?path=${encodeURIComponent(app.path)}" alt="" data-fallback="${escapeHtml(initial)}">`;
   detailIcon.querySelector('img')?.addEventListener('error', event => {
-    event.currentTarget.parentElement.innerHTML = event.currentTarget.dataset.fallback ? escapeHtml(event.currentTarget.dataset.fallback) : lucideIcon('app-window');
+    event.currentTarget.parentElement.innerHTML = event.currentTarget.dataset.fallback ? escapeHtml(event.currentTarget.dataset.fallback) : sfSymbol('app');
   }, { once: true });
   document.getElementById('detail-app-name').textContent = app.name;
   document.getElementById('detail-app-bundle').textContent = app.bundleId || app.path;
@@ -2483,7 +2489,7 @@ function renderAnalyzerSnapshot(data, requestId) {
         <div class="folder-bar-item ${rowClass}" data-path="${escapeHtml(entry.path)}" data-directory="${entry.isDirectory}" tabindex="${entry.isDirectory ? '0' : '-1'}" ${entry.isDirectory ? 'role="button"' : ''} title="${escapeHtml(title)}">
           <div class="folder-bar-header">
             <span class="folder-name">
-              <span class="folder-icon">${lucideIcon(entry.isDirectory ? 'folder' : 'file')}</span>
+              <span class="folder-icon">${sfSymbol(entry.isDirectory ? 'folder' : 'doc')}</span>
               ${escapeHtml(entry.name)}
             </span>
             <div class="folder-size-wrap">
@@ -3188,7 +3194,7 @@ function renderOptimizationTasks(tasks, unavailableReason = t('optimize.empty_ta
     <div class="task-card" data-task-id="${task.id}">
       <div class="task-head">
         <div class="task-icon">
-          ${lucideIcon('zap')}
+          ${sfSymbol('bolt')}
         </div>
         <div class="task-info">
           <h4>${escapeHtml(task.title)}</h4>
@@ -4273,7 +4279,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Apply language on initial load
   applyLanguage(state.lang);
-  renderLucideIcons();
+  renderIcons();
 
   // Profile pills in Smart Clean
   document.querySelectorAll('.profile-pill').forEach(pill => {

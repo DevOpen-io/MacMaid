@@ -21,10 +21,10 @@ function mt(key, values = {}) {
 }
 
 function categoryIcon(row) {
-  if (row.category === 'flutter' || (row.role && row.role.startsWith('dart'))) return 'boxes';
+  if (row.category === 'flutter' || (row.role && row.role.startsWith('dart'))) return 'square.stack.3d.up';
   if (row.category === 'developer' || row.role === 'typescript-server') return 'terminal';
   if (row.protected === 'system-process') return 'cpu';
-  return 'app-window';
+  return 'app';
 }
 
 function memoryVisibleRows() {
@@ -127,7 +127,7 @@ function renderMemory() {
     metricsTarget.innerHTML = `
       <div class="memory-metric metric-pressure is-${pressureState}">
         <div class="memory-metric-head">
-          <span class="memory-metric-icon">${lucideIcon('activity')}</span>
+          <span class="memory-metric-icon">${sfSymbol('waveform.path.ecg')}</span>
           <span class="memory-metric-badge is-${pressureState}">${e(pressureLabel)}</span>
         </div>
         <div class="memory-metric-body">
@@ -141,7 +141,7 @@ function renderMemory() {
       </div>
       <div class="memory-metric metric-ram">
         <div class="memory-metric-head">
-          <span class="memory-metric-icon">${lucideIcon('memory-stick')}</span>
+          <span class="memory-metric-icon">${sfSymbol('memorychip')}</span>
           <span class="memory-metric-badge">${ramPercent}%</span>
         </div>
         <div class="memory-metric-body">
@@ -155,7 +155,7 @@ function renderMemory() {
       </div>
       <div class="memory-metric metric-swap">
         <div class="memory-metric-head">
-          <span class="memory-metric-icon">${lucideIcon('database')}</span>
+          <span class="memory-metric-icon">${sfSymbol('cylinder')}</span>
         </div>
         <div class="memory-metric-body">
           <dt>${e(mt('swap'))}</dt>
@@ -168,8 +168,8 @@ function renderMemory() {
       </div>
       <div class="memory-metric metric-processes">
         <div class="memory-metric-head">
-          <span class="memory-metric-icon">${lucideIcon('cpu')}</span>
-          ${growing ? `<span class="memory-metric-badge is-alert">${lucideIcon('trending-up')} ${growing}</span>` : ''}
+          <span class="memory-metric-icon">${sfSymbol('cpu')}</span>
+          ${growing ? `<span class="memory-metric-badge is-alert">${sfSymbol('chart.line.uptrend.xyaxis')} ${growing}</span>` : ''}
         </div>
         <div class="memory-metric-body">
           <dt>${e(mt('processCount'))}</dt>
@@ -215,7 +215,7 @@ function renderMemory() {
     th.classList.toggle('is-desc', isSorted && !memoryState.sortAsc);
     const indicator = th.querySelector('.sort-indicator');
     if (indicator) {
-      indicator.innerHTML = isSorted ? lucideIcon(memoryState.sortAsc ? 'arrow-up' : 'arrow-down') : lucideIcon('arrow-up-down');
+      indicator.innerHTML = isSorted ? sfSymbol(memoryState.sortAsc ? 'arrow.up' : 'arrow.down') : sfSymbol('arrow.up.arrow.down');
     }
   });
 
@@ -258,7 +258,7 @@ function renderMemory() {
         </td>
         <td class="memory-td-name">
           <div class="memory-proc-info" title="${e(row.exe || row.name)}">
-            <span class="memory-proc-icon">${lucideIcon(iconName)}</span>
+            <span class="memory-proc-icon">${sfSymbol(iconName)}</span>
             <div class="memory-proc-text">
               <strong class="memory-proc-title">${e(row.name)}</strong>
               <small class="memory-proc-role">${e(mt(row.role))}</small>
@@ -274,7 +274,7 @@ function renderMemory() {
         </td>
         <td class="memory-number ${growthClass}">
           <div class="memory-cell-metric">
-            <span class="memory-growth-pill ${statusClass}">${row.growing ? lucideIcon('trending-up', 'mini-icon') : ''} ${e(row.growthBytes == null ? mt('collecting') : memorySigned(row.growthBytes))}</span>
+            <span class="memory-growth-pill ${statusClass}">${row.growing ? sfSymbol('chart.line.uptrend.xyaxis', 'mini-icon') : ''} ${e(row.growthBytes == null ? mt('collecting') : memorySigned(row.growthBytes))}</span>
           </div>
         </td>
         <td class="memory-number memory-cpu-cell">
@@ -292,18 +292,18 @@ function renderMemory() {
         <td class="memory-td-actions">
           <div class="memory-row-actions">
             <button class="btn btn-secondary btn-icon-action" data-memory-action="details" data-key="${e(row.key)}" title="${e(mt('details'))}" aria-label="${e(mt('details'))}">
-              ${lucideIcon('activity')}<span>${e(mt('details'))}</span>
+              ${sfSymbol('waveform.path.ecg')}<span>${e(mt('details'))}</span>
             </button>
             ${row.protected ? '' : `<button class="btn btn-secondary btn-icon-action" data-memory-action="exclude" data-key="${e(row.key)}" title="${e(mt('exclude'))}" aria-label="${e(mt('exclude'))}">
-              ${lucideIcon('shield')}<span>${e(mt('exclude'))}</span>
+              ${sfSymbol('shield')}<span>${e(mt('exclude'))}</span>
             </button>`}
             ${row.helper ? `<button class="btn btn-secondary btn-icon-action" data-memory-action="rule" data-key="${e(row.key)}" title="${e(mt('addRule'))}" aria-label="${e(mt('addRule'))}">
-              ${lucideIcon('sliders-horizontal')}<span>${e(mt('addRule'))}</span>
+              ${sfSymbol('slider.horizontal.3')}<span>${e(mt('addRule'))}</span>
             </button>` : ''}
           </div>
         </td>
       </tr>`;
-    }).join('') || `<tr><td class="memory-empty" colspan="8">${lucideIcon(metrics.measuredAt ? 'search' : 'activity')}<strong>${e(metrics.measuredAt ? mt('empty') : mt('loading'))}</strong></td></tr>`;
+    }).join('') || `<tr><td class="memory-empty" colspan="8">${sfSymbol(metrics.measuredAt ? 'magnifyingglass' : 'waveform.path.ecg')}<strong>${e(metrics.measuredAt ? mt('empty') : mt('loading'))}</strong></td></tr>`;
   }
 
   if (focusKey && focusAction) document.querySelector(`#memory-processes [data-key="${CSS.escape(focusKey)}"][data-memory-action="${focusAction}"]`)?.focus({ preventScroll: true });
@@ -321,19 +321,19 @@ function renderMemory() {
       <div class="memory-rule memory-card-item">
         <div class="memory-card-main">
           <div class="memory-card-title-row">
-            <span class="memory-helper-icon">${lucideIcon('sliders-horizontal')}</span>
+            <span class="memory-helper-icon">${sfSymbol('slider.horizontal.3')}</span>
             <strong>${e(mt(rule.role))}</strong>
             <span class="memory-rule-status ${rule.enabled ? 'is-enabled' : 'is-disabled'}">${e(mt(rule.enabled ? 'enabled' : 'disabled'))}</span>
           </div>
           <code class="memory-card-path" title="${e(rule.exe)}">${e(rule.exe)}</code>
           <div class="memory-rule-chips">
-            <span class="memory-chip">${lucideIcon('memory-stick')} > ${e(formatBytes(rule.rssBytes))}</span>
-            <span class="memory-chip">${lucideIcon('clock')} > ${e(String(rule.durationSeconds / 60))}m</span>
-            <span class="memory-chip">${lucideIcon('activity')} ${e(mt('ruleHeadroom', { pressure: rule.pressureBelow }))}</span>
+            <span class="memory-chip">${sfSymbol('memorychip')} > ${e(formatBytes(rule.rssBytes))}</span>
+            <span class="memory-chip">${sfSymbol('clock')} > ${e(String(rule.durationSeconds / 60))}m</span>
+            <span class="memory-chip">${sfSymbol('waveform.path.ecg')} ${e(mt('ruleHeadroom', { pressure: rule.pressureBelow }))}</span>
           </div>
         </div>
         <div class="memory-card-action">
-          <button class="btn btn-secondary btn-sm" data-rule-id="${e(rule.id)}" aria-label="${e(mt('remove'))}">${lucideIcon('trash-2')}<span>${e(mt('remove'))}</span></button>
+          <button class="btn btn-secondary btn-sm" data-rule-id="${e(rule.id)}" aria-label="${e(mt('remove'))}">${sfSymbol('trash')}<span>${e(mt('remove'))}</span></button>
         </div>
       </div>
     `).join('') || `<p class="memory-note">${e(mt('noRules'))}</p>`;
@@ -346,12 +346,12 @@ function renderMemory() {
       <div class="memory-exclusion memory-card-item">
         <div class="memory-card-main">
           <div class="memory-exclusion-row">
-            <span class="memory-exclusion-icon">${lucideIcon('shield')}</span>
+            <span class="memory-exclusion-icon">${sfSymbol('shield')}</span>
             <code class="memory-card-path" title="${e(exe)}">${e(exe)}</code>
           </div>
         </div>
         <div class="memory-card-action">
-          <button class="btn btn-secondary btn-sm" data-exclusion="${e(exe)}" aria-label="${e(mt('remove'))}">${lucideIcon('trash-2')}<span>${e(mt('remove'))}</span></button>
+          <button class="btn btn-secondary btn-sm" data-exclusion="${e(exe)}" aria-label="${e(mt('remove'))}">${sfSymbol('trash')}<span>${e(mt('remove'))}</span></button>
         </div>
       </div>
     `).join('') || `<p class="memory-note">${e(mt('noExclusions'))}</p>`;
@@ -370,7 +370,7 @@ function renderMemory() {
         <time class="memory-event-time">${e(new Date(event.time * 1000).toLocaleTimeString())}</time>
         <div class="memory-event-info">
           <span class="memory-event-name">${e(event.name || event.key)}</span>
-          <span class="memory-event-mode">${lucideIcon(event.automatic ? 'zap' : 'check', 'mini-icon')} ${e(mt(event.automatic ? 'automatic' : 'manual'))}</span>
+          <span class="memory-event-mode">${sfSymbol(event.automatic ? 'bolt' : 'checkmark', 'mini-icon')} ${e(mt(event.automatic ? 'automatic' : 'manual'))}</span>
         </div>
         <span class="memory-event-outcome ${outcomeClass}">${e(mt(event.outcome))}</span>
         ${event.detail ? `<span class="memory-event-detail">${e(event.detail)}</span>` : ''}
@@ -536,18 +536,18 @@ function renderMemoryDetails(row, result, scroll = false) {
 
   const iconName = categoryIcon(row);
   const statusClass = row.protected ? 'is-protected' : row.growing ? 'is-growing' : row.historyReady ? 'is-stable' : 'is-collecting';
-  const statusIcon = row.protected ? 'shield' : row.growing ? 'trending-up' : row.historyReady ? 'check' : 'clock';
+  const statusIcon = row.protected ? 'shield' : row.growing ? 'chart.line.uptrend.xyaxis' : row.historyReady ? 'checkmark' : 'clock';
   const statusText = row.protected ? mt(row.protected) : row.growing ? mt('growing') : row.historyReady ? mt('stable') : mt('collecting');
 
   target.innerHTML = `
     <div class="memory-details-header">
       <div class="memory-details-title-wrap">
-        <span class="memory-details-icon">${lucideIcon(iconName)}</span>
+        <span class="memory-details-icon">${sfSymbol(iconName)}</span>
         <div>
           <h2>${e(row.name)} <span class="memory-pid-pill">PID ${row.pid}</span></h2>
           <div class="memory-details-path-row">
             <code class="memory-details-path" title="${e(row.exe)}">${e(row.exe || '—')}</code>
-            ${row.exe ? `<button type="button" class="btn-icon-xs memory-copy-path-btn" data-copy-path="${e(row.exe)}" title="${e(mt('copyPath'))}">${lucideIcon('copy')}</button>` : ''}
+            ${row.exe ? `<button type="button" class="btn-icon-xs memory-copy-path-btn" data-copy-path="${e(row.exe)}" title="${e(mt('copyPath'))}">${sfSymbol('doc.on.doc')}</button>` : ''}
           </div>
         </div>
       </div>
@@ -557,7 +557,7 @@ function renderMemoryDetails(row, result, scroll = false) {
           <span>${e(statusText)}</span>
         </span>
         <button type="button" class="btn-icon memory-details-close" id="memory-details-close" title="${e(mt('close'))}" aria-label="${e(mt('close'))}">
-          ${lucideIcon('x')}
+          ${sfSymbol('xmark')}
         </button>
       </div>
     </div>
@@ -606,8 +606,8 @@ function renderMemoryDetails(row, result, scroll = false) {
     </figure>
 
     <div class="memory-details-actions">
-      ${row.protected ? '' : `<button type="button" class="btn btn-secondary btn-sm" data-memory-action="detail-exclude" data-key="${e(row.key)}">${lucideIcon('shield')}<span>${e(mt('exclude'))}</span></button>`}
-      ${row.helper ? `<button type="button" class="btn btn-secondary btn-sm" data-memory-action="detail-rule" data-key="${e(row.key)}">${lucideIcon('sliders-horizontal')}<span>${e(mt('addRule'))}</span></button>` : ''}
+      ${row.protected ? '' : `<button type="button" class="btn btn-secondary btn-sm" data-memory-action="detail-exclude" data-key="${e(row.key)}">${sfSymbol('shield')}<span>${e(mt('exclude'))}</span></button>`}
+      ${row.helper ? `<button type="button" class="btn btn-secondary btn-sm" data-memory-action="detail-rule" data-key="${e(row.key)}">${sfSymbol('slider.horizontal.3')}<span>${e(mt('addRule'))}</span></button>` : ''}
     </div>
   `;
 

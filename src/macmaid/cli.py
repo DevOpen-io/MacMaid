@@ -239,7 +239,7 @@ def _print_memory_snapshot(
             if growth_value is None:
                 growth_text = "[dim italic]collecting[/dim italic]"
             elif row.get("growing"):
-                growth_text = f"[bold yellow]+{human_bytes(growth_value)} ↗[/bold yellow]"
+                growth_text = f"[bold yellow]+{human_bytes(growth_value)} ^[/bold yellow]"
             elif growth_value > 0:
                 growth_text = f"[yellow]+{human_bytes(growth_value)}[/yellow]"
             elif growth_value < 0:
@@ -255,13 +255,13 @@ def _print_memory_snapshot(
                 cpu = f"[yellow]{cpu}[/yellow]"
 
             if row.get("protected"):
-                status = f"[dim]🔒 {row['protected']}[/dim]"
+                status = f"[dim]* {row['protected']}[/dim]"
             elif row.get("growing"):
-                status = "[bold yellow]▲ growing[/bold yellow]"
+                status = "[bold yellow]! growing[/bold yellow]"
             elif row.get("historyReady"):
-                status = "[green]✓ stable[/green]"
+                status = "[green]+ stable[/green]"
             else:
-                status = "[dim]⏳ collecting[/dim]"
+                status = "[dim]~ collecting[/dim]"
 
             role = row.get("role") or ""
             table.add_row(str(row["pid"]), row["name"], rss, growth_text, cpu, status, role)
@@ -418,9 +418,9 @@ def main(argv: list[str] | None = None) -> None:
             for check in checks:
                 val = str(check["value"])
                 if check.get("ok") is True:
-                    val_styled = f"[green]✓ {val}[/green]"
+                    val_styled = f"[green]+ {val}[/green]"
                 elif check.get("ok") is False:
-                    val_styled = f"[red]■ {val}[/red]"
+                    val_styled = f"[red]x {val}[/red]"
                 else:
                     val_styled = val
                 table.add_row(check["name"], val_styled)
@@ -440,11 +440,11 @@ def main(argv: list[str] | None = None) -> None:
             for item in status["healthIndicators"]:
                 state_raw = item["state"].upper()
                 if state_raw == "NORMAL":
-                    state_styled = "[bold green]● NORMAL[/bold green]"
+                    state_styled = "[bold green]+ NORMAL[/bold green]"
                 elif state_raw in ("ELEVATED", "WARNING"):
-                    state_styled = "[bold yellow]▲ WARNING[/bold yellow]"
+                    state_styled = "[bold yellow]! WARNING[/bold yellow]"
                 else:
-                    state_styled = f"[bold red]■ {state_raw}[/bold red]"
+                    state_styled = f"[bold red]x {state_raw}[/bold red]"
                 table.add_row(
                     item["label"],
                     state_styled,

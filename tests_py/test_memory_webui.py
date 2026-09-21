@@ -60,9 +60,9 @@ def test_memory_workspace_keeps_overview_controls_and_safety_context_together():
     assert 'data-i18n-title="memory.refreshProcesses"' in html
     assert 'data-i18n-aria="memory.processFilters"' in html
     assert 'data-i18n-aria="memory.select"' in html
-    assert "lucideIcon('settings')" not in script
+    assert "sfSymbol('gearshape')" not in script
     assert "'user', 'mini-icon'" not in script
-    assert "lucideIcon('sliders-horizontal')" in script
+    assert "sfSymbol('slider.horizontal.3')" in script
     assert 'const MEMORY_COPY = {' in catalog
     assert 'const MEMORY_COPY = {' not in script
     assert '.memory-status.is-growing' in styles

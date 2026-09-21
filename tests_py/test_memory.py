@@ -597,9 +597,9 @@ def test_doctor_uses_structured_health_status(service, monkeypatch, capsys):
     ])
     cli.main(["doctor"])
     output = capsys.readouterr().out
-    assert "■ Unavailable" in output
-    assert "✓ Available" in output
-    assert "✓ Unknown" not in output and "■ Unknown" not in output
+    assert "x Unavailable" in output
+    assert "+ Available" in output
+    assert "+ Unknown" not in output and "x Unknown" not in output
 
 
 def test_cli_memory_stop_is_review_only_without_apply(service, monkeypatch, capsys):

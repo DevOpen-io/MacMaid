@@ -47,17 +47,17 @@ from .system import human_bytes, macos_permission_report, run_command
 
 
 NAVIGATION = [
-    ("clean", "✦", "Clean", "Scan safely, choose a profile, then reclaim space"),
-    ("apps", "⌫", "Uninstall Apps", "Remove applications plus exact, reviewable leftovers"),
-    ("optimize", "⚙", "Optimize", "Refresh safe macOS caches and services"),
-    ("analyzer", "◫", "Analyze", "Browse disk usage, search, multi-select and move items to Trash"),
-    ("purge", "⌁", "Project Purge", "Find old rebuildable project artifacts and dependency folders"),
-    ("developer", "⌘", "Developer Tools", "Inspect runtimes, SDKs, global tools and package caches"),
-    ("status", "●", "Mac Health", "Evidence-based disk, memory-pressure, thermal and battery status"),
-    ("files", "▧", "Files & Storage", "Large files, duplicates, downloads and browser storage"),
-    ("more", "⋯", "System & History", "Leftovers, installers, snapshots, history and diagnostics"),
-    ("memory", "▤", "Memory", "Inspect process memory growth and review exact processes before stopping"),
-    ("update", "↑", "Check for Updates", "Check Homebrew for a newer MacMaid release"),
+    ("clean", "Clean", "Scan safely, choose a profile, then reclaim space"),
+    ("apps", "Uninstall Apps", "Remove applications plus exact, reviewable leftovers"),
+    ("optimize", "Optimize", "Refresh safe macOS caches and services"),
+    ("analyzer", "Analyze", "Browse disk usage, search, multi-select and move items to Trash"),
+    ("purge", "Project Purge", "Find old rebuildable project artifacts and dependency folders"),
+    ("developer", "Developer Tools", "Inspect runtimes, SDKs, global tools and package caches"),
+    ("status", "Mac Health", "Evidence-based disk, memory-pressure, thermal and battery status"),
+    ("files", "Files & Storage", "Large files, duplicates, downloads and browser storage"),
+    ("more", "System & History", "Leftovers, installers, snapshots, history and diagnostics"),
+    ("memory", "Memory", "Inspect process memory growth and review exact processes before stopping"),
+    ("update", "Check for Updates", "Check Homebrew for a newer MacMaid release"),
 ]
 
 OPTIMIZATION_HELP = {
@@ -317,15 +317,15 @@ class MacMaidTUI(App[None]):
                 ListItem(
                     Vertical(
                         Horizontal(
-                            Label("➤", classes="menu-marker"),
-                            Label(f"{0 if key == 'update' else index}.  {icon}  {title}", classes="nav-title"),
+                            Label(">", classes="menu-marker"),
+                            Label(f"{0 if key == 'update' else index}.  {title}", classes="nav-title"),
                             classes="menu-line",
                         ),
                         Label(desc, classes="nav-desc"),
                     ),
                     id=f"nav-{key}",
                 )
-                for index, (key, icon, title, desc) in enumerate(NAVIGATION, 1)
+                for index, (key, title, desc) in enumerate(NAVIGATION, 1)
             ],
             id="nav",
         )
@@ -356,7 +356,7 @@ class MacMaidTUI(App[None]):
                 ListItem(
                     Vertical(
                         Horizontal(
-                            Label("➤", classes="menu-marker"),
+                            Label(">", classes="menu-marker"),
                             Label(self._menu_title(index, title), classes="action-title"),
                             classes="menu-line",
                         ),
@@ -372,10 +372,10 @@ class MacMaidTUI(App[None]):
 
     def _clean_page(self) -> Vertical:
         return self._page("clean", "Choose cleanup profile", "The profile controls how deep the scan goes. You will review the result before anything is deleted.", self._action_menu("clean-actions", [
-            ("clean-profile-safe", "○  Safe  [LOW RISK]", "Third-party caches, old logs and browser rendering/network caches."),
-            ("clean-profile-deep", "◉  Deep  [BALANCED]", "Adds Apple user caches and saved application state."),
-            ("clean-profile-developer", "◆  Developer  [RECOMMENDED]", "Deep-ish cleanup plus Xcode/package-manager/developer caches."),
-            ("clean-profile-aggressive", "▲  Aggressive  [MAX CLEAN]", "Adds expensive-to-regenerate dependency caches; still protects user data."),
+            ("clean-profile-safe", "Safe  [LOW RISK]", "Third-party caches, old logs and browser rendering/network caches."),
+            ("clean-profile-deep", "Deep  [BALANCED]", "Adds Apple user caches and saved application state."),
+            ("clean-profile-developer", "Developer  [RECOMMENDED]", "Deep-ish cleanup plus Xcode/package-manager/developer caches."),
+            ("clean-profile-aggressive", "Aggressive  [MAX CLEAN]", "Adds expensive-to-regenerate dependency caches; still protects user data."),
         ]), Static("↑↓ / j k  Navigate     Enter  Scan     1–4  Jump     Esc/B  Back", classes="hint"))
 
     def _clean_results_page(self) -> Vertical:
@@ -408,13 +408,13 @@ class MacMaidTUI(App[None]):
 
     def _developer_page(self) -> Vertical:
         return self._page("developer", "Developer Tools", "Developer storage with manager-aware removal and cache cleanup", self._action_menu("developer-actions", [
-            ("developer-kind-storage", "▤  Storage Center", "Grouped Xcode, Node, Python, Rust, Android and Docker storage overview"),
-            ("developer-kind-runtime", "{}  Runtimes & Languages", "Find managed Python, Ruby, Rust, Node, Go, Java and other versions"),
-            ("developer-kind-environment", "◌  Environments", "Find Conda/Micromamba environments and virtualenv storage"),
-            ("developer-kind-tool", "⌁  Global CLI tools", "Find Homebrew leaves, pipx, uv, npm, pnpm, Cargo and related installs"),
-            ("developer-kind-sdk", "▣  SDKs & simulators", "Inspect Android SDK/NDK/AVDs plus Xcode runtimes and devices"),
-            ("developer-kind-cache", "▦  Package-manager caches", "Measure and clean manager-owned package caches"),
-            ("back", "←  Back", "Return to the main menu"),
+            ("developer-kind-storage", "Storage Center", "Grouped Xcode, Node, Python, Rust, Android and Docker storage overview"),
+            ("developer-kind-runtime", "Runtimes & Languages", "Find managed Python, Ruby, Rust, Node, Go, Java and other versions"),
+            ("developer-kind-environment", "Environments", "Find Conda/Micromamba environments and virtualenv storage"),
+            ("developer-kind-tool", "Global CLI tools", "Find Homebrew leaves, pipx, uv, npm, pnpm, Cargo and related installs"),
+            ("developer-kind-sdk", "SDKs & simulators", "Inspect Android SDK/NDK/AVDs plus Xcode runtimes and devices"),
+            ("developer-kind-cache", "Package-manager caches", "Measure and clean manager-owned package caches"),
+            ("back", "Back", "Return to the main menu"),
         ]), Static("↑↓ / j k  Navigate     Enter  Select     Esc/B  Back", classes="hint"))
 
     def _developer_results_page(self) -> Vertical:
@@ -447,24 +447,24 @@ class MacMaidTUI(App[None]):
 
     def _files_page(self) -> Vertical:
         return self._page("files", "Files & Storage", "User-file and browser inspection tools; nothing is removed without review", self._action_menu("files-actions", [
-            ("files-browser-storage", "◉  Browser Storage", "Inspect cache, site data, cookies and session boundaries"),
-            ("files-smart-downloads", "↓  Smart Downloads", "Classify installers, archives, incomplete downloads and duplicates"),
-            ("files-duplicates", "⧉  Duplicate Files", "Find byte-for-byte matches; nothing is selected automatically"),
-            ("files-large-files", "◫  Large & Old Files", "Choose independent size and age filters after one read-only scan"),
-            ("back", "←  Back", "Return to the main menu"),
+            ("files-browser-storage", "Browser Storage", "Inspect cache, site data, cookies and session boundaries"),
+            ("files-smart-downloads", "Smart Downloads", "Classify installers, archives, incomplete downloads and duplicates"),
+            ("files-duplicates", "Duplicate Files", "Find byte-for-byte matches; nothing is selected automatically"),
+            ("files-large-files", "Large & Old Files", "Choose independent size and age filters after one read-only scan"),
+            ("back", "Back", "Return to the main menu"),
         ]), Static("↑↓ / j k  Navigate     Enter  Select     Esc/B  Back", classes="hint"))
 
     def _more_page(self) -> Vertical:
         return self._page("more", "System & History", "Maintenance, diagnostics and audit tools", self._action_menu("more-actions", [
-            ("more-leftovers", "◇  Leftovers", "Find safe remnants from removed applications"),
-            ("more-installers", "↓  Installers", "Find old DMG, PKG, XIP, ISO and IPSW files"),
-            ("more-snapshots", "◷  Snapshots", "List local Time Machine snapshots"),
-            ("more-doctor", "+  Doctor", "Check MacMaid and macOS capabilities"),
-            ("more-permissions", "◉  Permissions", "Review readable, limited and unavailable cleanup locations"),
-            ("more-settings", "⚙  Settings", "Choose Turkish or English and save interface preferences"),
-            ("more-history", "≡  History", "Show recent activity in a readable timeline"),
-            ("more-whitelist", "✓  Whitelist", "Show the protected custom-path list"),
-            ("back", "←  Back", "Return to the main menu"),
+            ("more-leftovers", "Leftovers", "Find safe remnants from removed applications"),
+            ("more-installers", "Installers", "Find old DMG, PKG, XIP, ISO and IPSW files"),
+            ("more-snapshots", "Snapshots", "List local Time Machine snapshots"),
+            ("more-doctor", "Doctor", "Check MacMaid and macOS capabilities"),
+            ("more-permissions", "Permissions", "Review readable, limited and unavailable cleanup locations"),
+            ("more-settings", "Settings", "Choose Turkish or English and save interface preferences"),
+            ("more-history", "History", "Show recent activity in a readable timeline"),
+            ("more-whitelist", "Whitelist", "Show the protected custom-path list"),
+            ("back", "Back", "Return to the main menu"),
         ]), Static("↑↓ / j k  Navigate     Enter  Select     Esc/B  Back", classes="hint"))
 
     def _more_results_page(self) -> Vertical:
@@ -479,7 +479,7 @@ class MacMaidTUI(App[None]):
             self._action_menu("update-actions", [
                 ("update-install", "Install Update", "Review and install the available Homebrew Cask update"),
                 ("update-check", "Check Again", "Refresh Homebrew metadata and check again"),
-                ("back", "←  Back", "Return to the main menu"),
+                ("back", "Back", "Return to the main menu"),
             ]),
             Static("↑↓ Select · Enter Continue · R Check again · Esc Back", id="update-hint", classes="hint"),
         )
@@ -491,7 +491,7 @@ class MacMaidTUI(App[None]):
             self._action_menu("settings-actions", [
                 ("settings-language-tr", "Türkçe", "Türkçe arayüzü kullan"),
                 ("settings-language-en", "English", "Use the English interface"),
-                ("back", "←  Back", "Return to System & History"),
+                ("back", "Back", "Return to System & History"),
             ]),
             Static("↑↓ Seç · Enter Kaydet · Esc Geri", classes="hint"),
         )
@@ -612,17 +612,17 @@ class MacMaidTUI(App[None]):
         self.current_page = "operation"
         self.query_one("#pages", ContentSwitcher).current = "page-operation"
         self.query_one("#operation-progress", ProgressBar).update(total=max(total, 1), progress=0)
-        self.query_one("#operation-current", Static).update(f"◌  {title} hazırlanıyor…")
+        self.query_one("#operation-current", Static).update(f"~  {title} hazırlanıyor…")
         self.query_one("#operation-log", Static).update("")
         self.query_one("#operation-summary", Static).update(self._snapshot_line("ÖNCE", before))
         self.query_one("#operation-hint", Static).update("L Canlı olayları aç/kapat · İşlem sürüyor · lütfen terminali kapatma")
-        self._set_activity(f"◌  {title} çalışıyor…")
+        self._set_activity(f"~  {title} çalışıyor…")
 
     def _operation_item(self, index: int, total: int, label: str, outcome: str) -> None:
         self._append_live_event("Operation", label, int(index / max(total, 1) * 100), index)
-        icons = {"running": "◌", "success": "✓", "failed": "✕", "skipped": "!"}
+        icons = {"running": "~", "success": "+", "failed": "x", "skipped": "!"}
         labels = {"success": "Tamamlandı", "failed": "Başarısız", "skipped": "Atlandı"}
-        icon = icons.get(outcome, "·")
+        icon = icons.get(outcome, "-")
         if outcome == "running":
             self.query_one("#operation-current", Static).update(f"{icon}  {index}/{total} · {label}")
         else:
@@ -638,7 +638,7 @@ class MacMaidTUI(App[None]):
     def _complete_operation(self, title: str, summary: str, before: dict[str, Any], after: dict[str, Any], *, failed: bool = False) -> None:
         self.operation_done = True
         self._mutation_requested = False
-        self.query_one("#operation-current", Static).update(f"{'✕' if failed else '✓'}  {title} · {summary}")
+        self.query_one("#operation-current", Static).update(f"{'x' if failed else '+'}  {title} · {summary}")
         if before and after:
             delta = int(after["disk_free"]) - int(before["disk_free"])
             observed = f"GÖZLENEN BOŞ ALAN FARKI: {human_bytes(abs(delta))} {'artış' if delta >= 0 else 'azalış'}"
@@ -649,7 +649,7 @@ class MacMaidTUI(App[None]):
             f"{self._snapshot_line('ÖNCE', before)}\n{self._snapshot_line('SONRA', after)}\n{observed}\n{caveat}\n\n{summary}"
         )
         self.query_one("#operation-hint", Static).update("Enter  Ana menüye dön  ·  Q  Çıkış")
-        self._set_activity(f"{'✕' if failed else '✓'}  {summary} · Enter ile ana menü")
+        self._set_activity(f"{'x' if failed else '+'}  {summary} · Enter ile ana menü")
 
     def on_key(self, event: events.Key) -> None:
         if self.current_page in {"clean-results", "operation"} and event.key.casefold() == "l":
@@ -734,7 +734,7 @@ class MacMaidTUI(App[None]):
             if self.operation_done:
                 self.open_page("dashboard")
             else:
-                self._set_activity("◌  İşlem halen devam ediyor")
+                self._set_activity("~  İşlem halen devam ediyor")
         elif self.current_page == "status-results" or (self.current_page == "more-results" and self.more_result is None):
             event.stop()
             self.open_page("dashboard")
@@ -773,13 +773,13 @@ class MacMaidTUI(App[None]):
             or re.search(r"\b[1-9]\d* atlandı\b", lowered) is not None
         )
         if has_error:
-            icon, state_class = "✕", "error"
+            icon, state_class = "x", "error"
         elif any(word in lowered for word in busy_words):
-            icon, state_class = "◌", "busy"
+            icon, state_class = "~", "busy"
         elif has_warning:
             icon, state_class = "!", "warning"
         else:
-            icon, state_class = "✓", "success"
+            icon, state_class = "+", "success"
         try:
             state = self.query_one(f"#{page}-state", Static)
         except NoMatches:
@@ -1102,7 +1102,7 @@ class MacMaidTUI(App[None]):
             if self.operation_done:
                 self.exit()
             else:
-                self._set_activity("◌  İşlem sürerken çıkış güvenlik nedeniyle engellendi")
+                self._set_activity("~  İşlem sürerken çıkış güvenlik nedeniyle engellendi")
         else:
             self.action_back()
     def action_back(self) -> None:
@@ -1321,7 +1321,7 @@ class MacMaidTUI(App[None]):
         self.query_one("#clean-target", Static).update(self._ui("{phase} · {percent}% · {found} found · {path}").format(phase=phase, percent=percent, found=found, path=path or self._ui("working")))
         state = self.query_one("#clean-state", Static)
         state.set_classes("state busy")
-        state.update(f"◌  {phase}")
+        state.update(f"~  {phase}")
 
     def _start_clean_scan(self) -> None:
         self._reset_scan("clean")
@@ -1527,11 +1527,11 @@ class MacMaidTUI(App[None]):
         self.analyzer_snapshot = result; self.analyzer_path = Path(result["path"]); self._render_analysis(result)
 
     def _render_analysis(self, result: dict[str, Any]) -> None:
-        table = self.query_one("#analyzer-table", DataTable); cursor = table.cursor_row if table.row_count else 0; table.clear(); icons = {"ready": "✓", "scanning": "◌", "pending": "·", "failed": "!", "cancelled": "×", "partial": "◐"}
+        table = self.query_one("#analyzer-table", DataTable); cursor = table.cursor_row if table.row_count else 0; table.clear(); icons = {"ready": "+", "scanning": "~", "pending": ".", "failed": "!", "cancelled": "x", "partial": "*"}
         for e in result.get("entries", []):
             percent = e.get("percent", 0); measured = e["state"] in {"ready", "partial"}
             size = f"{'~' if e['state'] == 'partial' else ''}{e.get('humanBytes', '—')}" if measured else "measuring…"
-            table.add_row(icons.get(e["state"], "·"), size, self._compact_bar(percent / 100, 10) if measured else "[··········]", "▸" if e["directory"] else "·", e["name"], e["path"])
+            table.add_row(icons.get(e["state"], "."), size, self._compact_bar(percent / 100, 10) if measured else "[..........]", ">" if e["directory"] else ".", e["name"], e["path"])
         self._restore_cursor(table, cursor); done = result.get("completed", 0) + result.get("failed", 0) + result.get("partial", 0); total = result.get("total", 0); self.query_one("#analyzer-progress", ProgressBar).update(total=max(total, 1), progress=done if total else 1)
         if result.get("isCancelled"):
             suffix = f"iptal edildi · {done}/{total} ölçüldü · sonuç eksik"
@@ -1675,7 +1675,7 @@ class MacMaidTUI(App[None]):
                 table.add_row("—", human_bytes(section.bytes), Text("VIEW", style="bold #5ee7e7"), "storage", section.title, detail)
         else:
             for x in self.developer_items:
-                state = Text("● ACTIVE", style="bold #d9bd72") if x.is_active else Text("✓ REMOVABLE", style="bold #8fcf8b") if x.removable else Text("◆ PROTECTED", style="bold #e27d82")
+                state = Text("* ACTIVE", style="bold #d9bd72") if x.is_active else Text("+ REMOVABLE", style="bold #8fcf8b") if x.removable else Text("! PROTECTED", style="bold #e27d82")
                 table.add_row("—", human_bytes(x.bytes), state, x.manager, x.title, f"{x.version} · {x.path}")
         self._restore_cursor(table, cursor)
         if table.row_count: self._update_row_detail("developer-table", table.cursor_row)
@@ -1812,7 +1812,7 @@ class MacMaidTUI(App[None]):
             if delta is None:
                 growth_cell = Text("collecting", style="dim")
             elif row.get("growing"):
-                growth_cell = Text(f"+{human_bytes(abs(delta))} ↗", style="bold #e3b341")
+                growth_cell = Text(f"+{human_bytes(abs(delta))} ^", style="bold #e3b341")
             elif delta < 0:
                 growth_cell = Text(f"-{human_bytes(abs(delta))}", style="#57ab5a")
             else:
@@ -1830,13 +1830,13 @@ class MacMaidTUI(App[None]):
 
             prot = row.get("protected")
             if prot:
-                status_cell = Text(f"🔒 {prot}", style="dim")
+                status_cell = Text(f"* {prot}", style="dim")
             elif row.get("growing"):
-                status_cell = Text("▲ growing", style="bold #e3b341")
+                status_cell = Text("! growing", style="bold #e3b341")
             elif row.get("historyReady"):
-                status_cell = Text("✓ stable", style="#57ab5a")
+                status_cell = Text("+ stable", style="#57ab5a")
             else:
-                status_cell = Text("⏳ collecting", style="dim")
+                status_cell = Text("~ collecting", style="dim")
 
             pid_cell = Text(str(row["pid"]), style="#79c0ff")
             name_cell = Text(row["name"], style="bold" if row.get("growing") else "")
@@ -1945,7 +1945,7 @@ class MacMaidTUI(App[None]):
         output = Text()
         health = m.get("healthIndicators") or []
         if health:
-            state_icons = {"normal": "✓", "warning": "!", "critical": "✕", "unknown": "?", "not_applicable": "—"}
+            state_icons = {"normal": "+", "warning": "!", "critical": "x", "unknown": "?", "not_applicable": "-"}
             output.append("Mac health indicators\n", style="bold")
             for item in health:
                 icon = state_icons.get(item.get("state"), "?")
@@ -2534,7 +2534,7 @@ class MacMaidTUI(App[None]):
 
     @staticmethod
     def _selection_cell(selected: bool) -> Text:
-        return Text("[✓]" if selected else "[ ]", style="bold #57c76b" if selected else "#666b73")
+        return Text("[x]" if selected else "[ ]", style="bold #57c76b" if selected else "#666b73")
 
     @staticmethod
     def _risk_cell(risk: RiskLevel | str) -> Text:
