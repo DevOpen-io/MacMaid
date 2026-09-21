@@ -66,10 +66,10 @@ class Cleaner:
                     raise PermissionError(f"Close {item.requires_app_closed} first")
                 # Trash moves never read before/after: `reclaimed` stays 0 for them
                 # and the move's post-condition is verified inside _execute_item.
-                measured = item.path is not None and item.action.kind is not ActionType.MOVE_TO_TRASH
-                before = size_of(item.path) if measured else 0
+                measured_path = item.path if item.action.kind is not ActionType.MOVE_TO_TRASH else None
+                before = size_of(measured_path) if measured_path is not None else 0
                 trash_destination = self._execute_item(item, allow_manual_fallback=allow_manual_fallback)
-                after = size_of(item.path) if measured else 0
+                after = size_of(measured_path) if measured_path is not None else 0
                 reclaimed = 0
                 result.processed_estimated_bytes += max(0, item.estimated_bytes)
                 if item.action.kind is ActionType.MOVE_TO_TRASH:

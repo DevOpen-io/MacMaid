@@ -116,9 +116,9 @@ def test_devcaches_webui_scan_clean_rescan_isolated(monkeypatch, tmp_path):
             wait_rows()
             first = rows()
             labels = [r["label"] for r in first]
-            assert any(l.startswith("npm cache clean") for l in labels), labels
-            assert any(l.startswith("npx package cache") for l in labels), labels
-            assert not any("logs" in l.lower() for l in labels), labels
+            assert any(label.startswith("npm cache clean") for label in labels), labels
+            assert any(label.startswith("npx package cache") for label in labels), labels
+            assert not any("logs" in label.lower() for label in labels), labels
             native = next(r for r in first if r["label"].startswith("npm cache clean"))
             manual = next(r for r in first if r["label"].startswith("npx package cache"))
             assert native["checked"] and not native["disabled"]

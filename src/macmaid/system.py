@@ -13,7 +13,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, Iterator
+from typing import Any, Callable, Iterable, Iterator
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,7 +143,7 @@ def macos_permission_report(home: Path | None = None) -> dict:
         except OSError:
             container_paths = []
 
-    groups = []
+    groups: list[dict[str, Any]] = []
     for identifier, paths in (
         ("userCaches", cache_paths),
         ("browserProfiles", browser_paths),

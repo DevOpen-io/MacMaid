@@ -12,6 +12,7 @@ from macmaid.analyzer import IncrementalAnalyzer, _WalkContext
 
 
 def _wait_complete(analyzer: IncrementalAnalyzer, path: Path, timeout: float = 3, min_file_bytes: int = 1) -> dict:
+    analyzer.snapshot(path, start=True, min_file_bytes=min_file_bytes)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         result = analyzer.snapshot(path, min_file_bytes=min_file_bytes)

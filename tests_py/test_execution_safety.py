@@ -220,7 +220,8 @@ def application(config, monkeypatch, cask=None):
     (path / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleIdentifier": "org.example.app"}))
     app = InstalledApplication("Example", path, "org.example.app", "1", 10, cask)
     manager = ApplicationManager(config)
-    scan = lambda: [app] if path.exists() else []
+    def scan() -> list:
+        return [app] if path.exists() else []
     monkeypatch.setattr(manager, "scan", scan)
     monkeypatch.setattr(manager, "_refresh_identity",
                         lambda a: next((i for i in scan() if i.path == a.path), None))

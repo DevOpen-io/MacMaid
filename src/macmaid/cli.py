@@ -496,8 +496,8 @@ def main(argv: list[str] | None = None) -> None:
         if not areas:
             print("No browser storage found."); return
         for area in areas:
-            status = "SMART CLEAN" if area.cleanable else "USER DATA"
-            print(f"{human_bytes(area.bytes):>10}  {status:<11}  {area.browser} · {area.profile} · {area.kind}\n     {area.path}\n     {area.reason}")
+            tag = "SMART CLEAN" if area.cleanable else "USER DATA"
+            print(f"{human_bytes(area.bytes):>10}  {tag:<11}  {area.browser} · {area.profile} · {area.kind}\n     {area.path}\n     {area.reason}")
     elif command == "smart-downloads":
         files = _run_interruptible_scan(lambda: SmartDownloadsScanner(older_than_days=args.older_than_days).scan())
         if files is None: return

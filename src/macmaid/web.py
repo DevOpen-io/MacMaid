@@ -14,6 +14,7 @@ from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 from .analyzer import IncrementalAnalyzer
@@ -22,7 +23,8 @@ from .cancellation import CancellationToken
 from .cleaner import Cleaner
 from .config import Config
 from .features import (
-    OPTIMIZATIONS, OPTIMIZATION_UNAVAILABLE_REASON, ApplicationManager, ProjectPurgeManager, RecoveryCenter,
+    OPTIMIZATIONS, OPTIMIZATION_UNAVAILABLE_REASON, ApplicationManager, InstalledApplication,
+    ProjectArtifact, ProjectPurgeManager, RecoveryCenter,
     apply_macmaid_brew_update, doctor, history, list_snapshots, macmaid_brew_update_status,
     run_optimization, system_status, thin_snapshots,
 )
@@ -59,7 +61,7 @@ def _operation_payload(result) -> dict:
 class ProgressState:
     def __init__(self) -> None:
         self.lock = threading.Lock()
-        self.value = {"active": False, "service": "", "action": "", "phase": "", "path": "", "completed": 0, "total": 0, "percent": 0, "detail": "", "logs": []}
+        self.value: dict[str, Any] = {"active": False, "service": "", "action": "", "phase": "", "path": "", "completed": 0, "total": 0, "percent": 0, "detail": "", "logs": []}
 
     def start(self, service: str, action: str) -> None:
         with self.lock:
@@ -118,8 +120,8 @@ class WebState:
         self.duplicates: set[Path] = set()
         self.large_files: set[Path] = set()
         self.smart_downloads: set[Path] = set()
-        self.apps = []
-        self.projects = []
+        self.apps: list[InstalledApplication] = []
+        self.projects: list[ProjectArtifact] = []
         self.analyzed_paths: set[Path] = set()
         self.treemap_paths: set[Path] = set()
         self.developer_items: dict[str, list] = {}
@@ -129,6 +131,7 @@ class WebState:
         self.icon_cache: dict[str, tuple[int, int, bytes]] = {}
         self.analyzer = IncrementalAnalyzer()
         self.memory = MemoryService(self.config, self.mutation_lock)
+        self.macmaid_update: dict | None = None
 
 
 def _webui_root() -> Path:
@@ -341,10 +344,10 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                     state.review_tokens.clear()
                 state.review_tokens[token] = (scope, generation, plan.fingerprint)
             return {"success": True, "reviewRequired": True, "reviewToken": token, "review": plan.web_dict()}
-        token = body.get("reviewToken")
+        provided_token = body.get("reviewToken")
         with state.lock:
-            record = state.review_tokens.pop(token, None) if isinstance(token, str) else None
-        if record != (scope, generation, plan.fingerprint) or not validate_review_token(state.token, scope, generation, plan, token or ""):
+            record = state.review_tokens.pop(provided_token, None) if isinstance(provided_token, str) else None
+        if record != (scope, generation, plan.fingerprint) or not validate_review_token(state.token, scope, generation, plan, provided_token or ""):
             raise PermissionError("A fresh review of this exact selection is required")
         if plan.requires_extra_opt_in and body.get("extraOptIn") is not True:
             raise PermissionError("Explicit user-data/MANUAL opt-in is required")
@@ -364,6 +367,15 @@ class MacMaidHandler(BaseHTTPRequestHandler):
         state.progress.finish(done(result))
         return result
 
+    @staticmethod
+    def _item_age_days(path: Path | None) -> int | None:
+        if path is None:
+            return None
+        try:
+            return max(0, int((time.time() - path.stat().st_mtime) / 86400))
+        except OSError:
+            return None
+
     def _route_get(self, path: str, query: dict[str, str]) -> dict:
         state = self.server.state
         if path == "/api/memory":
@@ -375,7 +387,13 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             analyzer = state.analyzer.progress()
             return analyzer if analyzer.get("active") and not regular.get("active") else regular
         if path == "/api/macmaid/update":
-            return macmaid_brew_update_status()
+            # Read-only view of the last explicit check; never spawn brew
+            # subprocesses from a passive GET. Refresh via POST /check.
+            cached = getattr(state, "macmaid_update", None)
+            if cached is not None:
+                return dict(cached)
+            return {"available": False, "installed": False, "installedVersion": None,
+                    "latestVersion": None, "reason": "Not checked yet"}
         if path == "/api/status":
             raw = system_status()
             return {"metrics": raw, "health": raw["healthIndicators"], "uptime": max(0, time.time() - raw["bootTime"]), "loadAverage": list(os.getloadavg()), "thermal": raw["thermal"], "battery": raw["battery"] or {}, "processes": raw["processes"]}
@@ -439,7 +457,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 state.installers = result
                 self._bump_generation("installers")
             return {"status": result.status, "isComplete": result.is_complete, "issues": result.issues, "notes": result.notes,
-                    "installers": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
+                    "installers": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes), ageDays=self._item_age_days(item.path)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
         if path == "/api/leftovers":
             result = self._scan_endpoint(
                 "leftovers", "Scanning application leftovers",
@@ -450,14 +468,14 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 state.leftovers = result
                 self._bump_generation("leftovers")
             return {"status": result.status, "isComplete": result.is_complete, "issues": result.issues, "notes": result.notes,
-                    "leftovers": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
+                    "leftovers": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes), ageDays=self._item_age_days(item.path)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
         if path == "/api/treemap":
-            result = state.analyzer.snapshot(
+            analysis = state.analyzer.snapshot(
                 query.get("path", "~"), start=query.get("start") == "true", force=query.get("force") == "true",
                 top=50, min_file_bytes=1_048_576,
             )
             nodes = []
-            for entry in result["entries"]:
+            for entry in analysis["entries"]:
                 if entry.get("state") != "ready":
                     continue
                 nodes.append(dict(entry, cleanupCandidate=not entry.get("viewOnly"),
@@ -465,9 +483,9 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             with state.lock:
                 state.treemap_paths = {Path(entry["path"]) for entry in nodes}
                 self._bump_generation("treemap")
-            return dict(result, nodes=nodes)
+            return dict(analysis, nodes=nodes)
         if path == "/api/analyze":
-            result = state.analyzer.snapshot(
+            analysis = state.analyzer.snapshot(
                 query.get("path", "~"),
                 start=query.get("start") == "true",
                 force=query.get("force") == "true",
@@ -476,10 +494,10 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 focus_id=int(query["nav"]) if "nav" in query else None,
             )
             with state.lock:
-                state.analyzed_paths = ({Path(entry["path"]) for entry in result["entries"] if entry.get("state") == "ready"}
-                                        | {Path(entry["path"]) for entry in result["largestFiles"]})
+                state.analyzed_paths = ({Path(entry["path"]) for entry in analysis["entries"] if entry.get("state") == "ready"}
+                                        | {Path(entry["path"]) for entry in analysis["largestFiles"]})
                 self._bump_generation("analyzer")
-            return result
+            return analysis
         if path == "/api/browser-storage":
             inspector = BrowserStorageInspector()
             areas = inspector.scan()
@@ -735,6 +753,8 @@ class MacMaidHandler(BaseHTTPRequestHandler):
         state = self.server.state
         if path in {"/api/memory/stop", "/api/memory/force-stop"}:
             keys = body.get("keys")
+            if not isinstance(keys, list):
+                raise ValueError("keys must be a JSON list")
             force = path.endswith("/force-stop")
             plan = state.memory.review(keys, force)
             review = self._review_gate("memory-force" if force else "memory-stop", body, plan)
@@ -767,7 +787,9 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 state.progress.finish("Tarama iptal ediliyor", percent=0)
             return {"success": True, "cancelled": cancelled, "service": service}
         if path == "/api/macmaid/update/check":
-            return macmaid_brew_update_status(refresh=True)
+            status = macmaid_brew_update_status(refresh=True)
+            state.macmaid_update = status
+            return status
         if path == "/api/macmaid/update":
             status = macmaid_brew_update_status()
             plan = macmaid_update_plan(status)
@@ -810,7 +832,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             if review := self._review_gate("apps", body, plan): return review
             state.progress.start("apps", f"Uninstalling {app.name}")
             try:
-                result = manager.remove(
+                removal = manager.remove(
                     app,
                     selected_paths,
                     progress=lambda index, total, current: state.progress.update_items(
@@ -821,7 +843,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 state.progress.finish("Uninstall failed", percent=0)
                 raise
             state.progress.finish(f"{app.name} uninstall completed")
-            return result
+            return removal
         if path == "/api/purge":
             wanted = {self._request_path_key(item) for item in body.get("paths", [])}
             selected = [item for item in state.projects if str(item.path.absolute()) in wanted]
@@ -830,7 +852,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             if review := self._review_gate("purge", body, plan): return review
             state.progress.start("purge", "Moving project artifacts to Trash")
             try:
-                result = ProjectPurgeManager(state.config).purge(
+                purged = ProjectPurgeManager(state.config).purge(
                     selected,
                     progress=lambda index, total, current: state.progress.update_items(
                         index - 1, total, "Moving to Trash", str(current)
@@ -840,7 +862,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 state.progress.finish("Project purge failed", percent=0)
                 raise
             state.progress.finish("Project purge completed")
-            return result
+            return purged
         if path == "/api/treemap/open":
             requested_key = self._request_path_key(body.get("path", ""))
             requested = next((item for item in state.treemap_paths if str(item) == requested_key), None)
@@ -929,9 +951,9 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             if current is None or not current.removable:
                 raise PermissionError("Developer item was not removable in the latest inventory")
             if review := self._review_gate(f"developer-{category}", body, developer_plan(current)): return review
-            result = DeveloperInventory(state.config).remove(item_id, category, reviewed=current)
-            return dict(result, humanFreed=human_bytes(result["freed"]),
-                        humanProcessedEstimate=human_bytes(result.get("processedEstimatedBytes", 0)))
+            removal = DeveloperInventory(state.config).remove(item_id, category, reviewed=current)
+            return dict(removal, humanFreed=human_bytes(removal["freed"]),
+                        humanProcessedEstimate=human_bytes(removal.get("processedEstimatedBytes", 0)))
         raise FileNotFoundError(path)
 
 

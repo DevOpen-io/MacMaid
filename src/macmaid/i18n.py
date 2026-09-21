@@ -44,6 +44,7 @@ _EN: Final[dict[str, str]] = {
     "Mac sağlık ekranını aç": "Open Mac Health", "Disk, bellek baskısı, pil ve termal durumunu gerekçeleriyle göster": "Show disk, memory pressure, battery and thermal status with evidence",
     "Türkçe arayüzü kullan": "Use the Turkish interface", "İngilizce": "English", "İngilizce arayüzü kullan": "Use the English interface",
     "Mevcut arayüz dili:": "Current interface language:", "Ayar kaydedildi · arayüz dili:": "Setting saved · interface language:",
+    "Hazır — kontrol yalnızca açık aksiyonla çalışır.": "Ready — the check runs only when you start it.",
     "Ayar kaydedilemedi:": "Could not save setting:", "Ayarlar açılamadı:": "Could not open Settings:",
     "macOS bakım görevleri kararlılık incelemesi tamamlanana kadar geçici olarak devre dışı.": "macOS maintenance tasks are temporarily unavailable until the stability review is complete.",
     "Yol yaz; eşleşen konumlar aşağıda listelenir": "Type a path; matching locations appear below",

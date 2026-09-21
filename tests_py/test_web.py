@@ -58,7 +58,6 @@ def test_web_analyzer_returns_navigation_snapshot_and_reuses_cache(tmp_path: Pat
 
 def test_app_icon_cache_hits_and_invalidates_on_source_change(tmp_path: Path, monkeypatch) -> None:
     import plistlib
-    from unittest.mock import Mock
 
     from macmaid.features import InstalledApplication
     from macmaid.system import CommandResult

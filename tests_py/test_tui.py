@@ -54,7 +54,7 @@ def test_textual_tui_navigation_and_page_tables(monkeypatch) -> None:
             assert len(nav.children) == len(tui.NAVIGATION)
             assert nav.children[0].id == "nav-clean"
 
-            for key, expected in (("1", "page-clean"), ("4", "page-analyzer-results"), ("6", "page-developer"), ("7", "page-status-results"), ("0", "page-update-results")):
+            for key, expected in (("1", "page-clean"), ("4", "page-analyzer"), ("6", "page-developer"), ("7", "page-status"), ("0", "page-update-results")):
                 await pilot.press("m", key); await pilot.pause()
                 assert switcher.current == expected
 
@@ -66,7 +66,7 @@ def test_textual_tui_navigation_and_page_tables(monkeypatch) -> None:
             assert app.query_one("#clean-actions", ListView).index == 1
             assert switcher.current == "page-clean"
             await pilot.press("m", "7"); await pilot.pause()
-            assert switcher.current == "page-status-results"
+            assert switcher.current == "page-status"
 
             await pilot.press("ctrl+n", "k", "enter"); await pilot.pause()
             assert app.query_one("#nav", ListView).index == 5
@@ -443,7 +443,6 @@ def test_all_tools_keyboard_smoke(monkeypatch, size) -> None:
     monkeypatch.setattr(tui, "scan_installers", lambda: ScanResult())
     monkeypatch.setattr(tui, "doctor", lambda: [])
     monkeypatch.setattr(tui, "list_snapshots", lambda: [])
-    monkeypatch.setattr(tui, "history", lambda count: [])
 
     async def exercise() -> None:
         app = tui.MacMaidTUI()

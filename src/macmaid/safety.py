@@ -52,7 +52,6 @@ class PathSafety:
         path = self._lexical(raw)
         if path in self.HARD_BLOCKED:
             raise PathSafetyError(f"protected path: {path}")
-        home = Path.home()
         allowed = any(self._inside(path, root) for root in self.allowed_roots)
         allowed |= str(path).startswith("/private/tmp/") or str(path).startswith("/private/var/tmp/")
         allowed |= self._allowed_sandbox_cache(path)

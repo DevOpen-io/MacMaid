@@ -6,7 +6,6 @@ import platform
 import plistlib
 import re
 import shutil
-import socket
 import stat
 import sys
 import tempfile
@@ -14,7 +13,7 @@ import threading
 import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable
@@ -531,7 +530,7 @@ def _expensive_health_probes(*, force: bool = False) -> dict[str, Any]:
             battery_details = {
                 "percent": battery.percent if battery is not None else record_percent,
                 "charging": battery.power_plugged if battery is not None else bool(
-                    battery_record.get("IsCharging") or battery_record.get("ExternalConnected")
+                    battery_record and (battery_record.get("IsCharging") or battery_record.get("ExternalConnected"))
                 ),
                 "cycleCount": battery_record.get("CycleCount") if battery_record else None,
                 "condition": ((battery_record.get("BatteryHealth") or battery_record.get("Condition"))

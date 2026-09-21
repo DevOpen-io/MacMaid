@@ -1897,6 +1897,17 @@ async function fetchStatus() {
   } catch (err) {}
 }
 
+function syncStatusPolling() {
+  // /api/status samples system metrics; poll only while the dashboard is visible.
+  if (state.activeTab === 'dashboard') {
+    fetchStatus();
+    if (!state.refreshTimer) state.refreshTimer = setInterval(fetchStatus, state.refreshInterval);
+  } else if (state.refreshTimer) {
+    clearInterval(state.refreshTimer);
+    state.refreshTimer = null;
+  }
+}
+
 function renderStatus(data) {
   const { metrics, health, uptime, loadAverage, thermal, battery, processes } = data;
 
@@ -2305,53 +2316,62 @@ async function uninstallSelectedApp() {
 
 async function scanInstallers() {
   SoundEffects.playClick();
-  const daysPill = document.querySelector('.installer-age-pill.active');
-  const days = daysPill ? daysPill.dataset.days : '30';
-
   const tbody = document.getElementById('tbody-installers');
   tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.action_scanning_installers_sub', 'Scanning installer files...')}</td></tr>`;
   startLiveProgressPolling();
 
   try {
-    const res = await fetch(`/api/installers?olderThan=${days}`);
+    // Discover once at the lowest threshold; the age pills then filter the
+    // cached result client-side instead of rescanning the disk.
+    const res = await fetch(`/api/installers?olderThan=0`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    state.installers = data.installers || [];
-    state.selectedInstallers = new Set(state.installers.map(i => i.path));
-
-    document.getElementById('installers-total-size').textContent = data.humanTotal || formatBytes(data.totalBytes);
-    document.getElementById('installers-count').textContent = `(${state.installers.length} dosya)`;
-    syncMasterCheckbox('master-installers-chk', state.installers.length, state.selectedInstallers.size);
-
-    if (state.installers.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.empty_installers_found', 'No old installer files found.')}</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = state.installers.map(item => `
-      <tr>
-        <td><input type="checkbox" class="installer-chk" data-path="${escapeHtml(item.path)}" checked></td>
-        <td><strong>${escapeHtml(item.label)}</strong></td>
-        <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
-        <td><span style="font-size: 11.5px; color: var(--text-dim);">${escapeHtml(item.reason)}</span></td>
-        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes)}</td>
-      </tr>
-    `).join('');
-
-    tbody.querySelectorAll('.installer-chk').forEach(chk => {
-      chk.addEventListener('change', (e) => {
-        const p = e.target.dataset.path;
-        if (e.target.checked) state.selectedInstallers.add(p);
-        else state.selectedInstallers.delete(p);
-        syncMasterCheckbox('master-installers-chk', state.installers.length, state.selectedInstallers.size);
-      });
-    });
-
+    state.installersAll = data.installers || [];
+    state.selectedInstallers = new Set();
+    renderInstallers();
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('toast.error_prefix', 'Error: ')}${escapeHtml(err.message)}</td></tr>`;
   } finally {
     stopLiveProgressPolling();
   }
+}
+
+function renderInstallers() {
+  const tbody = document.getElementById('tbody-installers');
+  if (!tbody) return;
+  const daysPill = document.querySelector('.installer-age-pill.active');
+  const days = Number(daysPill?.dataset.days ?? 30);
+  const visible = (state.installersAll || []).filter(item => days === 0 || (item.ageDays ?? days) >= days);
+  state.installers = visible;
+  state.selectedInstallers = new Set(visible.map(i => i.path));
+
+  document.getElementById('installers-total-size').textContent = formatBytes(visible.reduce((sum, i) => sum + (i.bytes || 0), 0));
+  document.getElementById('installers-count').textContent = `(${visible.length} dosya)`;
+  syncMasterCheckbox('master-installers-chk', visible.length, state.selectedInstallers.size);
+
+  if (visible.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('more.empty_installers_found', 'No old installer files found.')}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = visible.map(item => `
+    <tr>
+      <td><input type="checkbox" class="installer-chk" data-path="${escapeHtml(item.path)}" checked></td>
+      <td><strong>${escapeHtml(item.label)}</strong></td>
+      <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
+      <td><span style="font-size: 11.5px; color: var(--text-dim);">${escapeHtml(item.reason)}</span></td>
+      <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes)}</td>
+    </tr>
+  `).join('');
+
+  tbody.querySelectorAll('.installer-chk').forEach(chk => {
+    chk.addEventListener('change', (e) => {
+      const p = e.target.dataset.path;
+      if (e.target.checked) state.selectedInstallers.add(p);
+      else state.selectedInstallers.delete(p);
+      syncMasterCheckbox('master-installers-chk', state.installers.length, state.selectedInstallers.size);
+    });
+  });
 }
 
 async function executeInstallersClean() {
@@ -2380,8 +2400,6 @@ async function executeInstallersClean() {
 
 async function scanLeftovers() {
   SoundEffects.playClick();
-  const daysPill = document.querySelector('.leftover-age-pill.active');
-  const days = daysPill ? daysPill.dataset.days : '30';
   const includeData = document.getElementById('chk-leftovers-data').checked;
 
   const tbody = document.getElementById('tbody-leftovers');
@@ -2389,46 +2407,60 @@ async function scanLeftovers() {
   startLiveProgressPolling();
 
   try {
-    const res = await fetch(`/api/leftovers?olderThan=${days}&includeData=${includeData}`);
+    // Discover once at the lowest threshold; the age pills then filter the
+    // cached result client-side instead of rescanning the filesystem.
+    const res = await fetch(`/api/leftovers?olderThan=0&includeData=${includeData}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    state.leftovers = data.leftovers || [];
-    state.selectedLeftovers = new Set(state.leftovers.filter(l => l.risk !== 'MANUAL').map(l => l.id));
-
-    document.getElementById('leftovers-total-size').textContent = data.humanTotal || formatBytes(data.totalBytes);
-    document.getElementById('leftovers-count').textContent = `(${state.leftovers.length} ${t('more.leftovers_title', 'leftovers')})`;
-    const actionableCount = state.leftovers.filter(item => item.risk !== 'MANUAL').length;
-    syncMasterCheckbox('master-leftovers-chk', actionableCount, state.selectedLeftovers.size);
-
-    if (state.leftovers.length === 0) {
-      tbody.innerHTML = accessNoticeRow(data.issues, 5) + `<tr><td colspan="5" class="empty-state">${t('more.empty_leftovers_found', 'No orphaned leftover files found.')}</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = accessNoticeRow(data.issues, 5) + state.leftovers.map(item => `
-      <tr>
-        <td><input type="checkbox" class="leftover-chk" data-id="${item.id}" ${item.risk === 'MANUAL' ? 'disabled' : 'checked'}></td>
-        <td><strong>${escapeHtml(item.label)}</strong></td>
-        <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
-        <td><span class="badge-status">${escapeHtml(item.risk)}</span></td>
-        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes)}</td>
-      </tr>
-    `).join('');
-
-    tbody.querySelectorAll('.leftover-chk').forEach(chk => {
-      chk.addEventListener('change', (e) => {
-        const id = e.target.dataset.id;
-        if (e.target.checked) state.selectedLeftovers.add(id);
-        else state.selectedLeftovers.delete(id);
-        syncMasterCheckbox('master-leftovers-chk', state.leftovers.filter(item => item.risk !== 'MANUAL').length, state.selectedLeftovers.size);
-      });
-    });
-
+    state.leftoversAll = data.leftovers || [];
+    state.leftoversIssues = data.issues || [];
+    state.selectedLeftovers = new Set();
+    renderLeftovers();
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('toast.error_prefix', 'Error: ')}${escapeHtml(err.message)}</td></tr>`;
   } finally {
     stopLiveProgressPolling();
   }
+}
+
+function renderLeftovers() {
+  const tbody = document.getElementById('tbody-leftovers');
+  if (!tbody) return;
+  const daysPill = document.querySelector('.leftover-age-pill.active');
+  const days = Number(daysPill?.dataset.days ?? 30);
+  const visible = (state.leftoversAll || []).filter(item => days === 0 || (item.ageDays ?? days) >= days);
+  state.leftovers = visible;
+  state.selectedLeftovers = new Set(visible.filter(l => l.risk !== 'MANUAL').map(l => l.id));
+  const issues = state.leftoversIssues || [];
+
+  document.getElementById('leftovers-total-size').textContent = formatBytes(visible.reduce((sum, i) => sum + (i.bytes || 0), 0));
+  document.getElementById('leftovers-count').textContent = `(${visible.length} ${t('more.leftovers_title', 'leftovers')})`;
+  const actionableCount = visible.filter(item => item.risk !== 'MANUAL').length;
+  syncMasterCheckbox('master-leftovers-chk', actionableCount, state.selectedLeftovers.size);
+
+  if (visible.length === 0) {
+    tbody.innerHTML = accessNoticeRow(issues, 5) + `<tr><td colspan="5" class="empty-state">${t('more.empty_leftovers_found', 'No orphaned leftover files found.')}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = accessNoticeRow(issues, 5) + visible.map(item => `
+    <tr>
+      <td><input type="checkbox" class="leftover-chk" data-id="${item.id}" ${item.risk === 'MANUAL' ? 'disabled' : 'checked'}></td>
+      <td><strong>${escapeHtml(item.label)}</strong></td>
+      <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
+      <td><span class="badge-status">${escapeHtml(item.risk)}</span></td>
+      <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes)}</td>
+    </tr>
+  `).join('');
+
+  tbody.querySelectorAll('.leftover-chk').forEach(chk => {
+    chk.addEventListener('change', (e) => {
+      const id = e.target.dataset.id;
+      if (e.target.checked) state.selectedLeftovers.add(id);
+      else state.selectedLeftovers.delete(id);
+      syncMasterCheckbox('master-leftovers-chk', state.leftovers.filter(item => item.risk !== 'MANUAL').length, state.selectedLeftovers.size);
+    });
+  });
 }
 
 async function executeLeftoversClean() {
@@ -3394,7 +3426,7 @@ async function fetchTreemap(path = treemapPath, force = false, polling = false, 
     }
   }
   try {
-    const params = new URLSearchParams({ path, start: 'true' });
+    const params = new URLSearchParams({ path, start: polling ? 'false' : 'true' });
     if (force) params.set('force', 'true');
     const data = await readAPIResponse(await fetch(`/api/treemap?${params}`));
     if (requestId !== treemapRequestId) return;
@@ -4095,6 +4127,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetPane = document.getElementById(`pane-${tab}`);
     if (targetPane) targetPane.classList.add('active');
     state.activeTab = tab;
+    syncStatusPolling();
   }
 
   function setActiveSidebarSubmenu(selector) {
@@ -4107,7 +4140,22 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('#pane-developer .sub-pane').forEach(pane => pane.classList.remove('active'));
     document.getElementById(`subpane-dev-${devtab}`)?.classList.add('active');
     setActiveSidebarSubmenu(`.nav-submenu-item[data-devsubtab="${devtab}"]`);
-    if (devtab === 'storage') scanDeveloperStorage();
+    // Navigation only reveals the pane; scans start from explicit Scan buttons.
+  }
+
+  function reconnectTreemap() {
+    const cachedView = treemapViews.get(treemapPath) || lastTreemapData;
+    if (!cachedView) return;
+    treemapPath = cachedView.path || treemapPath;
+    treemapParent = cachedView.parent || '~';
+    document.getElementById('treemap-path').textContent = `${treemapPath} · ${cachedView.humanTotal || '0 B'}`;
+    lastTreemapData = cachedView;
+    lastTreemapRenderSignature = getTreemapRenderSignature(cachedView);
+    renderTreemap(cachedView);
+    // Re-attach to an in-flight analysis without starting a new one (start=false).
+    if (!cachedView.isComplete && !cachedView.isCancelled) {
+      fetchTreemap(treemapPath, false, true, ++treemapRequestId);
+    }
   }
 
   function activateMoreSubtab(moretab) {
@@ -4117,11 +4165,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setActiveSidebarSubmenu(`.nav-submenu-item[data-subtab="${moretab}"]`);
 
     if (moretab !== 'treemap') treemapRequestId += 1;
-    if (moretab === 'treemap') fetchTreemap('~');
-    if (moretab === 'browser-storage') fetchBrowserStorage();
-    if (moretab === 'smart-downloads') fetchSmartDownloads();
-    if (moretab === 'duplicates') fetchDuplicates();
-    if (moretab === 'large-files') fetchLargeFiles();
+    if (moretab === 'treemap') reconnectTreemap();
+    // Heavy scans (treemap, browser storage, downloads, duplicates, large files)
+    // are explicit-button only; cached DOM/state persists across pane switches.
     if (moretab === 'history' && (!state.history || state.history.length === 0)) fetchHistory();
     if (moretab === 'whitelist' && (!state.whitelist || state.whitelist.length === 0)) fetchWhitelist();
   }
@@ -4215,7 +4261,8 @@ document.addEventListener('DOMContentLoaded', () => {
     activateTopLevelTab('settings');
     document.querySelectorAll('.nav-submenu-item').forEach(n => n.classList.remove('active'));
     document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
-    fetchPermissionReport();
+    // Cheap access probe; cache it and refresh only via the explicit button.
+    if (!state.permissionReport) fetchPermissionReport();
   });
 
   if (themeSelect) {
@@ -4290,27 +4337,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Installer age pills
+  // Installer age pills — filter the cached discovery result; no rescan.
   document.querySelectorAll('.installer-age-pill').forEach(pill => {
     pill.addEventListener('click', () => {
       SoundEffects.playClick();
       document.querySelectorAll('.installer-age-pill').forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
-      if (state.installers && state.installers.length > 0) {
-        scanInstallers();
-      }
+      if (state.installersAll) renderInstallers();
     });
   });
 
-  // Leftover age pills
+  // Leftover age pills — filter the cached discovery result; no rescan.
   document.querySelectorAll('.leftover-age-pill').forEach(pill => {
     pill.addEventListener('click', () => {
       SoundEffects.playClick();
       document.querySelectorAll('.leftover-age-pill').forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
-      if (state.leftovers && state.leftovers.length > 0) {
-        scanLeftovers();
-      }
+      if (state.leftoversAll) renderLeftovers();
     });
   });
 
@@ -4459,8 +4502,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelector('.nav-item[data-tab="developer"]')?.classList.add('expanded');
   }
 
-  // Initial polling
-  fetchStatus();
-  state.refreshTimer = setInterval(fetchStatus, state.refreshInterval);
+  // Initial polling: a single progress probe; status polling starts only when
+  // the dashboard tab becomes visible (syncStatusPolling in activateTopLevelTab).
   pollLiveProgress();
 });

@@ -5,9 +5,10 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, overload
 
-from rich.text import Text
+from rich.text import Text, TextType
+from textual.visual import VisualType
 from textual import events, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -34,7 +35,7 @@ from .smart_downloads import SmartDownloadsScanner
 from .features import (
     OPTIMIZATIONS, OPTIMIZATION_UNAVAILABLE_REASON, AppComponent, ApplicationManager, InstalledApplication,
     ProjectArtifact, ProjectPurgeManager, RecoveryCenter, apply_macmaid_brew_update,
-    doctor, history, list_snapshots, macmaid_brew_update_status, run_optimization, system_status,
+    doctor, list_snapshots, macmaid_brew_update_status, run_optimization, system_status,
     thin_snapshots,
 )
 from .models import CleanupItem, CleanupProfile, RiskLevel, ScanResult
@@ -89,7 +90,15 @@ def _widget_language(widget: object | None = None) -> str:
     return _ACTIVE_LANGUAGE
 
 
-def _localized_renderable(value: object, language: str) -> object:
+@overload
+def _localized_renderable(value: TextType, language: str) -> TextType: ...
+
+
+@overload
+def _localized_renderable(value: VisualType, language: str) -> VisualType: ...
+
+
+def _localized_renderable(value: VisualType, language: str) -> VisualType:
     if isinstance(value, Text):
         return Text(translate(value.plain, language), style=value.style)
     if isinstance(value, str):
@@ -100,26 +109,26 @@ def _localized_renderable(value: object, language: str) -> object:
 class Static(TextualStatic):
     """Static text that retains its source copy and localizes every update."""
 
-    def __init__(self, content: object = "", *args: Any, **kwargs: Any) -> None:
+    def __init__(self, content: VisualType = "", *args: Any, **kwargs: Any) -> None:
         self._source_content = content
         super().__init__(_localized_renderable(content, _widget_language()), *args, **kwargs)
 
-    def update(self, content: object = "") -> None:
+    def update(self, content: VisualType = "", *, layout: bool = True) -> None:
         self._source_content = content
-        super().update(_localized_renderable(content, _widget_language(self)))
+        super().update(_localized_renderable(content, _widget_language(self)), layout=layout)
 
     def relocalize(self) -> None:
         super().update(_localized_renderable(self._source_content, _widget_language(self)))
 
 
 class Label(TextualLabel):
-    def __init__(self, content: object = "", *args: Any, **kwargs: Any) -> None:
+    def __init__(self, content: VisualType = "", *args: Any, **kwargs: Any) -> None:
         self._source_content = content
         super().__init__(_localized_renderable(content, _widget_language()), *args, **kwargs)
 
-    def update(self, content: object = "") -> None:
+    def update(self, content: VisualType = "", *, layout: bool = True) -> None:
         self._source_content = content
-        super().update(_localized_renderable(content, _widget_language(self)))
+        super().update(_localized_renderable(content, _widget_language(self)), layout=layout)
 
     def relocalize(self) -> None:
         super().update(_localized_renderable(self._source_content, _widget_language(self)))
@@ -128,8 +137,8 @@ class Label(TextualLabel):
 class Input(TextualInput):
     def __init__(self, *args: Any, placeholder: str | None = None, **kwargs: Any) -> None:
         self._source_placeholder = placeholder
-        localized = translate(placeholder, _widget_language()) if placeholder else placeholder
-        super().__init__(*args, placeholder=localized, **kwargs)
+        kwargs["placeholder"] = translate(placeholder, _widget_language()) if placeholder else ""
+        super().__init__(*args, **kwargs)
 
     def relocalize(self) -> None:
         if self._source_placeholder is not None:
@@ -137,11 +146,15 @@ class Input(TextualInput):
 
 
 class DataTable(TextualDataTable):
-    def add_columns(self, *labels: object, **kwargs: Any) -> list[Any]:
-        localized = [_localized_renderable(label, _widget_language(self)) for label in labels]
+    def add_columns(self, *labels: TextType | tuple[TextType, str], **kwargs: Any) -> list[Any]:
+        localized = [
+            (_localized_renderable(label[0], _widget_language(self)), label[1]) if isinstance(label, tuple)
+            else _localized_renderable(label, _widget_language(self))
+            for label in labels
+        ]
         return super().add_columns(*localized, **kwargs)
 
-    def add_row(self, *cells: object, **kwargs: Any) -> Any:
+    def add_row(self, *cells: VisualType, **kwargs: Any) -> Any:
         localized = [_localized_renderable(cell, _widget_language(self)) for cell in cells]
         return super().add_row(*localized, **kwargs)
 
@@ -281,7 +294,7 @@ class MacMaidTUI(App[None]):
         self.pending_confirmation: str | None = None
         self.review_plan: ReviewPlan | None = None
         self.review_origin: str | None = None
-        self.review_callback: Callable[[], None] | None = None
+        self.review_callback: Callable[[], object] | None = None
         self.review_validator: Callable[[], ReviewPlan] | None = None
         self.review_extra_armed = False
 
@@ -739,7 +752,7 @@ class MacMaidTUI(App[None]):
             event.stop()
             self.open_page("dashboard")
 
-    def _update_static_if_present(self, selector: str, value: object) -> bool:
+    def _update_static_if_present(self, selector: str, value: VisualType) -> bool:
         try:
             self.query_one(selector, Static).update(value)
             return True
@@ -794,7 +807,7 @@ class MacMaidTUI(App[None]):
         self.review_extra_armed = False
         self.pending_confirmation = None
 
-    def _confirm(self, plan: ReviewPlan, callback: Callable[[], None],
+    def _confirm(self, plan: ReviewPlan, callback: Callable[[], object],
                  validator: Callable[[], ReviewPlan] | None = None) -> None:
         """Display a complete immutable plan; only an explicit y authorizes mutation."""
         if self._mutation_requested:
@@ -997,7 +1010,8 @@ class MacMaidTUI(App[None]):
             if section == "clean":
                 self.query_one("#clean-progress-line").remove_class("complete")
             for table in self.query(f"#page-{section}-results DataTable"):
-                table.clear()
+                if isinstance(table, DataTable):
+                    table.clear()
             self.query_one(f"#{section}-detail", Static).update("")
             self._set_state(section, "Yeni tarama bekleniyor…")
 
@@ -1048,21 +1062,14 @@ class MacMaidTUI(App[None]):
             nav.index = next(i for i, item in enumerate(NAVIGATION) if item[0] == key)
             self.query_one("#memory-table", DataTable).focus()
             self._set_activity("")
-            self._load_memory()
+            # The page-scoped periodic refresh populates the live process view;
+            # navigation itself starts no worker.
             return
-        direct: dict[str, Callable[[], None]] = {
-            "apps": self._scan_apps,
-            "optimize": lambda: None,
-            "analyzer": lambda: self._request_analysis(Path.home()),
-            "purge": self._scan_projects,
-            "status": self._load_status,
-            "update": self._check_macmaid_update,
-        }
-        if key in direct:
-            nav = self.query_one("#nav", ListView)
-            nav.index = next(i for i, item in enumerate(NAVIGATION) if item[0] == key)
-            self._show_results(key)
-            direct[key]()
+        if key == "update":
+            self._show_results("update", "#update-actions")
+            self.query_one("#update-progress", ProgressBar).update(total=100, progress=0)
+            self._set_state("update", self._ui("Hazır — kontrol yalnızca açık aksiyonla çalışır."))
+            self.query_one("#update-output", Static).update(self._ui("This check is read-only. No update will be installed without your approval."))
             return
         self._leave_results()
         self.current_page = key
@@ -1081,7 +1088,8 @@ class MacMaidTUI(App[None]):
             self._set_activity("")
         if key == "dashboard":
             self._set_activity("")
-            self._load_status()
+            # The page-scoped periodic refresh keeps the dashboard live; page
+            # entry itself does not synchronously sample the system.
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action in {"review_yes", "review_no"}:
@@ -1095,7 +1103,7 @@ class MacMaidTUI(App[None]):
             self._save_whitelist()
     def action_open_page(self, key: str) -> None: self.open_page(key)
     def action_dashboard(self) -> None: self.open_page("dashboard")
-    def action_quit_or_back(self) -> None:
+    async def action_quit_or_back(self) -> None:
         if self.current_page == "dashboard":
             self.exit()
         elif self.current_page == "operation":
@@ -1104,8 +1112,8 @@ class MacMaidTUI(App[None]):
             else:
                 self._set_activity("~  İşlem sürerken çıkış güvenlik nedeniyle engellendi")
         else:
-            self.action_back()
-    def action_back(self) -> None:
+            await self.action_back()
+    async def action_back(self) -> None:
         if self.current_page == "operation":
             self._warn("İşlem sonucu ekranında Enter kullan")
         elif self.current_page == "review":
@@ -1116,8 +1124,11 @@ class MacMaidTUI(App[None]):
             section = self.current_page.removesuffix("-results")
             if section == "more":
                 self.open_page(self.more_origin)
+            elif section == "update":
+                # The update page has no intermediate action menu.
+                self.open_page("dashboard")
             else:
-                self.open_page("dashboard" if section in {"apps", "optimize", "analyzer", "purge", "status", "update"} else section)
+                self.open_page(section)
         elif self.current_page != "dashboard":
             self.open_page("dashboard")
 
@@ -1222,14 +1233,14 @@ class MacMaidTUI(App[None]):
         elif table_id == "apps-table" and 0 <= row < len(self.apps):
             app = self.apps[row]; text = f"{app.name} {app.version or ''} · {human_bytes(app.bytes)}\n{app.path}"
         elif table_id == "components-table" and 0 <= row < len(self.app_components):
-            item = self.app_components[row]; text = f"{item.label} · {item.risk.upper()} · {human_bytes(item.bytes)}\n{item.path}"
+            component = self.app_components[row]; text = f"{component.label} · {component.risk.upper()} · {human_bytes(component.bytes)}\n{component.path}"
         elif table_id == "analyzer-table" and self.analyzer_snapshot:
             entries = self.analyzer_snapshot.get("entries", [])
             if 0 <= row < len(entries):
                 item = entries[row]; text = f"{'Dizin — Enter ile açılır' if item['directory'] else 'Dosya — T ile Trash onayı açılır'} · {item.get('humanBytes', 'ölçülüyor…')}\n{item['path']}"
         elif table_id == "purge-table" and 0 <= row < len(self.artifacts):
-            item = self.artifacts[row]; kind = "Bağımlılık; yeniden kurulum gerekebilir" if item.dependency else "Yerel build çıktısı; yeniden üretilebilir"
-            text = f"{kind} · {human_bytes(item.bytes)}\n{item.path}"
+            artifact = self.artifacts[row]; kind = "Bağımlılık; yeniden kurulum gerekebilir" if artifact.dependency else "Yerel build çıktısı; yeniden üretilebilir"
+            text = f"{kind} · {human_bytes(artifact.bytes)}\n{artifact.path}"
         elif table_id == "developer-table":
             if self.dev_cache_result and 0 <= row < len(self.dev_cache_result.items):
                 item = self.dev_cache_result.items[row]; text = f"{item.reason}\n{item.path or item.action.kind.value}"
@@ -1239,7 +1250,7 @@ class MacMaidTUI(App[None]):
                 lines.extend(f"{human_bytes(item['bytes'])} · {item['label']} · {item['path']} — {item['note']}" for item in section.items[:20])
                 text = "\n".join(line for line in lines if line)
             elif 0 <= row < len(self.developer_items):
-                item = self.developer_items[row]; text = f"{item.protected_reason or item.note or 'Owning manager üzerinden kaldırılır.'}\n{item.path}"
+                dev_item = self.developer_items[row]; text = f"{dev_item.protected_reason or dev_item.note or 'Owning manager üzerinden kaldırılır.'}\n{dev_item.path}"
         elif table_id == "optimize-table" and 0 <= row < len(OPTIMIZATIONS):
             task = OPTIMIZATIONS[row]; text = f"{OPTIMIZATION_HELP.get(task['id'], task['title'])}\nRisk: {task['risk']} · {'Önerilen' if task['recommended'] else 'Varsayılan olarak seçilmez'}"
         elif table_id == "more-table" and self.more_result and 0 <= row < len(self.more_result.items):
@@ -1309,7 +1320,8 @@ class MacMaidTUI(App[None]):
     def _render_live_events(self) -> None:
         text = "\n".join(self.live_event_lines[-6:]) or self._ui("No live events yet.")
         for widget in self.query(".live-events"):
-            widget.update(text)
+            if isinstance(widget, Static):
+                widget.update(text)
             widget.set_class(self.live_events_open, "open")
 
     def _scan_progress(self, percent: int, phase: str, path: str, found: int = 0) -> None:
@@ -1674,9 +1686,9 @@ class MacMaidTUI(App[None]):
                 detail = f"{len(section.items)} item" + (f" · {section.note}" if section.note else "")
                 table.add_row("—", human_bytes(section.bytes), Text("VIEW", style="bold #5ee7e7"), "storage", section.title, detail)
         else:
-            for x in self.developer_items:
-                state = Text("* ACTIVE", style="bold #d9bd72") if x.is_active else Text("+ REMOVABLE", style="bold #8fcf8b") if x.removable else Text("! PROTECTED", style="bold #e27d82")
-                table.add_row("—", human_bytes(x.bytes), state, x.manager, x.title, f"{x.version} · {x.path}")
+            for ditem in self.developer_items:
+                state = Text("* ACTIVE", style="bold #d9bd72") if ditem.is_active else Text("+ REMOVABLE", style="bold #8fcf8b") if ditem.removable else Text("! PROTECTED", style="bold #e27d82")
+                table.add_row("—", human_bytes(ditem.bytes), state, ditem.manager, ditem.title, f"{ditem.version} · {ditem.path}")
         self._restore_cursor(table, cursor)
         if table.row_count: self._update_row_detail("developer-table", table.cursor_row)
     def _confirm_developer_remove(self) -> None:
@@ -1692,10 +1704,10 @@ class MacMaidTUI(App[None]):
             self._warn("Storage Center salt-okunur envanterdir; kaldırma için cache/runtime/tool/SDK sekmelerini kullan")
             return
         if not self.developer_items or not table.row_count: self._warn("Önce envanter tara"); return
-        item = self.developer_items[table.cursor_row]
-        if not item.removable or item.is_active: self._warn(item.protected_reason or "Bu öğe korumalı"); return
+        dev_target = self.developer_items[table.cursor_row]
+        if not dev_target.removable or dev_target.is_active: self._warn(dev_target.protected_reason or "Bu öğe korumalı"); return
         kind = self.developer_kind
-        self._confirm(developer_plan(item), lambda: self._dev_remove_worker(item, kind), self._current_developer_plan)
+        self._confirm(developer_plan(dev_target), lambda: self._dev_remove_worker(dev_target, kind), self._current_developer_plan)
     def _current_dev_cache_plan(self) -> ReviewPlan:
         if not self.dev_cache_result or not self.dev_cache_result.is_complete or not self.dev_selected:
             raise ValueError("developer cache selection changed or scan is incomplete")
@@ -2063,7 +2075,7 @@ class MacMaidTUI(App[None]):
             "granted": "kullanılabilir görünüyor",
             "not_granted": "kullanılabilir değil",
             "unknown": "belirlenemedi",
-        }.get(report.get("fullDiskAccess"), "belirlenemedi")
+        }.get(str(report.get("fullDiskAccess") or ""), "belirlenemedi")
         lines = [
             f"Çalışma bağlamı: {context}",
             f"Tam Disk Erişimi: {full_disk_access}",

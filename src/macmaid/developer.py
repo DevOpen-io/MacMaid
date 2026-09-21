@@ -172,7 +172,7 @@ class DeveloperStorageCenter:
         items = tuple({"label": label, "path": str(path), "bytes": measured.get(path, 0),
                        "humanBytes": human_bytes(measured.get(path, 0)),
                        "note": note, "removable": False} for label, path, note in existing)
-        return DeveloperStorageSection(id, title, sum(item["bytes"] for item in items), items)
+        return DeveloperStorageSection(id, title, sum(measured.get(path, 0) for _label, path, _note in existing), items)
 
     def _xcode_paths(self) -> list[tuple[str, Path, str]]:
         home = Path.home(); root = home / "Library/Developer/Xcode"
@@ -325,11 +325,11 @@ class DeveloperInventory:
         sdk_root = Path(os.environ.get("SDKMAN_DIR", home / ".sdkman")) / "candidates"
         for candidate in _children(sdk_root):
             current_link = candidate / "current"
-            current = current_link.resolve() if current_link.exists() else None
+            sdkman_current = current_link.resolve() if current_link.exists() else None
             for path in _children(candidate):
                 if path.name == "current" or path.is_symlink(): continue
                 version = path.name
-                items.append(DeveloperItem(f"sdkman:{candidate.name}:{version}", "runtime", candidate.name, version, "SDKMAN!", path, is_active=current == path.resolve(), protected_reason="Shell-managed runtime: use SDKMAN in your own terminal", note="Inventory only"))
+                items.append(DeveloperItem(f"sdkman:{candidate.name}:{version}", "runtime", candidate.name, version, "SDKMAN!", path, is_active=sdkman_current == path.resolve(), protected_reason="Shell-managed runtime: use SDKMAN in your own terminal", note="Inventory only"))
 
         volta_root = Path(os.environ.get("VOLTA_HOME", home / ".volta")) / "tools/image"
         for tool in _children(volta_root):

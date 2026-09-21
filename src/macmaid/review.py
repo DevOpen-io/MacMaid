@@ -75,7 +75,8 @@ class ReviewPlan:
         }
 
     def text(self, language: str = "en") -> str:
-        localize = lambda value: translate(value, language)
+        def localize(value: str) -> str:
+            return translate(value, language)
         lines = [localize(self.impact), localize("Items: {count} · scanned estimate: {size}").format(count=len(self.items), size=human_bytes(self.estimated_bytes))]
         for item in self.items:
             close = localize(" · close {app}").format(app=item.requires_app_closed) if item.requires_app_closed else ""

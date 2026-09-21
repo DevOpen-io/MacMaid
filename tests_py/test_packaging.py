@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import os
-import pathlib
 import subprocess
-import tempfile
 from pathlib import Path
 
 from macmaid import __version__

@@ -1,6 +1,6 @@
 [project]
 name = "macmaid"
-version = "0.14.4"
+version = "0.14.5"
 description = "Safe, fast macOS cleanup and system maintenance toolkit"
 authors = [
     { name = "TalhaAksoy", email = "talha-_-0@hotmail.com" }
@@ -36,20 +36,10 @@ dev = [
 target-version = "py311"
 lint.select = ["E4", "E7", "E9", "F"]
 lint.ignore = ["E701", "E702"]  # Existing compact UI/CLI control-flow style.
-exclude = [
-    "src/macmaid/developer.py",
-    "src/macmaid/features.py",
-    "src/macmaid/i18n.py",
-    "src/macmaid/review.py",
-    "src/macmaid/safety.py",
-    "src/macmaid/scanner.py",
-    "src/macmaid/tui.py",
-    "src/macmaid/web.py",
-]
 
 [tool.mypy]
 python_version = "3.11"
-files = ["src/macmaid/memory.py"]
+files = ["src/macmaid"]
 check_untyped_defs = true
 warn_unused_ignores = true
 

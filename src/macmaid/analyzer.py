@@ -158,6 +158,17 @@ class IncrementalAnalyzer:
                 if previous is not None and not previous.is_complete:
                     self._pause_locked(previous)
             existing = self._jobs.get(path)
+            if existing is None and not start and not force:
+                # Observe-only request: report an idle snapshot instead of
+                # scheduling work, so navigation/reconnect never starts a scan.
+                return {
+                    "path": str(path), "parent": str(path.parent), "totalBytes": 0,
+                    "humanTotal": human_bytes(0), "totalDiskBytes": 0, "humanTotalDisk": human_bytes(0),
+                    "entries": [], "largestFiles": [], "cached": False, "completed": 0,
+                    "partial": 0, "total": 0, "failed": 0, "issues": [], "notes": [],
+                    "currentScanPath": "", "isComplete": True, "isPaused": False,
+                    "isCancelled": False, "status": "idle",
+                }
             incompatible = existing is not None and (existing.top != top or existing.min_file_bytes != min_file_bytes or (start and existing.was_cancelled))
             cached = existing is not None and not force and not incompatible
             if existing is None or force or incompatible:

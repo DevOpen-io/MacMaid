@@ -6,6 +6,33 @@ safety contract, refactoring rules, testing standard (including the
 mutation/fault-injection requirement), and the required verification suite.
 Read it before making changes.
 
+## Mandatory Quality Gate
+
+No change is considered ready to merge if Ruff or mypy reports even a single error.
+
+Required checks:
+
+```bash
+uv run ruff check src/macmaid tests_py
+uv run mypy
+```
+
+Rules:
+
+- Ruff result: **0 errors**
+- mypy result: **0 errors**
+- "It was already in the baseline" is not an acceptable excuse.
+- New `# type: ignore`, `noqa`, broad `Any`, `cast()`, or config exclusions must not be used to hide errors.
+- If an exception is genuinely required, it must be documented with an explicit technical reason, the narrowest possible scope, and a test.
+- Ruff/mypy scope must not be narrowed.
+- `src/macmaid` and `tests_py` must not be removed from Ruff scope.
+- mypy must continue to check the entire `src/macmaid` package.
+- If either check fails after a refactor or feature, the work is not complete.
+
+In short:
+
+**Ruff != 0 or mypy != 0 → no merge.**
+
 ## Shared Core Services
 
 CLI, TUI, and Web/Application UI must all use the same feature and core implementations (`scanner.py`, `cleaner.py`, `analyzer.py`, `features.py`, `developer.py`, `safety.py`, `system.py`). UI layers must not contain their own business logic, filesystem traversal, disk measurement, or safety checks; they serve only as adapters/presentation over the shared core services.

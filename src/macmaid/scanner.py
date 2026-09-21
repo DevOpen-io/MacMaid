@@ -5,7 +5,6 @@ import os
 import plistlib
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
@@ -356,8 +355,10 @@ class PackageManagerCacheScanner:
                 if not path.exists() and not path.is_symlink():
                     return
                 failed: list[Path] = []
-                size = size_of(path, cancel=token.check,
-                               on_error=lambda target, message: (issues.append(f"{target}: {message}"), failed.append(target)))
+                def note_error(target: Path, message: str) -> None:
+                    issues.append(f"{target}: {message}")
+                    failed.append(target)
+                size = size_of(path, cancel=token.check, on_error=note_error)
                 if size < _MIN_CACHE_BYTES and not failed:
                     return
             items.append(CleanupItem(CleanupCategory.PACKAGE_MANAGERS, label, path, size, risk, f"Uses {manager}'s supported cleanup operation; project data is outside this target.", CleanupAction(ActionType.COMMAND, command, arguments)))
@@ -386,8 +387,9 @@ class PackageManagerCacheScanner:
         pending = {key: spec for key, spec in probe_args.items() if executables.get(key)}
         if pending:
             with ThreadPoolExecutor(max_workers=min(4, len(pending)), thread_name_prefix="macmaid-pm") as pool:
-                probed = {key: pool.submit(probe, executables[key], args, timeout)
-                          for key, (args, timeout) in pending.items()}
+                probed = {key: pool.submit(probe, exe, args, timeout)
+                          for key, (args, timeout) in pending.items()
+                          if (exe := executables.get(key)) is not None}
 
         brew = executables["brew"]
         if brew:
