@@ -131,3 +131,39 @@ def test_anchored_deletion_rejects_symlink_ancestor(tmp_path):
     link.symlink_to(outside, target_is_directory=True)
     with pytest.raises(OSError): system.remove_validated_path(link / "file", lambda: None)
     assert (outside / "file").exists()
+
+
+def test_iter_app_bundles_never_descends_into_symlinked_dirs(tmp_path):
+    root = (tmp_path / "root").resolve()
+    outside = tmp_path / "outside"
+    (outside / "Hidden.app").mkdir(parents=True)
+    (root / "real" / "Visible.app").mkdir(parents=True)
+    (root / "linked").symlink_to(outside, target_is_directory=True)
+
+    found = {path.name for path in system.iter_app_bundles(root)}
+
+    assert found == {"Visible.app"}
+
+
+def test_iter_app_bundles_descend_flag_controls_bundle_traversal(tmp_path):
+    root = tmp_path.resolve()
+    nested = root / "Outer.app" / "Contents" / "Helper.app"
+    nested.mkdir(parents=True)
+
+    assert [p.name for p in system.iter_app_bundles(root)] == ["Outer.app"]
+    assert {p.name for p in system.iter_app_bundles(root, descend_bundles=True)} == {"Outer.app", "Helper.app"}
+
+
+def test_iter_app_bundles_reports_unreadable_dirs_via_on_error(tmp_path):
+    root = tmp_path.resolve()
+    locked = root / "locked"
+    locked.mkdir()
+    locked.chmod(0)
+    try:
+        errors = []
+        list(system.iter_app_bundles(root, on_error=lambda path, exc: errors.append((path, exc))))
+    finally:
+        locked.chmod(0o700)
+
+    assert [path for path, _ in errors] == [locked]
+    assert isinstance(errors[0][1], OSError)

@@ -1,5 +1,11 @@
 # MacMaid Agent Rules
 
+All contributors — human or agent — must follow the engineering standard in
+[`CONTRIBUTING.md`](CONTRIBUTING.md) at the repository root. It defines the
+safety contract, refactoring rules, testing standard (including the
+mutation/fault-injection requirement), and the required verification suite.
+Read it before making changes.
+
 ## Shared Core Services
 
 CLI, TUI, and Web/Application UI must all use the same feature and core implementations (`scanner.py`, `cleaner.py`, `analyzer.py`, `features.py`, `developer.py`, `safety.py`, `system.py`). UI layers must not contain their own business logic, filesystem traversal, disk measurement, or safety checks; they serve only as adapters/presentation over the shared core services.

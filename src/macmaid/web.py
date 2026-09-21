@@ -292,8 +292,16 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 raise FileNotFoundError
             if not Path(icon_name).suffix:
                 icon_name += ".icns"
-            source = app.path / "Contents/Resources" / icon_name
+            # CFBundleIconFile is bundle-controlled input: it must be a flat
+            # filename, and the resolved file must stay inside Resources, so a
+            # hostile plist cannot point the icon endpoint outside the app.
+            if Path(icon_name).name != icon_name:
+                raise FileNotFoundError
+            resources = app.path / "Contents/Resources"
+            source = resources / icon_name
             if not source.is_file():
+                raise FileNotFoundError
+            if source.resolve().parent != resources.resolve():
                 raise FileNotFoundError
             signature = source.stat()
             state = self.server.state

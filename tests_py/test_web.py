@@ -149,3 +149,54 @@ def test_app_icon_failed_conversion_is_not_cached(tmp_path: Path, monkeypatch) -
         assert not state.icon_cache
     finally:
         server.shutdown(); server.server_close(); thread.join()
+
+
+def test_app_icon_rejects_bundle_controlled_path_escape(tmp_path: Path, monkeypatch) -> None:
+    import plistlib
+
+    from macmaid.features import InstalledApplication
+    from macmaid.system import CommandResult
+    from macmaid import web
+
+    secret = tmp_path / "secret.bin"
+    secret.write_bytes(b"secret")
+    app_path = tmp_path / "Hostile.app"
+    resources = app_path / "Contents/Resources"
+    resources.mkdir(parents=True)
+
+    state = WebState(Config(home=tmp_path))
+    state.apps = [InstalledApplication("Hostile", app_path, "org.example.hostile", "1", 10)]
+    server = MacMaidHTTPServer(("127.0.0.1", 0), state)
+    thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+
+    def fake_sips(executable, arguments, **kwargs):
+        Path(arguments[-1]).write_bytes(b"png")
+        return CommandResult(0)
+
+    monkeypatch.setattr(web, "run_command", fake_sips)
+    host = f"127.0.0.1:{server.server_port}"
+    target = f"/api/apps/icon?path={quote(str(app_path))}"
+    try:
+        connection = HTTPConnection("127.0.0.1", server.server_port)
+        # "../../../secret.bin" climbs out of Contents/Resources to the real
+        # file outside the bundle — pre-fix the endpoint converted and served
+        # it; the flat-name check must now reject it before any I/O.
+        for icon_file in ("../../../secret.bin", "../../secret.bin", "/etc/passwd", "sub/icon"):
+            (app_path / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleIconFile": icon_file}))
+            state.icon_cache.clear()
+            connection.request("GET", target, headers={"Host": host})
+            response = connection.getresponse()
+            assert response.status == 404, icon_file
+            response.read()
+
+        # A symlinked icon inside Resources that points outside the bundle is
+        # rejected even though it passes the flat-name check.
+        (resources / "linked.icns").symlink_to(secret)
+        (app_path / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleIconFile": "linked.icns"}))
+        state.icon_cache.clear()
+        connection.request("GET", target, headers={"Host": host})
+        response = connection.getresponse()
+        assert response.status == 404
+        response.read()
+    finally:
+        server.shutdown(); server.server_close(); thread.join()

@@ -71,7 +71,7 @@ jobs:
       - name: Install Playwright Chromium
         run: uv run playwright install chromium
 
-      - name: Run Memory browser test
+      - name: Run browser tests
         env:
           MACMAID_BROWSER_TESTS: "1"
-        run: uv run pytest tests_py/test_memory_browser.py -q
+        run: uv run pytest tests_py/test_memory_browser.py tests_py/test_webui_devcaches_e2e.py -q

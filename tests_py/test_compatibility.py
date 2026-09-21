@@ -5,6 +5,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+import pytest
+
 from macmaid import __version__, developer, features, system, web
 from macmaid.config import Config
 from macmaid.developer import DeveloperInventory
@@ -47,6 +49,16 @@ def test_missing_path_and_managers_produce_empty_inventory(monkeypatch, tmp_path
     assert inventory.scan("environment") == []
     assert inventory.scan("tool") == []
     assert inventory.scan("sdk") == []
+
+
+def test_developer_inventory_rejects_reentrant_scan(monkeypatch, tmp_path) -> None:
+    """A shared instance must fail loudly on concurrent scans instead of
+    letting two scans share (and cross-cancel) one cancellation token."""
+    monkeypatch.setattr(developer, "which", lambda _name: None)
+    inventory = DeveloperInventory(Config(home=tmp_path))
+    monkeypatch.setattr(inventory, "runtimes", lambda: inventory.scan("runtime"))
+    with pytest.raises(RuntimeError, match="concurrent"):
+        inventory.scan("runtime")
 
 
 def test_permission_denied_inventory_directory_is_skipped() -> None:

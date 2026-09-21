@@ -60,28 +60,23 @@ def test_translation_catalogs_have_no_duplicate_keys() -> None:
             target, value = node.target, node.value
         if not (isinstance(target, ast.Name) and target.id.startswith(("_EN", "_TR"))):
             continue
-        keys: list[str] = []
-        if isinstance(value, ast.Dict):
-            keys = [
-                key.value for key in value.keys
-                if isinstance(key, ast.Constant) and isinstance(key.value, str)
-            ]
-        elif value is not None:
-            # Fragment catalogs are tuple(sorted({...}.items(), ...)): the source
-            # key is the first element of each tuple inside the set literal.
-            for sub in ast.walk(value):
-                if not isinstance(sub, ast.Set):
-                    continue
-                keys.extend(
-                    element.elts[0].value for element in sub.elts
-                    if isinstance(element, ast.Tuple) and element.elts
-                    and isinstance(element.elts[0], ast.Constant)
-                    and isinstance(element.elts[0].value, str)
-                )
+        # Catalogs are either dict literals (_EN/_TR/_EXTRA) or
+        # tuple(sorted({...}.items(), ...)) fragment tables (_EN_FRAGMENTS/
+        # _TR_FRAGMENTS). Dict literals silently collapse duplicate keys at
+        # runtime, so the AST is the only place they can be detected: walk the
+        # assigned value and collect every dict literal's keys, wherever the
+        # dict sits inside the expression.
+        keys = [
+            key.value
+            for sub in ast.walk(value) if isinstance(sub, ast.Dict)
+            for key in sub.keys
+            if isinstance(key, ast.Constant) and isinstance(key.value, str)
+        ]
         if keys:
             catalogs[target.id] = keys
 
-    assert catalogs
+    expected = {"_EN", "_TR", "_EN_EXTRA", "_TR_EXTRA", "_EN_FRAGMENTS", "_TR_FRAGMENTS"}
+    assert expected <= catalogs.keys(), f"missing catalogs: {expected - catalogs.keys()}"
     for name, keys in catalogs.items():
         duplicates = sorted(key for key, count in Counter(keys).items() if count > 1)
         assert duplicates == [], f"{name} has duplicate keys: {duplicates}"

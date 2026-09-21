@@ -43,8 +43,16 @@ class FakeProcess:
                 "memory_info": None if self.denied else SimpleNamespace(rss=self.rss),
                 "cpu_times": SimpleNamespace(user=1.0, system=0.5)}
     def as_dict(self, attrs=None, ad_value=None):
-        return {name: (getattr(self, name)() if callable(getattr(self, name)) else getattr(self, name))
-                for name in (attrs or ())}
+        # Real psutil as_dict() swallows NoSuchProcess/AccessDenied per
+        # attribute and substitutes ad_value; it does not propagate them.
+        result = {}
+        for name in (attrs or ()):
+            try:
+                value = getattr(self, name)
+                result[name] = value() if callable(value) else value
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                result[name] = ad_value
+        return result
     def create_time(self): return self.created
     def uids(self): return SimpleNamespace(real=self.uid, effective=self.uid)
     def exe(self): return self.executable
@@ -247,6 +255,46 @@ def test_automation_stop_supports_bare_process_without_info(service, monkeypatch
     service.automate()
     assert bare.signals == ["TERM"]
     assert service.snapshot()["events"][0]["automatic"] is True
+
+
+def test_bare_process_with_denied_attributes_is_skipped_not_crashed(service, monkeypatch):
+    # as_dict(ad_value=None) yields None for denied fields; _describe must
+    # turn that into a controlled skip, not an unhandled error path.
+    bare = FakeProcess(bare=True)
+    bare.denied = True
+    monkeypatch.setattr(memory.psutil, "Process", lambda pid: bare)
+    result = service.stop([key(service)])
+    assert result["outcomes"][0]["outcome"] == "skipped"
+    assert bare.signals == []
+
+
+def test_settings_signature_invalidates_on_owner_change(service, monkeypatch):
+    # The cache key must include st_uid: an owner change with identical
+    # inode/mtime/size must force a re-read (which then fails closed in
+    # _require_owned_regular_file) instead of serving stale settings.
+    service.path.write_text(json.dumps({"paused": True, "rules": [], "exclusions": ["/usr/bin/aaa"]}))
+    service.settings = service._read_settings()
+    assert service.settings["exclusions"] == ["/usr/bin/aaa"]
+    stat_before = service.path.stat()
+    service.path.write_text(json.dumps({"paused": True, "rules": [], "exclusions": ["/usr/bin/bbb"]}))
+    os.utime(service.path, ns=(stat_before.st_atime_ns, stat_before.st_mtime_ns))
+
+    real_lstat = Path.lstat
+    def foreign_owner(self):
+        info = real_lstat(self)
+        if self != service.path:
+            return info
+        # Copy st_* attributes losslessly (rebuilding os.stat_result from its
+        # tuple would round-trip nanosecond timestamps through float seconds
+        # and change mtime_ns, defeating the signature check).
+        fields = {name: getattr(info, name) for name in dir(info) if name.startswith("st_")}
+        fields["st_uid"] = info.st_uid + 1
+        return SimpleNamespace(**fields)
+    monkeypatch.setattr(Path, "lstat", foreign_owner)
+
+    # Cache miss → revalidation rejects the foreign-owned file → defaults.
+    assert service._read_settings() == {"paused": True, "rules": [], "exclusions": []}
+    assert service.settings_error
 
 
 def test_automation_requires_sustained_rss_and_pressure(service):

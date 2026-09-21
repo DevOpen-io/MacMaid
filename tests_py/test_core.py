@@ -13,6 +13,7 @@ from macmaid.config import Config
 from macmaid.features import ApplicationManager, ProjectArtifact, ProjectPurgeManager, completion_activation_hint, completion_script, install_completion, remove_completion_hooks, system_status
 from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, CleanupProfile, RiskLevel
 from macmaid.safety import PathSafety, PathSafetyError, manual_cache_allowed
+from macmaid.scanner import Scanner
 from macmaid.system import human_bytes, run_command, sizes_of
 
 
@@ -42,13 +43,17 @@ def test_config_replaces_whitelist_atomically_after_validating_all_entries(tmp_p
     assert config.patterns(strict=True) == [str(keep), str(important)]
 
 
-def test_symlinked_whitelist_still_filters_scans_but_blocks_operations(tmp_path: Path) -> None:
+def test_symlinked_whitelist_still_filters_scans_but_blocks_operations(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     config = Config(home=tmp_path)
     config.ensure_files()
     managed = tmp_path / "dotfiles"
     managed.mkdir()
     real = managed / "whitelist"
-    keep = tmp_path / "keep"
+    keep = tmp_path / "Library" / "Caches" / "keepme"
+    drop = tmp_path / "Library" / "Caches" / "dropme"
+    for target in (keep, drop):
+        target.mkdir(parents=True)
+        (target / "blob.bin").write_bytes(b"x" * 128)
     real.write_text(f"{keep}\n")
     config.whitelist_file.unlink()
     config.whitelist_file.symlink_to(real)
@@ -57,6 +62,12 @@ def test_symlinked_whitelist_still_filters_scans_but_blocks_operations(tmp_path:
     # hiding entries; operation-time reads stay fail-closed.
     assert config.patterns() == [str(keep)]
     assert config.is_whitelisted(keep)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    # The whitelist snapshot lives on the Scanner and is populated inside
+    # scan(); the public entry point is what must honor it.
+    scanned = {item.path for item in Scanner(config).scan(CleanupProfile.SAFE).items}
+    assert keep not in scanned
+    assert drop in scanned
     with pytest.raises(PermissionError):
         config.patterns(strict=True)
     with pytest.raises(PermissionError):
