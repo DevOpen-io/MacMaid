@@ -228,7 +228,7 @@ wheels = [
 
 [[package]]
 name = "macmaid"
-version = "0.14.9"
+version = "0.14.10"
 source = { editable = "." }
 dependencies = [
     { name = "psutil" },
