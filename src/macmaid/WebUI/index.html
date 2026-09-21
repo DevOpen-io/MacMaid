@@ -595,6 +595,7 @@
                     <span class="pill-badge" data-i18n="clean.badge_extensive">Extensive</span>
                   </button>
                 </div>
+                <span class="profile-context" id="clean-profile-context" data-i18n="clean.profile_safe_context">Safe — low-risk caches only</span>
               </div>
 
               <div class="config-switches">
@@ -748,7 +749,7 @@
             <div class="glass-card app-detail-card" id="app-detail-card">
               <div class="empty-selection" id="app-detail-empty">
                 <span class="empty-selection-icon" data-icon="app"></span>
-                <p data-i18n="apps.empty_detail">Select an application from the left to view details and remaining leftovers.</p>
+                <p data-i18n="apps.empty_detail">Select an application to view details.</p>
               </div>
 
               <div class="app-detail-content hidden" id="app-detail-view">
@@ -865,7 +866,7 @@
 
           <div class="glass-card">
             <div class="analyzer-bar">
-              <button class="btn-sm btn-secondary" id="btn-analyzer-parent" title="Return to parent directory" data-i18n-title="analyzer.tip_parent">
+              <button class="btn btn-sm btn-secondary" id="btn-analyzer-parent" title="Return to parent directory" data-i18n-title="analyzer.tip_parent">
                 <span class="inline-icon" data-icon="arrow.up"></span>
                 <span data-i18n="analyzer.btn_parent">Parent Directory</span>
               </button>
@@ -874,10 +875,10 @@
                 <input type="text" id="analyzer-path-input" class="analyzer-path-input" value="~">
               </div>
               <div class="analyzer-quick-paths">
-                <button class="btn-sm btn-secondary btn-quick-path" data-path="~" data-i18n="analyzer.quick_home">Home (~)</button>
-                <button class="btn-sm btn-secondary btn-quick-path" data-path="~/Downloads" data-i18n="analyzer.quick_downloads">Downloads</button>
-                <button class="btn-sm btn-secondary btn-quick-path" data-path="~/Library">Library</button>
-                <button class="btn-sm btn-secondary btn-quick-path" data-path="~/Developer">Developer</button>
+                <button class="btn btn-sm btn-secondary btn-quick-path" data-path="~" data-i18n="analyzer.quick_home">Home (~)</button>
+                <button class="btn btn-sm btn-secondary btn-quick-path" data-path="~/Downloads" data-i18n="analyzer.quick_downloads">Downloads</button>
+                <button class="btn btn-sm btn-secondary btn-quick-path" data-path="~/Library">Library</button>
+                <button class="btn btn-sm btn-secondary btn-quick-path" data-path="~/Developer">Developer</button>
               </div>
               <button class="btn btn-secondary" id="btn-run-analyzer">
                 <span class="inline-icon" data-icon="internaldrive"></span>
@@ -919,8 +920,8 @@
                       <tr>
                         <th data-i18n="analyzer.th_filename">File Name</th>
                         <th data-i18n="analyzer.th_fullpath">Full Path</th>
-                        <th width="120" style="text-align: right;" data-i18n="clean.th_size">Size</th>
-                        <th width="80" data-i18n="analyzer.th_action">Action</th>
+                        <th width="120" class="numeric-column" data-i18n="clean.th_size">Size</th>
+                        <th width="80" class="table-action" data-i18n="analyzer.th_action">Action</th>
                       </tr>
                     </thead>
                     <tbody id="tbody-analyzer-files">
@@ -1001,7 +1002,7 @@
                     <th data-i18n="purge.th_artifact_type">Artifact Type</th>
                     <th data-i18n="analyzer.th_fullpath">Full Path</th>
                     <th data-i18n="purge.th_last_modified">Last Modified</th>
-                    <th width="120" style="text-align: right;" data-i18n="purge.th_reclaimable">Reclaimable</th>
+                    <th width="120" class="numeric-column" data-i18n="purge.th_reclaimable">Reclaimable</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-purge-items">
@@ -1063,7 +1064,7 @@
                       <th data-i18n="dev.th_items">Item</th>
                       <th data-i18n="common.th_location_path">Location Path</th>
                       <th data-i18n="dev.th_note">Note</th>
-                      <th width="120" style="text-align: right;" data-i18n="clean.th_size">Size</th>
+                      <th width="120" class="numeric-column" data-i18n="clean.th_size">Size</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-devstorage"><tr><td colspan="5" class="empty-state" data-i18n="dev.empty_storage">Scan to measure developer storage.</td></tr></tbody>
@@ -2068,7 +2069,7 @@
               <div class="settings-info-grid">
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.version_label">Version</div>
-                  <div class="settings-info-value settings-info-mono">0.14.8</div>
+                  <div class="settings-info-value settings-info-mono">0.14.9</div>
                 </div>
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.safety_label">Safety Model</div>

@@ -119,7 +119,7 @@ async function selectApp(app) {
   document.getElementById('detail-app-size').textContent = formatBytes(app.bytes);
 
   const leftoversList = document.getElementById('detail-leftovers-list');
-  leftoversList.innerHTML = `<div style="padding: 10px; color: var(--text-dim);">${t('apps.searching_leftovers', 'Searching for leftovers...')}</div>`;
+  leftoversList.innerHTML = `<div class="empty-state compact-empty-state">${t('apps.searching_leftovers', 'Searching for leftovers...')}</div>`;
 
   try {
     const res = await fetch(`/api/apps/leftovers?path=${encodeURIComponent(app.path)}&bundleId=${encodeURIComponent(app.bundleId || '')}`);
@@ -133,10 +133,10 @@ async function selectApp(app) {
       leftoversList.innerHTML = state.appLeftovers.map(item => `
         <div class="leftover-row">
           <div>
-            <div style="font-weight:600;">${escapeHtml(item.title)}</div>
-            <div class="leftover-path">${escapeHtml(item.path)}</div>
+            <div class="table-label">${escapeHtml(item.title)}</div>
+            <div class="leftover-path table-path">${escapeHtml(item.path)}</div>
           </div>
-          <div style="font-family: var(--font-mono);">${formatBytes(item.bytes)}</div>
+          <div class="table-number">${formatBytes(item.bytes)}</div>
         </div>
       `).join('');
     }

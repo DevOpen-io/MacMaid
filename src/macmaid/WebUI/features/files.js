@@ -50,10 +50,10 @@ function renderInstallers() {
   tbody.innerHTML = visible.map(item => `
     <tr>
       <td><input type="checkbox" class="installer-chk" data-path="${escapeHtml(item.path)}" checked></td>
-      <td><strong>${escapeHtml(item.label)}</strong></td>
-      <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
-      <td><span style="font-size: 11.5px; color: var(--text-dim);">${escapeHtml(item.reason)}</span></td>
-      <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes)}</td>
+      <td><span class="table-label">${escapeHtml(item.label)}</span></td>
+      <td><span class="table-path">${escapeHtml(item.path)}</span></td>
+      <td><span class="table-secondary">${escapeHtml(item.reason)}</span></td>
+      <td class="table-number">${escapeHtml(item.humanBytes)}</td>
     </tr>
   `).join('');
 
@@ -138,10 +138,10 @@ function renderLeftovers() {
   tbody.innerHTML = accessNoticeRow(issues, 5) + visible.map(item => `
     <tr>
       <td><input type="checkbox" class="leftover-chk" data-id="${item.id}" ${item.risk === 'MANUAL' ? 'disabled' : 'checked'}></td>
-      <td><strong>${escapeHtml(item.label)}</strong></td>
-      <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
-      <td><span class="badge-status">${escapeHtml(item.risk)}</span></td>
-      <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes)}</td>
+      <td><span class="table-label">${escapeHtml(item.label)}</span></td>
+      <td><span class="table-path">${escapeHtml(item.path)}</span></td>
+      <td><span class="badge-status table-status">${escapeHtml(item.risk)}</span></td>
+      <td class="table-number">${escapeHtml(item.humanBytes)}</td>
     </tr>
   `).join('');
 
@@ -234,11 +234,11 @@ async function fetchSmartDownloads() {
   try {
     const data = await readAPIResponse(await fetch(`/api/smart-downloads?olderThanDays=${encodeURIComponent(age)}`));
     tbody.innerHTML = (data.files || []).map(file => `<tr>
-      <td>${escapeHtml((file.categories || []).join(', '))}</td>
-      <td><strong>${escapeHtml(file.name || '')}</strong><br><span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(file.path)}</span></td>
-      <td>${Number(file.ageDays || 0)}d</td>
-      <td>${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
-      <td><button class="mini-btn smart-download-trash" data-path="${escapeHtml(file.path)}">${t('common.move_to_trash', 'Move to Trash')}</button></td>
+      <td><span class="table-secondary">${escapeHtml((file.categories || []).join(', '))}</span></td>
+      <td><span class="table-label">${escapeHtml(file.name || '')}</span><br><span class="table-path">${escapeHtml(file.path)}</span></td>
+      <td class="table-number">${Number(file.ageDays || 0)}d</td>
+      <td class="table-number">${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
+      <td class="table-action"><button class="mini-btn smart-download-trash" data-path="${escapeHtml(file.path)}">${t('common.move_to_trash', 'Move to Trash')}</button></td>
     </tr>`).join('') || `<tr><td colspan="5" class="empty-state">${t('more.empty_downloads_found', 'No smart download candidates found.')}</td></tr>`;
     tbody.querySelectorAll('.smart-download-trash').forEach(button => button.addEventListener('click', () => trashSmartDownloadPath(button.dataset.path)));
   } catch (err) {
@@ -275,11 +275,11 @@ async function fetchLargeFiles() {
     if (age) params.set('olderThanDays', age);
     const data = await readAPIResponse(await fetch(`/api/large-files?${params}`));
     tbody.innerHTML = (data.files || []).map(file => `<tr>
-      <td>${escapeHtml((file.categories || []).join(', '))}</td>
-      <td><strong>${escapeHtml(file.name || '')}</strong><br><span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(file.path)}</span></td>
-      <td>${Number(file.ageDays || 0)}d</td>
-      <td>${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
-      <td><button class="mini-btn large-file-trash" data-path="${escapeHtml(file.path)}">${t('common.move_to_trash', 'Move to Trash')}</button></td>
+      <td><span class="table-secondary">${escapeHtml((file.categories || []).join(', '))}</span></td>
+      <td><span class="table-label">${escapeHtml(file.name || '')}</span><br><span class="table-path">${escapeHtml(file.path)}</span></td>
+      <td class="table-number">${Number(file.ageDays || 0)}d</td>
+      <td class="table-number">${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
+      <td class="table-action"><button class="mini-btn large-file-trash" data-path="${escapeHtml(file.path)}">${t('common.move_to_trash', 'Move to Trash')}</button></td>
     </tr>`).join('') || `<tr><td colspan="5" class="empty-state">${t('more.empty_large_found', 'No large or old files matching filters found.')}</td></tr>`;
     tbody.querySelectorAll('.large-file-trash').forEach(button => button.addEventListener('click', () => trashLargeFilePath(button.dataset.path)));
   } catch (err) {
@@ -317,10 +317,10 @@ async function fetchDuplicates() {
     (data.groups || []).forEach((group, groupIndex) => {
       (group.files || []).forEach(file => {
         rows.push(`<tr>
-          <td>${t('duplicates.group', 'Group')} ${groupIndex + 1}<br><small>${escapeHtml(group.humanWasted || '')}</small></td>
-          <td><span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(file.path)}</span></td>
-          <td>${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
-          <td><button class="mini-btn duplicate-trash" data-path="${escapeHtml(file.path)}">${t('common.move_to_trash', 'Move to Trash')}</button></td>
+          <td><span class="table-label">${t('duplicates.group', 'Group')} ${groupIndex + 1}</span><br><span class="table-tertiary">${escapeHtml(group.humanWasted || '')}</span></td>
+          <td><span class="table-path">${escapeHtml(file.path)}</span></td>
+          <td class="table-number">${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
+          <td class="table-action"><button class="mini-btn duplicate-trash" data-path="${escapeHtml(file.path)}">${t('common.move_to_trash', 'Move to Trash')}</button></td>
         </tr>`);
       });
     });

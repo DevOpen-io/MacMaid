@@ -70,13 +70,13 @@ function renderScanResults(scanData) {
       <tr data-item-id="${item.id}">
         <td><input type="checkbox" class="item-chk" data-id="${item.id}" ${isChecked} ${isDisabled}></td>
         <td>
-          <div style="font-weight: 600;">${escapeHtml(item.label)}</div>
-          <div style="font-size: 11px; color: var(--text-dim);">${escapeHtml(item.category)}</div>
+          <div class="table-label">${escapeHtml(item.label)}</div>
+          <div class="table-tertiary">${escapeHtml(item.category)}</div>
         </td>
-        <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path || 'Komut')}</span></td>
-        <td><span class="badge-status"><span class="pill-dot ${riskBadgeClass}" style="display:inline-block; margin-right:4px;"></span>${escapeHtml(item.risk)}</span></td>
-        <td><span style="font-size: 11.5px; color: var(--text-muted);">${escapeHtml(item.reason)}</span></td>
-        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes)}</td>
+        <td><span class="table-path">${escapeHtml(item.path || '—')}</span></td>
+        <td><span class="badge-status table-status"><span class="pill-dot ${riskBadgeClass}"></span>${escapeHtml(item.risk)}</span></td>
+        <td><span class="table-secondary">${escapeHtml(item.reason)}</span></td>
+        <td class="table-number">${escapeHtml(item.humanBytes)}</td>
       </tr>
     `;
   }).join('');
@@ -158,6 +158,12 @@ document.addEventListener('DOMContentLoaded', () => {
       SoundEffects.playClick();
       document.querySelectorAll('.profile-pill').forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
+      const context = document.getElementById('clean-profile-context');
+      if (context) {
+        const key = `clean.profile_${pill.dataset.profile === 'developer' ? 'developer' : pill.dataset.profile}_context`;
+        context.dataset.i18n = key;
+        context.textContent = t(key, '');
+      }
     });
   });
   // Cleaner tab events

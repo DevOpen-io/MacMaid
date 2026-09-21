@@ -28,13 +28,28 @@ async function scanProjectArtifacts() {
   }
 }
 
+function formatPurgeModified(value) {
+  if (value === null || value === undefined || value === '') return t('common.unknown', 'Unknown');
+  const numericValue = Number(value);
+  const date = Number.isFinite(numericValue)
+    ? new Date(numericValue < 1e12 ? numericValue * 1000 : numericValue)
+    : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat(state.lang === 'tr' ? 'tr-TR' : 'en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
+}
+
 function renderPurgeArtifacts() {
   const tbody = document.getElementById('tbody-purge-items');
   let totalBytes = 0;
   state.purgeArtifacts.forEach(a => totalBytes += (a.bytes || 0));
 
   document.getElementById('purge-total-size').textContent = formatBytes(totalBytes);
-  document.getElementById('purge-artifacts-count').textContent = `(${state.purgeArtifacts.length} dizin tespit edildi)`;
+  document.getElementById('purge-artifacts-count').textContent = t('purge.detected_count', '({count} directories detected)')
+    .replace('{count}', String(state.purgeArtifacts.length));
   syncMasterCheckbox('master-purge-chk', state.purgeArtifacts.length, state.selectedPurgeArtifacts.size);
 
   if (state.purgeArtifacts.length === 0) {
@@ -47,11 +62,11 @@ function renderPurgeArtifacts() {
     return `
       <tr>
         <td><input type="checkbox" class="purge-chk" data-id="${art.id}" ${isChecked}></td>
-        <td><strong>${escapeHtml(art.projectName)}</strong></td>
-        <td><span class="badge-status ${art.restoreClass === 'DEPENDENCY' ? 'badge-yellow' : 'badge-cyan'}">${escapeHtml(art.artifactName)}</span></td>
-        <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(art.path)}</span></td>
-        <td>${escapeHtml(art.modified || 'Bilinmiyor')}</td>
-        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${formatBytes(art.bytes)}</td>
+        <td><span class="table-label">${escapeHtml(art.projectName)}</span></td>
+        <td><span class="table-secondary">${escapeHtml(art.artifactName)}</span></td>
+        <td><span class="table-path">${escapeHtml(art.path)}</span></td>
+        <td class="table-value">${escapeHtml(formatPurgeModified(art.modified))}</td>
+        <td class="table-number">${formatBytes(art.bytes)}</td>
       </tr>
     `;
   }).join('');

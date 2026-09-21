@@ -72,10 +72,10 @@ function renderAnalyzerSnapshot(data, requestId) {
   } else {
     tbodyFiles.innerHTML = data.largestFiles.map(file => `
       <tr>
-        <td><strong>${escapeHtml(file.name)}</strong></td>
-        <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(file.path)}</span></td>
-        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(file.humanBytes)}</td>
-        <td><button class="btn btn-secondary btn-sm btn-trash-file" data-path="${escapeHtml(file.path)}" title="${t('analyzer.move_trash_tip', 'Move to Trash')}">${t('analyzer.trash_btn', 'Trash')}</button></td>
+        <td><span class="table-label">${escapeHtml(file.name)}</span></td>
+        <td><span class="table-path">${escapeHtml(file.path)}</span></td>
+        <td class="table-number">${escapeHtml(file.humanBytes)}</td>
+        <td class="table-action"><button class="btn btn-secondary btn-sm btn-trash-file" data-path="${escapeHtml(file.path)}" title="${t('analyzer.move_trash_tip', 'Move to Trash')}">${t('analyzer.trash_btn', 'Trash')}</button></td>
       </tr>`).join('');
 
     tbodyFiles.querySelectorAll('.btn-trash-file').forEach(btn => {

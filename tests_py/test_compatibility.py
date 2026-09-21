@@ -188,7 +188,19 @@ def test_web_ui_uses_restrained_native_utility_chrome() -> None:
     assert 'aria-controls="submenu-more"' in markup
     assert 'data-i18n="theme.dark"' in markup
     assert ".glass-card" in styles and "box-shadow: none" in styles
-    assert ".data-table td { padding: 7px 10px;" in styles
+    for token in (
+        "--text-title-size: 21px",
+        "--text-body-size: 13px",
+        "--control-height-sm: 26px",
+        "--control-height: 30px",
+        "--control-height-prominent: 32px",
+        "--control-radius: 7px",
+        "--space-1: 4px",
+        "--space-5: 24px",
+    ):
+        assert token in styles
+    assert "height: var(--control-height);" in styles
+    assert "font-variant-numeric: tabular-nums" in styles
 
 
 def test_release_version_is_consistent_across_metadata_and_web_ui() -> None:

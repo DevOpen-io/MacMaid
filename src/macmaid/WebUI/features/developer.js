@@ -32,11 +32,11 @@ async function scanDeveloperStorage() {
     }
     tbody.innerHTML = rows.map(item => `
       <tr data-item-id="${escapeHtml(item.path || `${item.ecosystem}:${item.label}`)}">
-        <td><span class="badge-status badge-cyan">${escapeHtml(item.ecosystem)}</span></td>
-        <td><strong>${escapeHtml(item.label)}</strong></td>
-        <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path || '—')}</span></td>
-        <td><span style="font-size: 11.5px; color: var(--text-dim);">${escapeHtml(item.note || '—')}</span></td>
-        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes || formatBytes(item.bytes || 0))}</td>
+        <td><span class="table-secondary">${escapeHtml(item.ecosystem)}</span></td>
+        <td><span class="table-label">${escapeHtml(item.label)}</span></td>
+        <td><span class="table-path">${escapeHtml(item.path || '—')}</span></td>
+        <td><span class="table-secondary">${escapeHtml(item.note || '—')}</span></td>
+        <td class="table-number">${escapeHtml(item.humanBytes || formatBytes(item.bytes || 0))}</td>
       </tr>
     `).join('');
     highlightCollectionDiff(tbody, previousItems, rows, 5);
@@ -78,11 +78,11 @@ async function scanDeveloperCaches() {
     tbody.innerHTML = accessNoticeRow(data.issues, 6) + state.devCaches.map(item => `
       <tr>
         <td><input type="checkbox" class="devcache-chk" data-id="${item.id}" ${item.risk === 'MANUAL' ? 'disabled' : 'checked'}></td>
-        <td><strong>${escapeHtml(item.label)}</strong></td>
-        <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path || 'Komut')}</span></td>
-        <td><span class="badge-status">${escapeHtml(item.risk)}</span></td>
-        <td><span style="font-size: 11.5px; color: var(--text-dim);">${escapeHtml(item.reason)}</span></td>
-        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes)}</td>
+        <td><span class="table-label">${escapeHtml(item.label)}</span></td>
+        <td><span class="table-path">${escapeHtml(item.path || '—')}</span></td>
+        <td><span class="badge-status table-status">${escapeHtml(item.risk)}</span></td>
+        <td><span class="table-secondary">${escapeHtml(item.reason)}</span></td>
+        <td class="table-number">${escapeHtml(item.humanBytes)}</td>
       </tr>
     `).join('');
 
@@ -228,12 +228,12 @@ async function scanDeveloperRuntimes() {
     if (!changed && previousItems.length) return;
     tbody.innerHTML = items.map((item, idx) => `
       <tr class="clickable-row" data-idx="${idx}" data-item-id="${escapeHtml(item.id || item.path)}" title="${t('dev.row_tip_detail', 'Click to view details and remove')}">
-        <td><strong>${escapeHtml(item.title || item.language)}</strong></td>
-        <td><span style="font-family: var(--font-mono); font-weight: 600;">${escapeHtml(item.version)}</span></td>
-        <td><span class="badge-status">${escapeHtml(item.manager)}</span></td>
-        <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
-        <td><span class="badge-status ${item.isActive ? 'badge-green' : (item.removable ? 'badge-yellow' : '')}">${item.isActive ? t('dev.badge_active', 'ACTIVE') : (item.removable ? t('dev.badge_removable', 'Removable') : t('dev.badge_protected', 'Protected'))}</span></td>
-        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes)}</td>
+        <td><span class="table-label">${escapeHtml(item.title || item.language)}</span></td>
+        <td><span class="table-code">${escapeHtml(item.version)}</span></td>
+        <td><span class="table-secondary">${escapeHtml(item.manager)}</span></td>
+        <td><span class="table-path">${escapeHtml(item.path)}</span></td>
+        <td><span class="badge-status table-status ${item.isActive ? 'badge-green' : (item.removable ? 'badge-yellow' : '')}">${item.isActive ? t('dev.badge_active', 'ACTIVE') : (item.removable ? t('dev.badge_removable', 'Removable') : t('dev.badge_protected', 'Protected'))}</span></td>
+        <td class="table-number">${escapeHtml(item.humanBytes)}</td>
       </tr>
     `).join('');
 
@@ -280,11 +280,11 @@ async function scanDeveloperEnvironments() {
     if (!changed && previousItems.length) return;
     tbody.innerHTML = items.map((item, idx) => `
       <tr class="clickable-row" data-idx="${idx}" data-item-id="${escapeHtml(item.id || item.path)}" title="${t('dev.row_tip_detail', 'Click to view details and remove')}">
-        <td><strong>${escapeHtml(item.title)}</strong></td>
-        <td><span class="badge-status">${escapeHtml(item.manager)}</span></td>
-        <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
-        <td><span style="font-size: 11.5px; color: var(--text-dim);">${escapeHtml(item.note || '-')}</span></td>
-        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes)}</td>
+        <td><span class="table-label">${escapeHtml(item.title)}</span></td>
+        <td><span class="table-secondary">${escapeHtml(item.manager)}</span></td>
+        <td><span class="table-path">${escapeHtml(item.path)}</span></td>
+        <td><span class="table-secondary">${escapeHtml(item.note || '—')}</span></td>
+        <td class="table-number">${escapeHtml(item.humanBytes)}</td>
       </tr>
     `).join('');
 
@@ -335,11 +335,11 @@ async function scanDeveloperTools() {
 
     tbody.innerHTML = items.map((item, idx) => `
       <tr class="clickable-row" data-idx="${idx}" data-item-id="${escapeHtml(item.id || item.path)}" title="${t('dev.row_tip_detail', 'Click to view details and remove')}">
-        <td><strong>${escapeHtml(item.title)}</strong></td>
-        <td><span class="badge-status">${escapeHtml(item.manager)}</span></td>
-        <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
-        <td><span style="font-size: 11.5px; color: var(--text-dim);">${escapeHtml(item.note || '-')}</span></td>
-        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes)}</td>
+        <td><span class="table-label">${escapeHtml(item.title)}</span></td>
+        <td><span class="table-secondary">${escapeHtml(item.manager)}</span></td>
+        <td><span class="table-path">${escapeHtml(item.path)}</span></td>
+        <td><span class="table-secondary">${escapeHtml(item.note || '—')}</span></td>
+        <td class="table-number">${escapeHtml(item.humanBytes)}</td>
       </tr>
     `).join('');
 
@@ -386,11 +386,11 @@ async function scanDeveloperSDKs() {
     if (!changed && previousItems.length) return;
     tbody.innerHTML = items.map((item, idx) => `
       <tr class="clickable-row" data-idx="${idx}" data-item-id="${escapeHtml(item.id || item.path)}" title="${t('dev.row_tip_detail', 'Click to view details and remove')}">
-        <td><strong>${escapeHtml(item.title)}</strong></td>
-        <td><span class="badge-status">${escapeHtml(item.manager)}</span></td>
-        <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(item.path)}</span></td>
-        <td><span style="font-size: 11.5px; color: var(--text-dim);">${escapeHtml(item.note || '-')}</span></td>
-        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${escapeHtml(item.humanBytes)}</td>
+        <td><span class="table-label">${escapeHtml(item.title)}</span></td>
+        <td><span class="table-secondary">${escapeHtml(item.manager)}</span></td>
+        <td><span class="table-path">${escapeHtml(item.path)}</span></td>
+        <td><span class="table-secondary">${escapeHtml(item.note || '—')}</span></td>
+        <td class="table-number">${escapeHtml(item.humanBytes)}</td>
       </tr>
     `).join('');
 

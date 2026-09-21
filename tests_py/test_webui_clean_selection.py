@@ -69,6 +69,25 @@ def test_every_referenced_icon_exists_in_symbol_catalog():
     assert not missing, f"icon references without catalog entries: {sorted(missing)}"
 
 
+def test_project_cleanup_formats_unix_timestamps_for_display():
+    source = (
+        Path(__file__).parents[1] / "src/macmaid/WebUI/features/purge.js"
+    ).read_text()
+    start = source.index("function formatPurgeModified(value)")
+    end = source.index("function renderPurgeArtifacts()", start)
+    formatter = source[start:end]
+    script = f"""
+const assert = require('node:assert/strict');
+const state = {{ lang: 'en' }};
+const t = (_key, fallback) => fallback;
+{formatter}
+assert.equal(formatPurgeModified(1789976963.5401623), 'Sep 21, 2026');
+assert.equal(formatPurgeModified(''), 'Unknown');
+assert.equal(formatPurgeModified('not-a-date'), 'not-a-date');
+"""
+    subprocess.run(["node", "-e", script], check=True, capture_output=True, text=True)
+
+
 def test_clean_selection_never_marks_incomplete_scan_as_selected():
     source = _webui_js(Path(__file__).parents[1])
     start = source.index("function cleanActionableItems()")
