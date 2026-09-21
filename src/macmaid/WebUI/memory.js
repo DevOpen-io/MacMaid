@@ -1,4 +1,6 @@
 /* Memory workspace. Process selection is always keyed by PID + creation time. */
+const MAX_MEMORY_SELECTION = 100;
+
 const memoryState = {
   snapshot: null,
   selected: new Set(),
@@ -51,7 +53,10 @@ function memoryVisibleRows() {
 
 function memorySelection() {
   const rows = memoryState.snapshot?.processes || [];
-  memoryState.selected = new Set([...memoryState.selected].filter(key => rows.some(row => row.key === key && !row.protected)));
+  // Keep the client selection within the server's exact-review limit.
+  memoryState.selected = new Set([...memoryState.selected]
+    .filter(key => rows.some(row => row.key === key && !row.protected))
+    .slice(0, MAX_MEMORY_SELECTION));
 
   const selEl = document.getElementById('memory-selection');
   if (selEl) selEl.textContent = mt('selected', { count: memoryState.selected.size });
@@ -88,6 +93,12 @@ function memorySelection() {
 
 function memorySigned(bytes) {
   return `${bytes < 0 ? '−' : '+'}${formatBytes(Math.abs(bytes))}`;
+}
+
+function addMemorySelection(rows) {
+  const capacity = Math.max(0, MAX_MEMORY_SELECTION - memoryState.selected.size);
+  rows.filter(row => !row.protected && !memoryState.selected.has(row.key)).slice(0, capacity)
+    .forEach(row => memoryState.selected.add(row.key));
 }
 
 function renderMemory() {
@@ -318,7 +329,7 @@ function renderMemory() {
           <div class="memory-rule-chips">
             <span class="memory-chip">${lucideIcon('memory-stick')} > ${e(formatBytes(rule.rssBytes))}</span>
             <span class="memory-chip">${lucideIcon('clock')} > ${e(String(rule.durationSeconds / 60))}m</span>
-            <span class="memory-chip">${lucideIcon('activity')} &lt; ${e(String(rule.pressureBelow))}% headroom</span>
+            <span class="memory-chip">${lucideIcon('activity')} ${e(mt('ruleHeadroom', { pressure: rule.pressureBelow }))}</span>
           </div>
         </div>
         <div class="memory-card-action">
@@ -658,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const checked = event.target.checked;
     const visibleEligible = memoryVisibleRows().filter(r => !r.protected);
     if (checked) {
-      visibleEligible.slice(0, 100).forEach(r => memoryState.selected.add(r.key));
+      addMemorySelection(visibleEligible);
     } else {
       visibleEligible.forEach(r => memoryState.selected.delete(r.key));
     }
@@ -667,9 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('memory-select')?.addEventListener('click', () => {
-    memoryVisibleRows().filter(row => !row.protected).forEach(row => {
-      if (memoryState.selected.size < 100) memoryState.selected.add(row.key);
-    });
+    addMemorySelection(memoryVisibleRows().filter(row => !row.protected));
     renderMemory();
   });
 

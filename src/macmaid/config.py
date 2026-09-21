@@ -5,10 +5,26 @@ import json
 import os
 import secrets
 import stat
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from .i18n import DEFAULT_LANGUAGE, normalize_language
+
+
+def whitelist_match(path: Path, patterns: Iterable[str]) -> bool:
+    """Return True when ``path`` is covered by any whitelist pattern.
+
+    Matching semantics mirror :meth:`Config.is_whitelisted`: exact match,
+    literal prefix, or glob. Callers that evaluate many paths should fetch
+    ``config.patterns()`` once and reuse the snapshot here.
+    """
+    value = str(path.expanduser().absolute())
+    for pattern in patterns:
+        prefix = pattern.rstrip("/")
+        if value == prefix or value.startswith(prefix + "/") or fnmatch.fnmatch(value, pattern):
+            return True
+    return False
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +171,8 @@ class Config:
     def patterns(self, *, strict: bool = False) -> list[str]:
         try:
             if strict:
+                # Operation-time reads must be fail-closed: the file has to be a
+                # regular, user-owned, non-symlinked target.
                 self._require_owned_regular_file(self.whitelist_file)
                 fd = os.open(self.whitelist_file, os.O_RDONLY | os.O_NOFOLLOW)
                 try:
@@ -166,6 +184,8 @@ class Config:
                 finally:
                     os.close(fd)
             else:
+                # Scan-time reads are best-effort filters: follow symlinks so a
+                # symlinked whitelist (dotfiles managers) still hides entries.
                 lines = self.whitelist_file.read_text(encoding="utf-8").splitlines()
         except (OSError, UnicodeError) as exc:
             if strict:
@@ -193,9 +213,4 @@ class Config:
                 raise PermissionError(f"target may contain whitelisted data: {path}")
 
     def is_whitelisted(self, path: Path) -> bool:
-        value = str(path.expanduser().absolute())
-        for pattern in self.patterns():
-            prefix = pattern.rstrip("/")
-            if value == prefix or value.startswith(prefix + "/") or fnmatch.fnmatch(value, pattern):
-                return True
-        return False
+        return whitelist_match(path, self.patterns())

@@ -5,6 +5,7 @@ import os
 import shutil
 import sys
 import threading
+import time
 from pathlib import Path
 
 from . import __version__
@@ -19,18 +20,17 @@ from .features import (
 from .developer import DeveloperStorageCenter
 from .duplicates import DuplicateFinder
 from .large_files import LargeOldFileScanner, SIZE_FILTERS
-from .memory import MemoryService
+from .memory import GROWTH_WINDOW_SECONDS, HISTORY_WINDOW_SECONDS, SAMPLE_INTERVAL_SECONDS, MemoryService
 from .models import CleanupProfile
 from .smart_downloads import SmartDownloadsScanner
 from .review import cleanup_plan, optimization_plan, purge_plan, snapshot_plan
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
-from .system import ensure_tool_search_path, human_bytes, is_interactive
+from .system import ensure_tool_search_path, human_bytes, is_interactive, run_command
 
 try:
     from rich.console import Console
     from rich.table import Table
     from rich.panel import Panel
-    from rich.text import Text
     from rich import box
     _HAS_RICH = True
 except ImportError:
@@ -59,7 +59,8 @@ def _parser() -> argparse.ArgumentParser:
     memory = commands.add_parser("memory", help="Inspect and manage process memory and growth")
     memory.add_argument("--stop", type=int, action="append", default=[], metavar="PID", help="Request review to stop PID")
     memory.add_argument("--limit", type=int, default=30, help="Maximum processes to display (default: 30)")
-    memory.add_argument("--growing", action="store_true", help="Only show processes showing sustained memory growth")
+    memory.add_argument("--growing", action="store_true", help=f"Only show processes showing sustained memory growth (requires --watch {GROWTH_WINDOW_SECONDS} or longer)")
+    memory.add_argument("--watch", type=int, metavar="SECONDS", help="Sample processes for SECONDS before displaying results")
     memory.add_argument("--sort", choices=("rss", "growth", "cpu", "name", "pid"), default="rss", help="Sort order (default: rss)")
     memory.add_argument("--filter", choices=("all", "developer", "flutter", "growing", "protected"), default="all", help="Filter by category")
     memory.add_argument("--apply", action="store_true", help="Apply authorized stop after review")
@@ -292,8 +293,21 @@ def _print_memory_snapshot(
 
 
 def _run_memory_command(config: Config, args: argparse.Namespace) -> None:
+    watch_seconds = getattr(args, "watch", None)
+    if watch_seconds is not None and not 1 <= watch_seconds <= HISTORY_WINDOW_SECONDS:
+        raise ValueError(f"--watch must be between 1 and {HISTORY_WINDOW_SECONDS} seconds")
+    if getattr(args, "growing", False) and (watch_seconds is None or watch_seconds < GROWTH_WINDOW_SECONDS):
+        raise ValueError(f"--growing requires --watch {GROWTH_WINDOW_SECONDS} or longer to collect ten-minute evidence")
+
     service = MemoryService(config, threading.Lock())
     service.sample()
+    if watch_seconds:
+        remaining = watch_seconds
+        while remaining:
+            interval = min(SAMPLE_INTERVAL_SECONDS, remaining)
+            time.sleep(interval)
+            service.sample()
+            remaining -= interval
     snapshot = service.snapshot()
     _print_memory_snapshot(
         snapshot,
@@ -561,8 +575,7 @@ def main(argv: list[str] | None = None) -> None:
             ]
             found_app = next((p for p in candidates if p.exists()), None)
             if found_app:
-                import subprocess
-                subprocess.Popen(["open", "-a", str(found_app)])
+                run_command("/usr/bin/open", ["-a", str(found_app)], timeout=15)
                 return
             print("MacMaid.app bulunamadı. Yerel uygulama olarak oluşturmak için: make prod-install")
         from .web import serve
@@ -592,10 +605,11 @@ def main(argv: list[str] | None = None) -> None:
             shutil.rmtree(config.config_dir, ignore_errors=True); shutil.rmtree(config.log_dir, ignore_errors=True)
         uv = shutil.which("uv")
         if uv:
-            import subprocess
-            completed = subprocess.run([uv, "tool", "uninstall", "macmaid"], check=False)
-            legacy = subprocess.run([uv, "tool", "uninstall", legacy_command], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            if completed.returncode != 0 and legacy.returncode != 0: print("uv tool uninstall failed; run it manually.")
+            completed = run_command(uv, ["tool", "uninstall", "macmaid"], timeout=120)
+            legacy = run_command(uv, ["tool", "uninstall", legacy_command], timeout=120)
+            if not completed.succeeded and not legacy.succeeded:
+                detail = completed.stderr or completed.stdout
+                print(f"uv tool uninstall failed{': ' + detail if detail else ';'} run it manually.")
         else: print("uv not found; skipped uv tool uninstall.")
     else:
         _parser().print_help()

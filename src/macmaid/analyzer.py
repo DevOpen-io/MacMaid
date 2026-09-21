@@ -40,6 +40,7 @@ class AnalyzerJob:
     issues: list[str] = field(default_factory=list)
     futures: list[Future[Any]] = field(default_factory=list)
     cancelled: threading.Event = field(default_factory=threading.Event)
+    done: threading.Event = field(default_factory=threading.Event)
     next_index: int = 0
     paused: bool = False
     was_cancelled: bool = False
@@ -162,6 +163,7 @@ class IncrementalAnalyzer:
             if existing is None or force or incompatible:
                 if existing is not None:
                     existing.cancelled.set()
+                    existing.done.set()
                     for future in existing.futures:
                         future.cancel()
                 job = self._create_job(path, top, min_file_bytes)
@@ -187,7 +189,14 @@ class IncrementalAnalyzer:
         result = self.snapshot(raw, start=True, top=top, min_file_bytes=min_file_bytes)
         path = Path(result["path"])
         while not result["isComplete"] and not result["isCancelled"]:
-            time.sleep(poll_interval)
+            with self._lock:
+                job = self._jobs.get(path)
+            # Wake on completion/cancellation; the timeout guards against a job
+            # being superseded or evicted between snapshots.
+            if job is not None:
+                job.done.wait(max(poll_interval, 0.5))
+            else:
+                time.sleep(poll_interval)
             result = self.snapshot(path, top=top, min_file_bytes=min_file_bytes)
         return result
 
@@ -436,6 +445,7 @@ class IncrementalAnalyzer:
                     job.largest_files = {item["path"]: item for item in keep}
             if job.is_complete:
                 job.current_scan_path = None
+                job.done.set()
             else:
                 self._submit_next_locked(job)
 
@@ -506,6 +516,7 @@ class IncrementalAnalyzer:
             job.was_cancelled = True
             job.paused = False
             job.current_scan_path = None
+            job.done.set()
             for future in job.futures:
                 future.cancel()
             for entry in job.entries:
@@ -519,7 +530,7 @@ class IncrementalAnalyzer:
             job = self._jobs.get(path)
             if job is None:
                 return set()
-            return {Path(entry["path"]) for entry in job.entries} | {Path(item) for item in job.largest_files}
+            return {Path(entry["path"]) for entry in job.entries} | {Path(path) for path in job.largest_files}
 
     def invalidate_after_removal(self, removed: Path) -> None:
         removed = removed.absolute()
@@ -528,6 +539,7 @@ class IncrementalAnalyzer:
             for path in affected:
                 job = self._jobs.pop(path)
                 job.cancelled.set()
+                job.done.set()
                 for future in job.futures:
                     future.cancel()
 
@@ -535,4 +547,5 @@ class IncrementalAnalyzer:
         with self._lock:
             for job in self._jobs.values():
                 job.cancelled.set()
+                job.done.set()
         self._executor.shutdown(wait=False, cancel_futures=True)

@@ -18,7 +18,7 @@ from macmaid.web import MacMaidHandler, WebState
 
 
 class FakeProcess:
-    def __init__(self, pid=321, created=123.0, exe="/opt/flutter/bin/cache/dart-sdk/bin/dart", args=None):
+    def __init__(self, pid=321, created=123.0, exe="/opt/flutter/bin/cache/dart-sdk/bin/dart", args=None, bare=False):
         self.pid = pid
         self.created = created
         self.executable = exe
@@ -27,8 +27,24 @@ class FakeProcess:
         self.uid = os.getuid()
         self.signals = []
         self.denied = False
+        self.bare = bare
 
     def oneshot(self): return nullcontext()
+    @property
+    def info(self):
+        # A bare psutil.Process(pid) has no .info attribute at all; only
+        # process_iter(attrs=...) populates it.
+        if self.bare:
+            raise AttributeError("'Process' object has no attribute 'info'")
+        return {"pid": self.pid, "create_time": self.created,
+                "uids": SimpleNamespace(real=self.uid, effective=self.uid),
+                "exe": self.executable, "name": Path(self.executable).name,
+                "cmdline": self.args,
+                "memory_info": None if self.denied else SimpleNamespace(rss=self.rss),
+                "cpu_times": SimpleNamespace(user=1.0, system=0.5)}
+    def as_dict(self, attrs=None, ad_value=None):
+        return {name: (getattr(self, name)() if callable(getattr(self, name)) else getattr(self, name))
+                for name in (attrs or ())}
     def create_time(self): return self.created
     def uids(self): return SimpleNamespace(real=self.uid, effective=self.uid)
     def exe(self): return self.executable
@@ -53,7 +69,7 @@ def service(tmp_path, monkeypatch):
     monkeypatch.setattr(memory.time, "monotonic", lambda: clock.mono)
     monkeypatch.setattr(memory.time, "time", lambda: clock.wall)
     monkeypatch.setattr(instance, "_protected_pids", lambda: {0, 1})
-    monkeypatch.setattr(memory.psutil, "process_iter", lambda: [proc])
+    monkeypatch.setattr(memory.psutil, "process_iter", lambda *a, **kw: [proc])
     monkeypatch.setattr(memory.psutil, "Process", lambda pid: proc)
     monkeypatch.setattr(memory.psutil, "virtual_memory", lambda: SimpleNamespace(used=10, total=20, available=10))
     monkeypatch.setattr(memory.psutil, "swap_memory", lambda: SimpleNamespace(used=2))
@@ -149,7 +165,7 @@ def test_sampling_gap_and_exited_process_prune_history(service, monkeypatch):
     service.last_sample -= 30
     service.sample()
     assert len(service.histories[key(service)]) == 1
-    monkeypatch.setattr(memory.psutil, "process_iter", lambda: [])
+    monkeypatch.setattr(memory.psutil, "process_iter", lambda *a, **kw: [])
     service.sample()
     assert service.histories == {} and service.rows == {}
 
@@ -197,6 +213,40 @@ def test_stop_partial_outcomes_and_audit_do_not_log_arguments(service):
     assert {r["outcome"] for r in result["outcomes"]} == {"exited", "skipped"}
     audit = service.config.operation_log.read_text()
     assert "secret" not in audit and '"automatic": false' in audit
+
+
+def test_identity_recheck_supports_bare_process_without_info(service, monkeypatch):
+    # psutil.Process(pid) has no .info attribute; _target must collect fields itself.
+    bare = FakeProcess(bare=True)
+    monkeypatch.setattr(memory.psutil, "Process", lambda pid: bare)
+    plan = service.review([key(service)])
+    assert [item.key for item in plan.items] == [key(service)]
+    assert service.stop([key(service)])["outcomes"][0]["outcome"] == "exited"
+    assert bare.signals == ["TERM"]
+
+
+def test_force_stop_supports_bare_process_without_info(service, monkeypatch):
+    bare = FakeProcess(bare=True)
+    monkeypatch.setattr(memory.psutil, "Process", lambda pid: bare)
+    monkeypatch.setattr(memory.psutil, "wait_procs", lambda procs, timeout: ([], procs))
+    target = key(service)
+    assert service.stop([target])["outcomes"][0]["outcome"] == "still-running"
+    assert service.review([target], force=True).requires_extra_opt_in
+    monkeypatch.setattr(memory.psutil, "wait_procs", lambda procs, timeout: (procs, []))
+    assert service.stop([target], force=True)["outcomes"][0]["outcome"] == "exited"
+    assert bare.signals == ["TERM", "KILL"]
+
+
+def test_automation_stop_supports_bare_process_without_info(service, monkeypatch):
+    add_rule(service)
+    bare = FakeProcess(bare=True)
+    monkeypatch.setattr(memory.psutil, "Process", lambda pid: bare)
+    service.automate()
+    advance(service, 300)
+    service.metrics["pressureHeadroom"] = 10
+    service.automate()
+    assert bare.signals == ["TERM"]
+    assert service.snapshot()["events"][0]["automatic"] is True
 
 
 def test_automation_requires_sustained_rss_and_pressure(service):
@@ -311,7 +361,7 @@ def test_rule_matches_only_the_exact_recognized_helper(service, monkeypatch):
         exe="/opt/node/bin/node",
         args=["node", "app.js", "/x/typescript/lib/tsserver.js"],
     )
-    monkeypatch.setattr(memory.psutil, "process_iter", lambda: [service.proc, decoy])
+    monkeypatch.setattr(memory.psutil, "process_iter", lambda *a, **kw: [service.proc, decoy])
     monkeypatch.setattr(memory.psutil, "Process", lambda pid: service.proc if pid == service.proc.pid else decoy)
     service.sample()
     target = key(service)
@@ -461,7 +511,7 @@ def test_core_process_actions_reject_root(service, monkeypatch):
 
 def test_automation_stops_at_most_one_helper_per_cycle(service, monkeypatch):
     other = FakeProcess(pid=322)
-    monkeypatch.setattr(memory.psutil, "process_iter", lambda: [service.proc, other])
+    monkeypatch.setattr(memory.psutil, "process_iter", lambda *a, **kw: [service.proc, other])
     monkeypatch.setattr(memory.psutil, "Process", lambda pid: service.proc if pid == 321 else other)
     service.sample()
     add_rule(service)
@@ -533,11 +583,20 @@ def test_cli_memory_snapshot_rich_rendering(service, monkeypatch, capsys):
     assert "dart" in output
 
 
-def test_cli_memory_growing_filter_and_sort(service, monkeypatch, capsys):
+def test_cli_memory_growing_requires_a_ten_minute_watch(service, monkeypatch):
     monkeypatch.setattr(cli, "Config", lambda: service.config)
     monkeypatch.setattr(cli, "MemoryService", lambda config, lock: service)
-    cli.main(["memory", "--sort", "cpu", "--filter", "growing"])
+    with pytest.raises(ValueError, match="--watch 600"):
+        cli.main(["memory", "--growing"])
+
+
+def test_cli_memory_watch_collects_multiple_samples(service, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "Config", lambda: service.config)
+    monkeypatch.setattr(cli, "MemoryService", lambda config, lock: service)
+    monkeypatch.setattr(cli.time, "sleep", lambda seconds: advance(service, seconds))
+    cli.main(["memory", "--watch", "10", "--sort", "cpu", "--filter", "growing"])
     output = capsys.readouterr().out
     assert "MacMaid Memory Monitor" in output
     assert "Process" in output
+    assert len(service.histories[key(service)]) == 4
 

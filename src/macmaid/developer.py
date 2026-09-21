@@ -4,30 +4,25 @@ import json
 import os
 import re
 import sys
-import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any, Callable
 
-from .cancellation import CancellationToken
+from .cancellation import CancellationToken, ScanCancelled
 from .cleaner import Cleaner
 from .config import Config
 from .models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
 from .reporting import FreeSpaceProbe
 from .safety import PathSafety
-from .system import human_bytes, run_command as _run_command, size_of, sizes_of, which
+from .system import human_bytes, run_command as _run_command, sizes_of, which
 
 
-_SCAN_CONTEXT = threading.local()
-
-
-def run_command(executable: str, arguments=(), **kwargs):
+def run_command(executable: str, arguments=(), cancellation: CancellationToken | None = None, **kwargs):
     """An unavailable inventory/protection query must not imply 'safe to remove'."""
-    token = getattr(_SCAN_CONTEXT, "cancellation", None)
-    if token is not None and "on_wait" not in kwargs:
-        kwargs["on_wait"] = token.check
-    if token is not None:
-        token.check()
+    if cancellation is not None:
+        cancellation.check()
+        kwargs.setdefault("on_wait", cancellation.check)
     result = _run_command(executable, arguments, **kwargs)
     if not result.succeeded:
         raise RuntimeError(result.stderr or "Manager query failed; removal safety is unknown")
@@ -72,7 +67,7 @@ def _children(root: Path) -> list[Path]:
 def _finish_sizes(items: list[DeveloperItem], cancellation: CancellationToken | None = None) -> list[DeveloperItem]:
     token = cancellation or CancellationToken()
     paths = [item.path for item in items if item.path.exists()]
-    measured = sizes_of(paths, cancel=token.check) if cancellation is not None else sizes_of(paths)
+    measured = sizes_of(paths, cancel=token.check)
     for item in items:
         item.bytes = measured.get(item.path, 0)
     seen: set[str] = set()
@@ -90,7 +85,7 @@ def _managed_directories(
     root: Path,
     category: str,
     active_text: str,
-    command: callable,
+    command: Callable[[str, str], list[str]],
 ) -> list[DeveloperItem]:
     if executable is None:
         return []
@@ -240,7 +235,9 @@ class DeveloperStorageCenter:
         if not docker:
             return DeveloperStorageSection("docker", "Docker", 0, (), "Docker executable not found")
         try:
-            output = run_command(docker, ["system", "df", "--format", "json"], timeout=20).stdout
+            output = run_command(docker, ["system", "df", "--format", "json"], timeout=20, cancellation=token).stdout
+        except ScanCancelled:
+            raise
         except Exception as exc:
             return DeveloperStorageSection("docker", "Docker", 0, (), f"Docker inventory unavailable: {exc}")
         items = tuple({"label": "Docker system df", "path": "docker://system", "bytes": 0,
@@ -250,15 +247,20 @@ class DeveloperStorageCenter:
 
 
 class DeveloperInventory:
+    """One instance per scan: ``_query`` reads the active token from the
+    instance, so concurrent scans must not share a ``DeveloperInventory``.
+    Callers (CLI, TUI, web) already construct a fresh instance per request."""
+
     def __init__(self, config: Config | None = None) -> None:
         self.config = config or Config()
         self._scan_cancellation: CancellationToken | None = None
 
     def scan(self, category: str, cancellation: CancellationToken | None = None) -> list[DeveloperItem]:
+        if self._scan_cancellation is not None:
+            raise RuntimeError("DeveloperInventory does not support concurrent scans")
         self._scan_cancellation = cancellation or CancellationToken()
-        self._scan_cancellation.check()
-        _SCAN_CONTEXT.cancellation = self._scan_cancellation
         try:
+            self._scan_cancellation.check()
             result = {
                 "runtime": self.runtimes,
                 "environment": self.environments,
@@ -268,16 +270,20 @@ class DeveloperInventory:
             self._scan_cancellation.check()
             return result
         finally:
-            _SCAN_CONTEXT.cancellation = None
+            self._scan_cancellation = None
+
+    def _query(self, executable: str, arguments=(), **kwargs):
+        """Run a manager query under the active scan's cancellation token."""
+        return run_command(executable, arguments, cancellation=self._scan_cancellation, **kwargs)
 
     def runtimes(self) -> list[DeveloperItem]:
         home = Path.home(); items: list[DeveloperItem] = []
         mise = which("mise")
-        mise_active = run_command(mise, ["current"]) .stdout if mise else ""
+        mise_active = self._query(mise, ["current"]).stdout if mise else ""
         items += _managed_directories("mise", mise, Path(os.environ.get("MISE_DATA_DIR", home / ".local/share/mise")) / "installs", "runtime", mise_active, lambda tool, version: ["uninstall", f"{tool}@{version}"])
 
         asdf = which("asdf")
-        asdf_active = run_command(asdf, ["current"]).stdout if asdf else ""
+        asdf_active = self._query(asdf, ["current"]).stdout if asdf else ""
         items += _managed_directories("asdf", asdf, Path(os.environ.get("ASDF_DATA_DIR", home / ".asdf")) / "installs", "runtime", asdf_active, lambda tool, version: ["uninstall", tool, version])
 
         items += self._version_manager("pyenv", "Python", "PYENV_ROOT", home / ".pyenv", ["versions", "--bare"], ["version-name"], lambda v: ["uninstall", "-f", v])
@@ -286,8 +292,8 @@ class DeveloperInventory:
 
         rustup = which("rustup")
         if rustup:
-            raw = run_command(rustup, ["toolchain", "list"]).stdout
-            active_words = run_command(rustup, ["show", "active-toolchain"]).stdout.split() if raw else []
+            raw = self._query(rustup, ["toolchain", "list"]).stdout
+            active_words = self._query(rustup, ["show", "active-toolchain"]).stdout.split() if raw else []
             active = active_words[0] if active_words else ""
             for line in raw.splitlines():
                 version = line.split()[0]
@@ -296,7 +302,7 @@ class DeveloperInventory:
 
         uv = which("uv")
         if uv:
-            directory = run_command(uv, ["python", "dir"]).stdout
+            directory = self._query(uv, ["python", "dir"]).stdout
             root = Path(directory) if directory else home / ".local/share/uv/python"
             current = str(Path(sys.executable).resolve())
             for path in _children(root):
@@ -333,13 +339,13 @@ class DeveloperInventory:
         items += self._homebrew_runtimes()
         return _finish_sizes(items, self._scan_cancellation)
 
-    def _version_manager(self, manager: str, title: str, env_name: str, default_root: Path, list_args: list[str], active_args: list[str], removal: callable) -> list[DeveloperItem]:
+    def _version_manager(self, manager: str, title: str, env_name: str, default_root: Path, list_args: list[str], active_args: list[str], removal: Callable[[str], list[str]]) -> list[DeveloperItem]:
         executable = which(manager)
         if not executable: return []
-        root_text = run_command(executable, ["root"]).stdout
+        root_text = self._query(executable, ["root"]).stdout
         root = Path(os.environ.get(env_name, root_text or default_root))
-        versions = run_command(executable, list_args).stdout
-        active = run_command(executable, active_args).stdout
+        versions = self._query(executable, list_args).stdout
+        active = self._query(executable, active_args).stdout
         items = []
         for raw in versions.splitlines():
             version = raw.strip().lstrip("* ")
@@ -348,22 +354,54 @@ class DeveloperInventory:
             items.append(DeveloperItem(f"{manager}:{version}", "runtime", title, version, manager, path, is_active=not active.strip() or version in active.split(), executable=executable, arguments=tuple(removal(version)), note=f"Managed by {manager}"))
         return items
 
+    def _brew_prefixes(self, brew: str, names: list[str]) -> dict[str, Path]:
+        """Resolve install prefixes for ``names`` with a single ``brew --prefix`` call."""
+        if not names:
+            return {}
+        lines = self._query(brew, ["--prefix", *names]).stdout.splitlines()
+        if len(lines) != len(names):
+            raise PermissionError("Homebrew prefix is unknown")
+        prefixes: dict[str, Path] = {}
+        for name, raw in zip(names, lines):
+            raw = raw.strip()
+            if not raw or not Path(raw).is_absolute():
+                raise PermissionError("Homebrew prefix is unknown")
+            prefixes[name] = Path(raw)
+        return prefixes
+
+    def _brew_uses(self, brew: str, names: list[str]) -> dict[str, str]:
+        """Run ``brew uses --installed`` per formula concurrently, keyed by formula name."""
+        token = self._scan_cancellation
+        def probe(name: str) -> str:
+            return run_command(brew, ["uses", "--installed", name], cancellation=token).stdout
+        if len(names) <= 1:
+            return {name: probe(name) for name in names}
+        results: dict[str, str] = {}
+        with ThreadPoolExecutor(max_workers=4, thread_name_prefix="macmaid-brew") as pool:
+            futures = {pool.submit(probe, name): name for name in names}
+            for future in futures:
+                results[futures[future]] = future.result()
+        return results
+
     def _homebrew_runtimes(self) -> list[DeveloperItem]:
         brew = which("brew")
         if not brew: return []
         runtimes = {"python", "python@3.11", "python@3.12", "python@3.13", "node", "ruby", "go", "rust", "openjdk", "php", "kotlin", "scala", "erlang", "ghc", "julia", "swift-format"}
-        items = []
-        for line in run_command(brew, ["list", "--versions", "--formula"]).stdout.splitlines():
+        candidates: dict[str, list[str]] = {}
+        for line in self._query(brew, ["list", "--versions", "--formula"]).stdout.splitlines():
             parts = line.split()
-            if len(parts) < 2 or parts[0] not in runtimes: continue
-            formula = parts[0]; prefix = run_command(brew, ["--prefix", formula]).stdout
-            dependents = run_command(brew, ["uses", "--installed", formula]).stdout
-            if not prefix or not Path(prefix).is_absolute():
-                raise PermissionError("Homebrew prefix is unknown")
-            for version in parts[1:]:
-                active = any(Path(prefix).resolve() in Path(executable).resolve().parents for executable in (sys.executable, which(formula.split("@")[0])) if executable)
-                removable = not dependents and not active
-                items.append(DeveloperItem(f"brew-runtime:{formula}:{version}", "runtime", formula, version, "Homebrew", Path(prefix).resolve(), is_active=active, executable=brew if removable else None, arguments=("uninstall", "--formula", formula) if removable else (), protected_reason=f"Required by: {dependents.replace(chr(10), ', ')}" if dependents else "", note="Homebrew formula"))
+            if len(parts) >= 2 and parts[0] in runtimes:
+                candidates[parts[0]] = parts[1:]
+        prefixes = self._brew_prefixes(brew, list(candidates))
+        dependents = self._brew_uses(brew, list(candidates))
+        items = []
+        for formula, versions in candidates.items():
+            prefix = prefixes[formula].resolve()
+            dependents_text = dependents[formula]
+            for version in versions:
+                active = any(prefix in Path(executable).resolve().parents for executable in (sys.executable, which(formula.split("@")[0])) if executable)
+                removable = not dependents_text and not active
+                items.append(DeveloperItem(f"brew-runtime:{formula}:{version}", "runtime", formula, version, "Homebrew", prefix, is_active=active, executable=brew if removable else None, arguments=("uninstall", "--formula", formula) if removable else (), protected_reason=f"Required by: {dependents_text.replace(chr(10), ', ')}" if dependents_text else "", note="Homebrew formula"))
         return items
 
     def environments(self) -> list[DeveloperItem]:
@@ -371,11 +409,11 @@ class DeveloperInventory:
         for manager in ("conda", "micromamba"):
             executable = which(manager)
             if not executable: continue
-            result = run_command(executable, ["env", "list", "--json"], timeout=30)
+            result = self._query(executable, ["env", "list", "--json"], timeout=30)
             try: data = json.loads(result.stdout)
             except json.JSONDecodeError: continue
             active_prefix = os.environ.get("CONDA_PREFIX", "")
-            info = json.loads(run_command(executable, ["info", "--json"], timeout=30).stdout)
+            info = json.loads(self._query(executable, ["info", "--json"], timeout=30).stdout)
             root_prefix = str(info.get("root_prefix") or info.get("rootPrefix") or "")
             active_prefix = str(info.get("active_prefix") or info.get("activePrefix") or active_prefix)
             if not root_prefix or not Path(root_prefix).is_absolute():
@@ -399,20 +437,17 @@ class DeveloperInventory:
         items: list[DeveloperItem] = []
         brew = which("brew")
         if brew:
-            for formula in run_command(brew, ["leaves"]).stdout.splitlines():
-                formula = formula.strip()
-                if not formula: continue
-                raw_prefix = run_command(brew, ["--prefix", formula]).stdout
-                if not raw_prefix or not Path(raw_prefix).is_absolute():
-                    raise PermissionError("Homebrew prefix is unknown")
-                prefix = Path(raw_prefix).resolve()
-                dependents = run_command(brew, ["uses", "--installed", formula]).stdout
-                active = any(prefix.resolve() in Path(executable).resolve().parents for executable in (sys.executable, which(formula.split("@")[0])) if executable)
-                items.append(DeveloperItem(f"brew-tool:{formula}", "tool", formula, "", "Homebrew", prefix, is_active=active, executable=brew, arguments=("uninstall", "--formula", formula), protected_reason=f"Required by: {dependents}" if dependents else "", note="Top-level requested formula"))
+            leaves = [line.strip() for line in self._query(brew, ["leaves"]).stdout.splitlines() if line.strip()]
+            prefixes = self._brew_prefixes(brew, leaves)
+            dependents = self._brew_uses(brew, leaves)
+            for formula in leaves:
+                prefix = prefixes[formula].resolve()
+                active = any(prefix in Path(executable).resolve().parents for executable in (sys.executable, which(formula.split("@")[0])) if executable)
+                items.append(DeveloperItem(f"brew-tool:{formula}", "tool", formula, "", "Homebrew", prefix, is_active=active, executable=brew, arguments=("uninstall", "--formula", formula), protected_reason=f"Required by: {dependents[formula]}" if dependents[formula] else "", note="Top-level requested formula"))
         pipx = which("pipx")
         if pipx:
             try:
-                payload = json.loads(run_command(pipx, ["list", "--json"]).stdout)
+                payload = json.loads(self._query(pipx, ["list", "--json"]).stdout)
                 environments = payload.get("venvs", {}) if isinstance(payload, dict) else {}
             except json.JSONDecodeError:
                 environments = {}
@@ -429,7 +464,7 @@ class DeveloperInventory:
                 items.append(DeveloperItem(f"pipx:{name}", "tool", name, version, "pipx", path, executable=pipx, arguments=("uninstall", name), note="Isolated pipx app"))
         uv = which("uv")
         if uv:
-            for line in run_command(uv, ["tool", "list"]).stdout.splitlines():
+            for line in self._query(uv, ["tool", "list"]).stdout.splitlines():
                 if not line or line[0].isspace(): continue
                 first = line.split()[0]; name, _, version = first.partition("==")
                 path = Path.home() / ".local/share/uv/tools" / name
@@ -437,12 +472,12 @@ class DeveloperInventory:
         for manager in ("npm", "pnpm"):
             executable = which(manager)
             if not executable: continue
-            result = run_command(executable, ["list", "-g", "--depth=0", "--json"], timeout=30)
+            result = self._query(executable, ["list", "-g", "--depth=0", "--json"], timeout=30)
             try: data = json.loads(result.stdout)
             except json.JSONDecodeError: continue
             if not isinstance(data, dict):
                 continue
-            prefix = Path(data.get("path") or run_command(executable, ["root", "-g"]).stdout or Path.home())
+            prefix = Path(data.get("path") or self._query(executable, ["root", "-g"]).stdout or Path.home())
             dependencies = data.get("dependencies", {})
             if not isinstance(dependencies, dict):
                 continue
@@ -452,7 +487,7 @@ class DeveloperInventory:
         cargo = which("cargo")
         if cargo:
             root = Path(os.environ.get("CARGO_HOME", Path.home() / ".cargo"))
-            for line in run_command(cargo, ["install", "--list"]).stdout.splitlines():
+            for line in self._query(cargo, ["install", "--list"]).stdout.splitlines():
                 match = re.match(r"^(\S+) v([^:]+):$", line)
                 if match: items.append(DeveloperItem(f"cargo:{match[1]}", "tool", match[1], match[2], "cargo", root / "bin" / match[1], executable=cargo, arguments=("uninstall", match[1]), note="cargo install package"))
         return _finish_sizes(items, self._scan_cancellation)
@@ -488,9 +523,6 @@ class DeveloperInventory:
 
     def _android_avds(self) -> list[DeveloperItem]:
         root = Path(os.environ.get("ANDROID_AVD_HOME", Path.home() / ".android/avd"))
-        sdk = self._android_root(); candidates = [which("avdmanager")]
-        if sdk: candidates += [str(path) for path in (sdk / "cmdline-tools").glob("*/bin/avdmanager")]
-        manager = next((item for item in candidates if item and Path(item).is_file()), None)
         items = []
         for ini in root.glob("*.ini"):
             name = ini.stem; data_path = root / f"{name}.avd"
@@ -506,7 +538,7 @@ class DeveloperInventory:
         if not xcrun: return []
         items = []
         for kind in ("runtimes", "devices"):
-            result = run_command(xcrun, ["simctl", "list", kind, "-j"], timeout=30)
+            result = self._query(xcrun, ["simctl", "list", kind, "-j"], timeout=30)
             try: data = json.loads(result.stdout)
             except json.JSONDecodeError: continue
             if kind == "runtimes":

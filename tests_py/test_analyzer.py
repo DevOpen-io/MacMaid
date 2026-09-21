@@ -437,3 +437,82 @@ def test_analyze_directory_error_shape_matches_legacy_contract(tmp_path: Path) -
     result = analyze_directory(missing)
     assert result == {"path": str(missing), "entries": [], "error": result["error"]}
     assert "largestFiles" not in result and "parent" not in result
+
+
+def test_done_event_set_on_cancel_supersede_invalidate_and_shutdown(tmp_path: Path) -> None:
+    """Every terminal transition must wake a blocking ``scan()`` waiter."""
+    root = tmp_path / "root"
+    (root / "dir").mkdir(parents=True)
+    (root / "dir" / "f.bin").write_bytes(b"x" * 64)
+    analyzer = IncrementalAnalyzer(max_workers=1)
+    entered = threading.Event()
+    release = threading.Event()
+    original_walk = analyzer._walk
+
+    def slow_walk(job, index, ctx, generation, cancelled, helper=False):
+        entered.set()
+        while not release.wait(0.01):
+            if cancelled.is_set():
+                return
+        return original_walk(job, index, ctx, generation, cancelled, helper)
+
+    analyzer._walk = slow_walk  # type: ignore[method-assign]
+    try:
+        analyzer.snapshot(root, start=True, min_file_bytes=1)
+        assert entered.wait(1)
+        cancelled_job = analyzer._jobs[root]
+        assert analyzer.cancel_active() is True
+        assert cancelled_job.done.is_set()
+
+        release.set()
+        entered.clear(); release.clear()
+        analyzer.snapshot(root, start=True, force=True, min_file_bytes=1)
+        assert entered.wait(1)
+        superseded = analyzer._jobs[root]
+        analyzer.snapshot(root, start=True, force=True, min_file_bytes=1)
+        assert superseded.done.is_set()
+        assert superseded is not analyzer._jobs[root]
+
+        current = analyzer._jobs[root]
+        analyzer.invalidate_after_removal(root / "dir")
+        assert current.done.is_set()
+    finally:
+        release.set()
+        analyzer.shutdown()
+
+
+def test_scan_wakes_promptly_on_cancellation(tmp_path: Path) -> None:
+    """``scan()`` must return on cancellation without waiting out the poll timeout."""
+    root = tmp_path / "root"
+    (root / "dir").mkdir(parents=True)
+    (root / "dir" / "f.bin").write_bytes(b"x" * 64)
+    analyzer = IncrementalAnalyzer(max_workers=1)
+    entered = threading.Event()
+    release = threading.Event()
+    original_walk = analyzer._walk
+
+    def slow_walk(job, index, ctx, generation, cancelled, helper=False):
+        entered.set()
+        while not release.wait(0.01):
+            if cancelled.is_set():
+                return
+        return original_walk(job, index, ctx, generation, cancelled, helper)
+
+    analyzer._walk = slow_walk  # type: ignore[method-assign]
+    outcome: dict = {}
+    thread = threading.Thread(
+        target=lambda: outcome.setdefault("result", analyzer.scan(root, min_file_bytes=1, poll_interval=30)),
+        daemon=True)
+    try:
+        thread.start()
+        assert entered.wait(1)
+        started = time.monotonic()
+        assert analyzer.cancel_active() is True
+        thread.join(timeout=5)
+        elapsed = time.monotonic() - started
+        assert not thread.is_alive()
+        assert elapsed < 5
+        assert outcome["result"]["isCancelled"] is True
+    finally:
+        release.set()
+        analyzer.shutdown()

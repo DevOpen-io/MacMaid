@@ -13,7 +13,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Iterator
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,8 +45,15 @@ def run_command(
         )
     except OSError as exc:
         return CommandResult(127, stderr=str(exc))
-    deadline = time.monotonic() + timeout
     try:
+        if on_wait is None:
+            try:
+                stdout, stderr = process.communicate(timeout=timeout)
+                return CommandResult(process.returncode, stdout.strip(), stderr.strip())
+            except subprocess.TimeoutExpired:
+                _kill_command_group(process)
+                return CommandResult(124, stderr="Command timed out")
+        deadline = time.monotonic() + timeout
         while True:
             try:
                 stdout, stderr = process.communicate(timeout=min(0.1, max(0.001, deadline - time.monotonic())))
@@ -55,8 +62,7 @@ def run_command(
                 if time.monotonic() >= deadline:
                     _kill_command_group(process)
                     return CommandResult(124, stderr="Command timed out")
-                if on_wait:
-                    on_wait()
+                on_wait()
     except BaseException:
         _kill_command_group(process)
         raise
@@ -267,6 +273,38 @@ def sizes_of(paths: Iterable[Path], max_workers: int = 4,
                         cancel()
                     futures[pool.submit(size_of, next_path, cancel=cancel, on_error=on_error)] = next_path
     return results
+
+
+def iter_app_bundles(
+    root: Path,
+    *,
+    descend_bundles: bool = False,
+    on_error: Callable[[Path, OSError], None] | None = None,
+) -> Iterator[Path]:
+    """Yield ``*.app`` bundle paths under ``root`` without following symlinked dirs.
+
+    ``descend_bundles=False`` treats a matched bundle as a leaf (app inventory
+    semantics). ``True`` also descends into bundles so helper apps nested under
+    ``Contents/`` are found — leftover detection needs those bundle IDs,
+    otherwise their support data looks orphaned. Unreadable directories are
+    skipped; pass ``on_error`` when the caller must know enumeration was partial.
+    """
+    stack = [root]
+    while stack:
+        directory = stack.pop()
+        try:
+            with os.scandir(directory) as entries:
+                children = list(entries)
+        except OSError as exc:
+            if on_error is not None:
+                on_error(directory, exc)
+            continue
+        for entry in children:
+            is_bundle = entry.name.endswith(".app") and entry.is_dir()
+            if is_bundle:
+                yield Path(entry.path)
+            if entry.is_dir(follow_symlinks=False) and (descend_bundles or not is_bundle):
+                stack.append(Path(entry.path))
 
 
 @contextmanager

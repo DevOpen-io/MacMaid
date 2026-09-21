@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import subprocess
 from pathlib import Path
 
@@ -9,7 +10,7 @@ import pytest
 
 from macmaid.cleaner import Cleaner
 from macmaid.config import Config
-from macmaid.features import ApplicationManager, ProjectArtifact, ProjectPurgeManager, completion_activation_hint, completion_script, install_completion, system_status
+from macmaid.features import ApplicationManager, ProjectArtifact, ProjectPurgeManager, completion_activation_hint, completion_script, install_completion, remove_completion_hooks, system_status
 from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, CleanupProfile, RiskLevel
 from macmaid.safety import PathSafety, PathSafetyError, manual_cache_allowed
 from macmaid.system import human_bytes, run_command, sizes_of
@@ -39,6 +40,27 @@ def test_config_replaces_whitelist_atomically_after_validating_all_entries(tmp_p
     with pytest.raises(ValueError, match="absolute paths"):
         config.replace_whitelist(["relative/path"])
     assert config.patterns(strict=True) == [str(keep), str(important)]
+
+
+def test_symlinked_whitelist_still_filters_scans_but_blocks_operations(tmp_path: Path) -> None:
+    config = Config(home=tmp_path)
+    config.ensure_files()
+    managed = tmp_path / "dotfiles"
+    managed.mkdir()
+    real = managed / "whitelist"
+    keep = tmp_path / "keep"
+    real.write_text(f"{keep}\n")
+    config.whitelist_file.unlink()
+    config.whitelist_file.symlink_to(real)
+
+    # Scan-time reads follow the symlink so dotfiles-manager setups keep
+    # hiding entries; operation-time reads stay fail-closed.
+    assert config.patterns() == [str(keep)]
+    assert config.is_whitelisted(keep)
+    with pytest.raises(PermissionError):
+        config.patterns(strict=True)
+    with pytest.raises(PermissionError):
+        config.require_unprotected(keep)
 
 
 def test_cli_refuses_root(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -232,6 +254,30 @@ def test_installed_zsh_completion_is_registered(monkeypatch, tmp_path: Path) -> 
     )
     assert checked.returncode == 0, checked.stderr
     assert checked.stdout.strip() == "_macmaid"
+
+
+def test_completion_writes_preserve_symlinked_rc_file(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(os, "getuid", lambda: tmp_path.lstat().st_uid)
+    dotfiles = tmp_path / "dotfiles"
+    dotfiles.mkdir()
+    target = dotfiles / "zshrc"
+    target.write_text("# managed by dotfiles\n")
+    os.chmod(target, 0o640)
+    rc = tmp_path / ".zshrc"
+    rc.symlink_to(target)
+
+    install_completion("zsh", Config(home=tmp_path))
+
+    # The link survives and the write lands in the managed target file.
+    assert rc.is_symlink() and rc.resolve() == target
+    text = target.read_text()
+    assert "# managed by dotfiles" in text and "MacMaid completion" in text
+    assert stat.S_IMODE(target.stat().st_mode) == 0o640
+
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    remove_completion_hooks()
+    assert rc.is_symlink() and rc.resolve() == target
+    assert "MacMaid completion" not in target.read_text()
 
 
 def test_completion_activation_hint_initializes_current_zsh() -> None:

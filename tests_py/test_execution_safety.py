@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import plistlib
+import shutil
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -25,8 +26,8 @@ def config(monkeypatch, tmp_path):
     monkeypatch.setattr(cleaning.os, "geteuid", lambda: 501)
     monkeypatch.setattr(cleaning, "size_of", lambda path: 10 if path.exists() else 0)
     monkeypatch.setattr(features, "size_of", lambda path: 10)
-    monkeypatch.setattr(features, "sizes_of", lambda paths: {})
-    monkeypatch.setattr(developer, "sizes_of", lambda paths: {})
+    monkeypatch.setattr(features, "sizes_of", lambda paths, **_kwargs: {})
+    monkeypatch.setattr(developer, "sizes_of", lambda paths, **_kwargs: {})
     monkeypatch.setattr(features, "process_running", lambda value: False)
     monkeypatch.setattr(cleaning, "process_running", lambda value: False)
     monkeypatch.setattr(features, "which", lambda name: None)
@@ -219,7 +220,12 @@ def application(config, monkeypatch, cask=None):
     (path / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleIdentifier": "org.example.app"}))
     app = InstalledApplication("Example", path, "org.example.app", "1", 10, cask)
     manager = ApplicationManager(config)
-    monkeypatch.setattr(manager, "scan", lambda: [app] if path.exists() else [])
+    scan = lambda: [app] if path.exists() else []
+    monkeypatch.setattr(manager, "scan", scan)
+    monkeypatch.setattr(manager, "_refresh_identity",
+                        lambda a: next((i for i in scan() if i.path == a.path), None))
+    monkeypatch.setattr(manager, "_bundles_with_id",
+                        lambda bundle_id: [str(i.path) for i in scan() if i.bundle_id == bundle_id])
     return manager, app
 
 
@@ -268,6 +274,95 @@ def test_cask_failure_never_falls_back_to_filesystem_removal(config, monkeypatch
     with pytest.raises(RuntimeError): manager.remove(app, [app.path])
     assert app.path.exists()
     assert not (config.home / ".Trash").exists()
+
+
+def _brew_payload(*casks):
+    return json.dumps({"casks": [{"token": token, "artifacts": artifacts} for token, artifacts in casks]})
+
+
+def system_application(config, monkeypatch, cask="example"):
+    """App bundle whose parent reports /Applications so the Homebrew gate runs."""
+    real = config.home / "Applications" / "Example.app"
+    (real / "Contents").mkdir(parents=True)
+    (real / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleIdentifier": "org.example.app"}))
+
+    class AppPath(type(Path())):
+        @property
+        def parent(self):
+            return Path("/Applications") if str(self) == str(real) else super().parent
+
+    app = InstalledApplication("Example", AppPath(real), "org.example.app", "1", 10, cask)
+    monkeypatch.setattr(features, "which", lambda name: "fake-brew" if name == "brew" else None)
+    monkeypatch.setattr(features, "iter_app_bundles", lambda *args, **kwargs: iter(()))
+    return ApplicationManager(config), app, real
+
+
+def test_homebrew_ownership_maps_cask_tokens_with_single_query(config, monkeypatch):
+    manager = ApplicationManager(config)
+    calls = []
+
+    def brew(executable, arguments, **kwargs):
+        calls.append((executable, list(arguments)))
+        return CommandResult(0, _brew_payload(("firefox", [{"app": ["Firefox.app"]}])))
+
+    monkeypatch.setattr(features, "which", lambda name: "fake-brew" if name == "brew" else None)
+    monkeypatch.setattr(features, "run_command", brew)
+    assert manager._homebrew_ownership() == {"firefox.app": "firefox"}
+    assert calls == [("fake-brew", ["info", "--json=v2", "--installed"])]
+
+
+def test_homebrew_ownership_failures_are_fail_closed(config, monkeypatch):
+    manager = ApplicationManager(config)
+    monkeypatch.setattr(features, "which", lambda name: "fake-brew")
+    monkeypatch.setattr(features, "run_command", lambda exe, args, **kw: CommandResult(1, stderr="boom"))
+    with pytest.raises(PermissionError, match="could not be determined"):
+        manager._homebrew_ownership()
+    monkeypatch.setattr(features, "run_command", lambda exe, args, **kw: CommandResult(0, "not-json"))
+    with pytest.raises(PermissionError, match="Invalid Homebrew"):
+        manager._homebrew_ownership()
+    ambiguous = _brew_payload(("one", [{"app": ["Shared.app"]}]), ("two", [{"app": ["Shared.app"]}]))
+    monkeypatch.setattr(features, "run_command", lambda exe, args, **kw: CommandResult(0, ambiguous))
+    with pytest.raises(PermissionError, match="Ambiguous"):
+        manager._homebrew_ownership()
+    monkeypatch.setattr(features, "which", lambda name: None)
+    assert manager._homebrew_ownership() == {}
+
+
+def test_brew_cask_removal_requeries_real_ownership(config, monkeypatch):
+    manager, app, real = system_application(config, monkeypatch)
+    commands = []
+
+    def brew(executable, arguments, **kwargs):
+        commands.append(list(arguments))
+        if arguments[:2] == ["info", "--json=v2"]:
+            return CommandResult(0, _brew_payload(("example", [{"app": ["Example.app"]}])))
+        if arguments[:2] == ["uninstall", "--cask"]:
+            shutil.rmtree(real)
+            return CommandResult(0)
+        raise AssertionError(f"unexpected brew call: {arguments}")
+
+    monkeypatch.setattr(features, "run_command", brew)
+    result = manager.remove(app, [app.path])
+    assert result["success"] and not real.exists()
+    assert ["uninstall", "--cask", "example"] in commands
+
+
+def test_brew_ownership_change_blocks_cask_removal(config, monkeypatch):
+    manager, app, real = system_application(config, monkeypatch)
+    monkeypatch.setattr(features, "run_command", lambda exe, args, **kw:
+                        CommandResult(0, _brew_payload(("impostor", [{"app": ["Example.app"]}]))))
+    with pytest.raises(PermissionError, match="identity changed"):
+        manager.remove(app, [app.path])
+    assert real.exists()
+
+
+def test_brew_ownership_drop_blocks_cask_removal(config, monkeypatch):
+    # Cask uninstalled between review and apply: ownership lookup is empty.
+    manager, app, real = system_application(config, monkeypatch)
+    monkeypatch.setattr(features, "run_command", lambda exe, args, **kw: CommandResult(0, _brew_payload()))
+    with pytest.raises(PermissionError, match="identity changed"):
+        manager.remove(app, [app.path])
+    assert real.exists()
 
 
 def dev_item(config, **kwargs):

@@ -64,9 +64,12 @@ class Cleaner:
             try:
                 if item.requires_app_closed and (process_running(item.requires_app_closed) or process_running(item.requires_app_closed + ".app")):
                     raise PermissionError(f"Close {item.requires_app_closed} first")
-                before = size_of(item.path) if item.path else 0
+                # Trash moves never read before/after: `reclaimed` stays 0 for them
+                # and the move's post-condition is verified inside _execute_item.
+                measured = item.path is not None and item.action.kind is not ActionType.MOVE_TO_TRASH
+                before = size_of(item.path) if measured else 0
                 trash_destination = self._execute_item(item, allow_manual_fallback=allow_manual_fallback)
-                after = size_of(item.path) if item.path else 0
+                after = size_of(item.path) if measured else 0
                 reclaimed = 0
                 result.processed_estimated_bytes += max(0, item.estimated_bytes)
                 if item.action.kind is ActionType.MOVE_TO_TRASH:

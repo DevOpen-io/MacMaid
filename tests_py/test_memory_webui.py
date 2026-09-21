@@ -32,7 +32,14 @@ memoryState.selected=new Set(['7:100']); memorySelection();
 assert.equal(controls['memory-force'].disabled,false);
 memoryState.snapshot.processes[0].key='7:200'; memorySelection();
 assert.equal(memoryState.selected.size,0); assert.equal(controls['memory-stop'].disabled,true);
-state.lang='tr'; assert.equal(mt('title'),'Bellek');
+memoryState.selected=new Set();
+addMemorySelection([{key:'safe:100',protected:''},{key:'protected:100',protected:'system-process'}]);
+assert.deepEqual([...memoryState.selected],['safe:100']);
+memoryState.snapshot.processes=Array.from({length:101},(_,index)=>({key:`${index}:100`,pid:index,name:`proc-${index}`,exe:`/app/${index}`,category:'all',role:'application',protected:''}));
+memoryState.selected=new Set(memoryState.snapshot.processes.map(row=>row.key)); memorySelection();
+assert.equal(memoryState.selected.size,100);
+addMemorySelection(memoryState.snapshot.processes); assert.equal(memoryState.selected.size,100);
+state.lang='tr'; assert.equal(mt('title'),'Bellek'); assert.equal(mt('ruleHeadroom',{pressure:15}),'Baskı payı %15 altında');
 for(const [key,translations] of Object.entries(MEMORY_COPY)) assert.equal(translations.length,2,key);
 '''
     subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)

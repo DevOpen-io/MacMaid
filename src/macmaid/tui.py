@@ -2391,12 +2391,17 @@ class MacMaidTUI(App[None]):
         self.large_mtimes = mtimes
         self._apply_large_file_filter()
 
-    def _apply_large_file_filter(self) -> None:
-        if self.large_cache is None:
+    def _refilter(self, kind: str, cache: ScanResult | None, predicate: Callable[[CleanupItem], bool]) -> None:
+        """Re-render a cached scan through ``predicate`` without rescanning the disk."""
+        if cache is None:
             return
+        items = [item for item in cache.items if predicate(item)]
+        self._finish_more_scan(kind, ScanResult(items, cache.notes, cache.status, cache.issues))
+
+    def _apply_large_file_filter(self) -> None:
         cutoff = None if self.large_age_days is None else time.time() - self.large_age_days * 86400
-        items = [item for item in self.large_cache.items if item.estimated_bytes >= self.large_size_bytes and (cutoff is None or self.large_mtimes.get(item.id, 0) < cutoff)]
-        self._finish_more_scan("large-files", ScanResult(items, self.large_cache.notes, self.large_cache.status, self.large_cache.issues))
+        self._refilter("large-files", self.large_cache,
+                       lambda item: item.estimated_bytes >= self.large_size_bytes and (cutoff is None or self.large_mtimes.get(item.id, 0) < cutoff))
 
     def _finish_smart_downloads(self, result: ScanResult, mtimes: dict[str, float]) -> None:
         self.scan_cancellations.pop("more", None)
@@ -2405,11 +2410,9 @@ class MacMaidTUI(App[None]):
         self._apply_smart_download_filter()
 
     def _apply_smart_download_filter(self) -> None:
-        if self.smart_download_cache is None:
-            return
         cutoff = time.time() - self.smart_download_age_days * 86400
-        items = [item for item in self.smart_download_cache.items if self.smart_download_mtimes.get(item.id, 0) < cutoff]
-        self._finish_more_scan("smart-downloads", ScanResult(items, self.smart_download_cache.notes, self.smart_download_cache.status, self.smart_download_cache.issues))
+        self._refilter("smart-downloads", self.smart_download_cache,
+                       lambda item: self.smart_download_mtimes.get(item.id, 0) < cutoff)
 
     def _finish_installers(self, result: ScanResult, mtimes: dict[str, float]) -> None:
         self.scan_cancellations.pop("more", None)
@@ -2418,11 +2421,9 @@ class MacMaidTUI(App[None]):
         self._apply_installer_filter()
 
     def _apply_installer_filter(self) -> None:
-        if self.installer_cache is None:
-            return
         cutoff = time.time() - self.installer_age_days * 86400
-        items = [item for item in self.installer_cache.items if self.installer_age_days == 0 or self.installer_mtimes.get(item.id, 0) < cutoff]
-        self._finish_more_scan("installers", ScanResult(items, self.installer_cache.notes, self.installer_cache.status, self.installer_cache.issues))
+        self._refilter("installers", self.installer_cache,
+                       lambda item: self.installer_age_days == 0 or self.installer_mtimes.get(item.id, 0) < cutoff)
 
     def _finish_leftovers(self, result: ScanResult, mtimes: dict[str, float], includes_data: bool) -> None:
         self.scan_cancellations.pop("more", None)
@@ -2432,16 +2433,11 @@ class MacMaidTUI(App[None]):
         self._apply_leftover_filter()
 
     def _apply_leftover_filter(self) -> None:
-        if self.leftover_cache is None:
-            return
         cutoff = time.time() - self.leftover_age_days * 86400
         data_roots = (Path.home() / "Library/Application Support", Path.home() / "Library/Containers")
-        items = [
-            item for item in self.leftover_cache.items
-            if (self.leftover_age_days == 0 or self.leftover_mtimes.get(item.id, 0) < cutoff)
-            and (self.leftover_include_data or not item.path or not any(item.path.is_relative_to(root) for root in data_roots))
-        ]
-        self._finish_more_scan("leftovers", ScanResult(items, self.leftover_cache.notes, self.leftover_cache.status, self.leftover_cache.issues))
+        self._refilter("leftovers", self.leftover_cache,
+                       lambda item: (self.leftover_age_days == 0 or self.leftover_mtimes.get(item.id, 0) < cutoff)
+                                    and (self.leftover_include_data or not item.path or not any(item.path.is_relative_to(root) for root in data_roots)))
 
     def _finish_more_scan(self, kind: str, result: ScanResult) -> None:
         self.scan_cancellations.pop("more", None)

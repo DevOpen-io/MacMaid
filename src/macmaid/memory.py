@@ -24,6 +24,38 @@ from .system import run_command
 HELPERS = {"dart-analysis", "typescript-server"}
 SYSTEM_ROOTS = ("/System/", "/Library/Apple/", "/usr/lib/", "/usr/libexec/", "/usr/sbin/", "/sbin/", "/bin/", "/usr/bin/")
 
+BYTES_PER_MEBIBYTE = 1024**2
+BYTES_PER_GIBIBYTE = 1024**3
+SECONDS_PER_MINUTE = 60
+SAMPLE_INTERVAL_SECONDS = 5
+GROWTH_WINDOW_SECONDS = 10 * SECONDS_PER_MINUTE
+GROWTH_WINDOW_TOLERANCE_SECONDS = 5
+GROWTH_BUCKET_COUNT = 10
+GROWTH_REQUIRED_INCREASING_BUCKETS = 7
+GROWTH_MINIMUM_BYTES = 256 * BYTES_PER_MEBIBYTE
+GROWTH_MINIMUM_RATIO = 0.25
+HISTORY_WINDOW_SECONDS = 60 * SECONDS_PER_MINUTE
+MAX_HISTORY_SAMPLES = HISTORY_WINDOW_SECONDS // SAMPLE_INTERVAL_SECONDS + 1
+MAX_MEMORY_ACTIONS = 100
+MAX_EVENTS = 100
+MAX_RULES = 100
+MAX_EXCLUSIONS = 1000
+MIN_RULE_RSS_BYTES = 64 * BYTES_PER_MEBIBYTE
+MAX_RULE_RSS_BYTES = 1024 * BYTES_PER_GIBIBYTE
+MIN_RULE_DURATION_SECONDS = 30
+MAX_RULE_DURATION_SECONDS = HISTORY_WINDOW_SECONDS
+MIN_PRESSURE_HEADROOM = 1
+MAX_PRESSURE_HEADROOM = 50
+DEFAULT_RULE_RSS_BYTES = 2 * BYTES_PER_GIBIBYTE
+DEFAULT_RULE_DURATION_SECONDS = 5 * SECONDS_PER_MINUTE
+DEFAULT_RULE_PRESSURE_HEADROOM = 15
+PRESSURE_CACHE_SECONDS = 30
+STALE_SAMPLE_SECONDS = 3 * SAMPLE_INTERVAL_SECONDS
+STOP_WAIT_SECONDS = 5
+
+_PROCESS_ATTRS = ("pid", "create_time", "uids", "exe", "name", "cmdline", "memory_info", "cpu_times")
+AUTOMATION_COOLDOWN_SECONDS = 30 * SECONDS_PER_MINUTE
+
 
 def classify(executable: str, arguments: list[str]) -> tuple[str, str, str]:
     """Return category, role, and an exact helper entrypoint, never raw arguments."""
@@ -66,18 +98,19 @@ def classify(executable: str, arguments: list[str]) -> tuple[str, str, str]:
 
 
 def growth(samples: list[tuple[float, int]], now: float) -> dict:
-    window = [(stamp, rss) for stamp, rss in samples if stamp >= now - 600]
-    if not window or window[0][0] > now - 595:
+    window = [(stamp, rss) for stamp, rss in samples if stamp >= now - GROWTH_WINDOW_SECONDS]
+    if not window or window[0][0] > now - (GROWTH_WINDOW_SECONDS - GROWTH_WINDOW_TOLERANCE_SECONDS):
         return {"growthBytes": None, "growing": False, "historyReady": False}
     medians = []
-    for minute in range(10):
-        values = [rss for stamp, rss in window if now - 600 + minute * 60 <= stamp < now - 540 + minute * 60]
+    for minute in range(GROWTH_BUCKET_COUNT):
+        start = now - GROWTH_WINDOW_SECONDS + minute * SECONDS_PER_MINUTE
+        values = [rss for stamp, rss in window if start <= stamp < start + SECONDS_PER_MINUTE]
         if not values:
             return {"growthBytes": None, "growing": False, "historyReady": False}
         medians.append(statistics.median(values))
     delta = window[-1][1] - window[0][1]
     increasing = sum(b > a for a, b in zip(medians, medians[1:]))
-    return {"growthBytes": delta, "growing": delta > 256 * 1024**2 and delta > window[0][1] * .25 and increasing >= 7,
+    return {"growthBytes": delta, "growing": delta > GROWTH_MINIMUM_BYTES and delta > window[0][1] * GROWTH_MINIMUM_RATIO and increasing >= GROWTH_REQUIRED_INCREASING_BUCKETS,
             "historyReady": True}
 
 
@@ -94,30 +127,42 @@ class MemoryService:
         self.cpu_previous: dict[str, tuple[float, float]] = {}
         self.above_since: dict[tuple[str, str], float] = {}
         self.survivors: set[str] = set()
-        self.events: deque = deque(maxlen=100)
+        self.events: deque = deque(maxlen=MAX_EVENTS)
         self.metrics: dict = {}
         self.error = ""
         self.settings_error = ""
         self.last_sample = 0.0
         self.pressure_sampled_at = 0.0
         self.pressure_headroom: float | None = None
+        self.settings: dict = {"paused": True, "rules": [], "exclusions": []}
+        self._settings_signature: tuple[int, int, int, int] | None = None
         self.settings = self._read_settings()
 
     def _read_settings(self) -> dict:
         default = {"paused": True, "rules": [], "exclusions": []}
+        try:
+            info = self.path.lstat()
+        except OSError:
+            info = None
+        if info is not None and self._settings_signature == (info.st_mtime_ns, info.st_size, info.st_ino, info.st_uid):
+            return self.settings
         try:
             self.config._require_owned_regular_file(self.path, allow_missing=True)
             try:
                 fd = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW)
             except FileNotFoundError:
                 self.settings_error = ""
+                self._settings_signature = None
                 return default
             with os.fdopen(fd, encoding="utf-8") as handle:
                 value = json.load(handle)
+                opened = os.fstat(handle.fileno())
             self._validate_settings(value)
             self.settings_error = ""
+            self._settings_signature = (opened.st_mtime_ns, opened.st_size, opened.st_ino, opened.st_uid)
             return value
         except (OSError, ValueError, TypeError, KeyError) as exc:
+            self._settings_signature = None
             self.settings_error = f"Memory rules disabled: {exc}. Restore or remove memory.json, then restart MacMaid."
             return default
 
@@ -127,7 +172,7 @@ class MemoryService:
             raise ValueError("Invalid memory settings")
         if not isinstance(value.get("rules"), list) or not isinstance(value.get("exclusions"), list):
             raise ValueError("Invalid memory rules or exclusions")
-        if len(value["rules"]) > 100 or len(value["exclusions"]) > 1000:
+        if len(value["rules"]) > MAX_RULES or len(value["exclusions"]) > MAX_EXCLUSIONS:
             raise ValueError("Too many memory rules or exclusions")
         for path in value["exclusions"]:
             if not isinstance(path, str) or not Path(path).is_absolute() or "\x00" in path:
@@ -142,10 +187,11 @@ class MemoryService:
             for field in ("exe", "entrypoint"):
                 if not isinstance(rule.get(field), str) or not Path(rule[field]).is_absolute() or "\x00" in rule[field]:
                     raise ValueError("Invalid helper path")
-            for field, low, high in (("rssBytes", 64 * 1024**2, 1024**4), ("durationSeconds", 30, 3600),
-                                     ("pressureBelow", 1, 50), ("lastAttempt", 0, 10**12), ("failures", 0, 100)):
+            for field, low, high in (("rssBytes", MIN_RULE_RSS_BYTES, MAX_RULE_RSS_BYTES), ("durationSeconds", MIN_RULE_DURATION_SECONDS, MAX_RULE_DURATION_SECONDS),
+                                     ("pressureBelow", MIN_PRESSURE_HEADROOM, MAX_PRESSURE_HEADROOM), ("lastAttempt", 0, 10**12), ("failures", 0, MAX_RULES)):
                 number = rule.get(field)
-                if type(number) not in (int, float) or not math.isfinite(number) or not low <= number <= high:
+                if (not isinstance(number, (int, float)) or isinstance(number, bool)
+                        or not math.isfinite(number) or not low <= number <= high):
                     raise ValueError(f"Invalid {field}")
 
     def _save_settings(self) -> None:
@@ -185,21 +231,25 @@ class MemoryService:
                 with self.lock:
                     self.error = f"Memory monitoring unavailable: {exc}"
                     self.above_since.clear()
-            self.stop_event.wait(5)
+            self.stop_event.wait(SAMPLE_INTERVAL_SECONDS)
 
     def _protected_pids(self) -> set[int]:
         current = psutil.Process()
         return {0, 1, current.pid, *(p.pid for p in current.parents()), *(p.pid for p in current.children(recursive=True))}
 
     def _describe(self, proc: psutil.Process, protected: set[int]) -> dict:
-        with proc.oneshot():
-            pid, created = proc.pid, proc.create_time()
-            uid = proc.uids()
-            exe = proc.exe()
-            name = proc.name()
-            category, role, entry = classify(exe, proc.cmdline())
-            rss = proc.memory_info().rss
-            cpu = proc.cpu_times()
+        # process_iter(attrs=...) pre-populates proc.info in one pass; a bare
+        # psutil.Process has no .info attribute at all (AttributeError), so the
+        # fallback must use getattr rather than `proc.info or ...`.
+        info = getattr(proc, "info", None) or proc.as_dict(attrs=list(_PROCESS_ATTRS), ad_value=None)
+        if any(info.get(key) is None for key in _PROCESS_ATTRS):
+            raise psutil.AccessDenied(proc.pid)
+        pid, created = proc.pid, info["create_time"]
+        uid = info["uids"]
+        exe, name = info["exe"], info["name"]
+        category, role, entry = classify(exe, info["cmdline"])
+        rss = info["memory_info"].rss
+        cpu = info["cpu_times"]
         reason = ""
         if uid.real != os.getuid() or uid.effective != os.getuid():
             reason = "other-user"
@@ -218,9 +268,9 @@ class MemoryService:
 
     def _sample_pressure_headroom(self, now: float) -> float | None:
         """Read only macOS memory pressure, without unrelated battery/thermal probes."""
-        if self.pressure_sampled_at and now - self.pressure_sampled_at < 30:
+        if self.pressure_sampled_at and now - self.pressure_sampled_at < PRESSURE_CACHE_SECONDS:
             return self.pressure_headroom
-        result = run_command("/usr/bin/memory_pressure", ["-Q"], timeout=5)
+        result = run_command("/usr/bin/memory_pressure", ["-Q"], timeout=STOP_WAIT_SECONDS)
         match = re.search(r"System-wide memory free percentage:\s*(\d+(?:\.\d+)?)%", result.stdout)
         self.pressure_headroom = (
             min(100.0, max(0.0, float(match.group(1))))
@@ -235,11 +285,11 @@ class MemoryService:
         rows = {}
         with self.lock:
             self.settings = self._read_settings()
-            if self.last_sample and now - self.last_sample > 15:
+            if self.last_sample and now - self.last_sample > STALE_SAMPLE_SECONDS:
                 self.histories.clear()
                 self.cpu_previous.clear()
                 self.above_since.clear()
-            for proc in psutil.process_iter():
+            for proc in psutil.process_iter(attrs=list(_PROCESS_ATTRS), ad_value=None):
                 try:
                     row = self._describe(proc, protected)
                 except psutil.NoSuchProcess:
@@ -258,9 +308,9 @@ class MemoryService:
                                  "historyReady": False, "forceEligible": False}
                     continue
                 key = row["key"]
-                history = self.histories.setdefault(key, deque(maxlen=721))
+                history = self.histories.setdefault(key, deque(maxlen=MAX_HISTORY_SAMPLES))
                 history.append((now, row["rssBytes"]))
-                while history and history[0][0] < now - 3600:
+                while history and history[0][0] < now - HISTORY_WINDOW_SECONDS:
                     history.popleft()
                 previous = self.cpu_previous.get(key)
                 row["cpuPercent"] = max(0, (row["cpuTime"] - previous[1]) / (now - previous[0]) * 100) if previous and now > previous[0] else 0
@@ -313,8 +363,8 @@ class MemoryService:
         return proc, row
 
     def review(self, keys: list[str], force: bool = False) -> ReviewPlan:
-        if not isinstance(keys, list) or not 1 <= len(keys) <= 100 or any(not isinstance(k, str) for k in keys) or len(set(keys)) != len(keys):
-            raise ValueError("Select between 1 and 100 distinct processes")
+        if not isinstance(keys, list) or not 1 <= len(keys) <= MAX_MEMORY_ACTIONS or any(not isinstance(k, str) for k in keys) or len(set(keys)) != len(keys):
+            raise ValueError(f"Select between 1 and {MAX_MEMORY_ACTIONS} distinct processes")
         with self.lock:
             self.settings = self._read_settings()
             if self.settings_error:
@@ -374,7 +424,7 @@ class MemoryService:
                     pending.append((key, proc, row["name"]))
                 except (OSError, ValueError, psutil.Error) as exc:
                     outcomes.append({"key": key, "outcome": "skipped", "detail": str(exc)})
-            _, alive = psutil.wait_procs([proc for _, proc, _ in pending], timeout=5)
+            _, alive = psutil.wait_procs([proc for _, proc, _ in pending], timeout=STOP_WAIT_SECONDS)
             for key, proc, name in pending:
                 outcome = "still-running" if proc in alive else "exited"
                 if outcome == "still-running" and not force:
@@ -407,15 +457,18 @@ class MemoryService:
             elif op == "delete-rule":
                 self.settings["rules"] = [r for r in self.settings["rules"] if r["id"] != body.get("id")]
             elif op == "rule":
-                _, row = self._target(body.get("key"))
+                key = body.get("key")
+                if not isinstance(key, str):
+                    raise ValueError("Choose a current process")
+                _, row = self._target(key)
                 if not row["helper"] or body.get("consent") is not True:
                     raise PermissionError("Choose a recognized helper and explicitly accept interruption")
                 previous = next((r for r in self.settings["rules"] if (r["exe"], r["role"], r["entrypoint"]) ==
                                  (row["exe"], row["role"], row["entrypoint"])), None)
                 rule = {"id": previous["id"] if previous else secrets.token_hex(12), "exe": row["exe"],
                         "entrypoint": row["entrypoint"], "role": row["role"], "consent": True, "enabled": True,
-                        "rssBytes": body.get("rssBytes", 2 * 1024**3), "durationSeconds": body.get("durationSeconds", 300),
-                        "pressureBelow": body.get("pressureBelow", 15), "lastAttempt": previous["lastAttempt"] if previous else 0,
+                        "rssBytes": body.get("rssBytes", DEFAULT_RULE_RSS_BYTES), "durationSeconds": body.get("durationSeconds", DEFAULT_RULE_DURATION_SECONDS),
+                        "pressureBelow": body.get("pressureBelow", DEFAULT_RULE_PRESSURE_HEADROOM), "lastAttempt": previous["lastAttempt"] if previous else 0,
                         "failures": 0}
                 self.settings["rules"] = [r for r in self.settings["rules"] if r["id"] != rule["id"]] + [rule]
             else:
@@ -434,7 +487,7 @@ class MemoryService:
                     self.above_since.clear()
                     return
                 now, wall = time.monotonic(), time.time()
-                if now - self.last_sample > 15:
+                if now - self.last_sample > STALE_SAMPLE_SECONDS:
                     self.above_since.clear()
                     return
                 pressure = self.metrics.get("pressureHeadroom")
@@ -450,7 +503,7 @@ class MemoryService:
                             continue
                         eligible.add(pair)
                         since = self.above_since.setdefault(pair, now)
-                        if now - since < rule["durationSeconds"] or pressure is None or pressure >= rule["pressureBelow"] or wall - rule["lastAttempt"] < 1800:
+                        if now - since < rule["durationSeconds"] or pressure is None or pressure >= rule["pressureBelow"] or wall - rule["lastAttempt"] < AUTOMATION_COOLDOWN_SECONDS:
                             continue
                         # Recheck live RSS and identity, then persist cooldown before sending any signal.
                         rule["lastAttempt"] = wall

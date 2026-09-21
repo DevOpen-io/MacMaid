@@ -50,14 +50,14 @@ def test_leftover_app_enumeration_failure_blocks_mutation(monkeypatch, tmp_path)
     home = tmp_path / "home"
     (home / "Library" / "Caches").mkdir(parents=True)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
-    real_rglob = Path.rglob
+    real_scandir = os.scandir
 
-    def fail_rglob(self, pattern):
-        if str(self) == "/Applications":
+    def fail_scandir(path="."):
+        if str(path) == "/Applications":
             raise PermissionError("Operation not permitted")
-        return real_rglob(self, pattern)
+        return real_scandir(path)
 
-    monkeypatch.setattr(Path, "rglob", fail_rglob)
+    monkeypatch.setattr(os, "scandir", fail_scandir)
     result = scan_leftovers(Config(home=home), older_than_days=30)
 
     assert result.status == "partial" and not result.is_complete
@@ -82,6 +82,25 @@ def test_installer_measurement_errors_keep_result_mutable(monkeypatch, tmp_path)
     assert [item.path for item in result.items] == [installer]
     assert result.issues
     _gate()(result, [result.items[0].id])
+
+
+def test_installer_scan_depth_matches_three_component_contract(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    downloads = home / "Downloads"
+    old = time.time() - 60 * 86400
+    # The original rglob + parts<=3 contract includes files up to three
+    # components deep and nothing deeper.
+    for relative in ("top.dmg", "one/inner.dmg", "one/two/deep.dmg", "one/two/three/too-deep.dmg"):
+        path = downloads / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"dmg")
+        os.utime(path, (old, old))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+
+    result = scan_installers(older_than_days=30)
+
+    found = {str(item.path.relative_to(downloads)) for item in result.items}
+    assert found == {"top.dmg", "one/inner.dmg", "one/two/deep.dmg"}
 
 
 def test_package_cache_measurement_errors_keep_result_mutable(monkeypatch, tmp_path):

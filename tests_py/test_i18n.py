@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+from collections import Counter
 from pathlib import Path
 
 from macmaid.i18n import DEFAULT_LANGUAGE, normalize_language, translate
@@ -45,3 +46,42 @@ def test_tui_render_calls_do_not_leave_untranslated_turkish_copy_in_english() ->
         and translate(text, "en") == text
     )
     assert untranslated == []
+
+
+def test_translation_catalogs_have_no_duplicate_keys() -> None:
+    root = Path(__file__).resolve().parents[1]
+    tree = ast.parse((root / "src/macmaid/i18n.py").read_text())
+    catalogs: dict[str, list[str]] = {}
+    for node in ast.walk(tree):
+        target = value = None
+        if isinstance(node, ast.Assign) and node.targets:
+            target, value = node.targets[0], node.value
+        elif isinstance(node, ast.AnnAssign):
+            target, value = node.target, node.value
+        if not (isinstance(target, ast.Name) and target.id.startswith(("_EN", "_TR"))):
+            continue
+        keys: list[str] = []
+        if isinstance(value, ast.Dict):
+            keys = [
+                key.value for key in value.keys
+                if isinstance(key, ast.Constant) and isinstance(key.value, str)
+            ]
+        elif value is not None:
+            # Fragment catalogs are tuple(sorted({...}.items(), ...)): the source
+            # key is the first element of each tuple inside the set literal.
+            for sub in ast.walk(value):
+                if not isinstance(sub, ast.Set):
+                    continue
+                keys.extend(
+                    element.elts[0].value for element in sub.elts
+                    if isinstance(element, ast.Tuple) and element.elts
+                    and isinstance(element.elts[0], ast.Constant)
+                    and isinstance(element.elts[0].value, str)
+                )
+        if keys:
+            catalogs[target.id] = keys
+
+    assert catalogs
+    for name, keys in catalogs.items():
+        duplicates = sorted(key for key, count in Counter(keys).items() if count > 1)
+        assert duplicates == [], f"{name} has duplicate keys: {duplicates}"

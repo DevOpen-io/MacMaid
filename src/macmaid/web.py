@@ -7,6 +7,7 @@ import os
 import secrets
 import tempfile
 import threading
+import time
 import webbrowser
 import plistlib
 from http import HTTPStatus
@@ -125,6 +126,7 @@ class WebState:
         self.generations: dict[str, int] = {}
         self.review_tokens: dict[str, tuple[str, int, str]] = {}
         self.scan_cancellations: dict[str, CancellationToken] = {}
+        self.icon_cache: dict[str, tuple[int, int, bytes]] = {}
         self.analyzer = IncrementalAnalyzer()
         self.memory = MemoryService(self.config, self.mutation_lock)
 
@@ -293,12 +295,19 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             source = app.path / "Contents/Resources" / icon_name
             if not source.is_file():
                 raise FileNotFoundError
-            with tempfile.TemporaryDirectory(prefix="macmaid-icon-") as directory:
-                output = Path(directory) / "icon.png"
-                conversion = run_command("/usr/bin/sips", ["-s", "format", "png", str(source), "--out", str(output)], timeout=15)
-                if not conversion.succeeded or not output.is_file():
-                    raise FileNotFoundError
-                data = output.read_bytes()
+            signature = source.stat()
+            state = self.server.state
+            cached = state.icon_cache.get(str(app.path))
+            if cached is not None and cached[0] == signature.st_mtime_ns and cached[1] == signature.st_size:
+                data = cached[2]
+            else:
+                with tempfile.TemporaryDirectory(prefix="macmaid-icon-") as directory:
+                    output = Path(directory) / "icon.png"
+                    conversion = run_command("/usr/bin/sips", ["-s", "format", "png", str(source), "--out", str(output)], timeout=15)
+                    if not conversion.succeeded or not output.is_file():
+                        raise FileNotFoundError
+                    data = output.read_bytes()
+                state.icon_cache[str(app.path)] = (signature.st_mtime_ns, signature.st_size, data)
         except (OSError, ValueError, plistlib.InvalidFileException, FileNotFoundError):
             self._json({"error": "Application icon not available"}, 404); return
         self.send_response(200)
@@ -333,6 +342,20 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             raise PermissionError("Explicit user-data/MANUAL opt-in is required")
         return None
 
+    def _scan_endpoint(self, service: str, label: str, scan_fn, *, fail: str, done, on_start=None):
+        """Run a scan under progress reporting; failures finish with ``percent=0``."""
+        state = self.server.state
+        state.progress.start(service, label)
+        if on_start is not None:
+            on_start()
+        try:
+            result = scan_fn()
+        except Exception:
+            state.progress.finish(fail, percent=0)
+            raise
+        state.progress.finish(done(result))
+        return result
+
     def _route_get(self, path: str, query: dict[str, str]) -> dict:
         state = self.server.state
         if path == "/api/memory":
@@ -347,7 +370,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             return macmaid_brew_update_status()
         if path == "/api/status":
             raw = system_status()
-            return {"metrics": raw, "health": raw["healthIndicators"], "uptime": max(0, __import__("time").time() - raw["bootTime"]), "loadAverage": list(os.getloadavg()), "thermal": raw["thermal"], "battery": raw["battery"] or {}, "processes": raw["processes"]}
+            return {"metrics": raw, "health": raw["healthIndicators"], "uptime": max(0, time.time() - raw["bootTime"]), "loadAverage": list(os.getloadavg()), "thermal": raw["thermal"], "battery": raw["battery"] or {}, "processes": raw["processes"]}
         if path == "/api/scan":
             profile = CleanupProfile(query.get("profile", "safe"))
             token = CancellationToken()
@@ -399,29 +422,25 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             total = sum(item.bytes for item in projects)
             return {"artifacts": [dict(item.web_dict(), id=str(item.path), humanBytes=human_bytes(item.bytes), selectedByDefault=item.selected, restoreClass="DEPENDENCY" if item.dependency else "LOCAL REBUILD") for item in projects], "totalBytes": total, "humanTotal": human_bytes(total)}
         if path == "/api/installers":
-            state.progress.start("installers", "Scanning installer images")
-            try:
-                result = scan_installers(int(query.get("olderThan", "30")))
-            except Exception:
-                state.progress.finish("Installer scan failed", percent=0)
-                raise
+            result = self._scan_endpoint(
+                "installers", "Scanning installer images",
+                lambda: scan_installers(int(query.get("olderThan", "30"))),
+                fail="Installer scan failed",
+                done=lambda r: f"Installer scan completed · {len(r.items)} items")
             with state.lock:
                 state.installers = result
                 self._bump_generation("installers")
-            state.progress.finish(f"Installer scan completed · {len(result.items)} items")
             return {"status": result.status, "isComplete": result.is_complete, "issues": result.issues, "notes": result.notes,
                     "installers": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
         if path == "/api/leftovers":
-            state.progress.start("leftovers", "Scanning application leftovers")
-            try:
-                result = scan_leftovers(state.config, int(query.get("olderThan", "30")), query.get("includeData") == "true")
-            except Exception:
-                state.progress.finish("Leftover scan failed", percent=0)
-                raise
+            result = self._scan_endpoint(
+                "leftovers", "Scanning application leftovers",
+                lambda: scan_leftovers(state.config, int(query.get("olderThan", "30")), query.get("includeData") == "true"),
+                fail="Leftover scan failed",
+                done=lambda r: f"Leftover scan completed · {len(r.items)} items")
             with state.lock:
                 state.leftovers = result
                 self._bump_generation("leftovers")
-            state.progress.finish(f"Leftover scan completed · {len(result.items)} items")
             return {"status": result.status, "isComplete": result.is_complete, "issues": result.issues, "notes": result.notes,
                     "leftovers": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
         if path == "/api/treemap":
@@ -478,20 +497,18 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             roots = [Path(query["path"]).expanduser().absolute()] if query.get("path") else None
             min_bytes = SIZE_FILTERS.get(str(query.get("minSize", "500MB")), SIZE_FILTERS["500MB"])
             older = int(query["olderThanDays"]) if query.get("olderThanDays") else None
-            state.progress.start("largefiles", "Büyük ve eski dosyalar taranıyor")
-            try:
-                files = LargeOldFileScanner(min_bytes=min_bytes, older_than_days=older).scan(
+            files = self._scan_endpoint(
+                "largefiles", "Büyük ve eski dosyalar taranıyor",
+                lambda: LargeOldFileScanner(min_bytes=min_bytes, older_than_days=older).scan(
                     roots,
                     progress=lambda seen, current: state.progress.update_items(seen, 0, "Taranıyor", str(current)),
-                )
-            except Exception:
-                state.progress.finish("Large/old scan failed", percent=0)
-                raise
+                ),
+                fail="Large/old scan failed",
+                done=lambda r: f"Large/old scan completed · {len(r)} candidates")
             with state.lock:
                 state.large_files = {item.path for item in files}
                 self._bump_generation("large-files")
             total = sum(item.bytes for item in files)
-            state.progress.finish(f"Large/old scan completed · {len(files)} candidates")
             return {"files": [item.web_dict() for item in files], "totalBytes": total,
                     "humanTotal": human_bytes(total), "selectedByDefault": []}
         if path == "/api/duplicates":
@@ -504,27 +521,23 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             return {"groups": [group.web_dict() for group in groups], "totalWastedBytes": total,
                     "humanTotalWasted": human_bytes(total), "selectedByDefault": []}
         if path == "/api/developer/storage":
-            state.progress.start("devstorage", "Scanning developer storage")
-            try:
-                sections = DeveloperStorageCenter(state.config).scan(progress=state.progress.update)
-            except Exception:
-                state.progress.finish("Developer storage scan failed", percent=0)
-                raise
+            sections = self._scan_endpoint(
+                "devstorage", "Scanning developer storage",
+                lambda: DeveloperStorageCenter(state.config).scan(progress=state.progress.update),
+                fail="Developer storage scan failed",
+                done=lambda r: f"Developer storage scan completed · {len(r)} ecosystems")
             total = sum(section.bytes for section in sections)
-            state.progress.finish(f"Developer storage scan completed · {len(sections)} ecosystems")
             return {"sections": [section.web_dict() for section in sections], "totalBytes": total,
                     "humanTotal": human_bytes(total)}
         if path == "/api/developer/caches":
-            state.progress.start("devcaches", "Scanning package manager caches")
-            try:
-                result = PackageManagerCacheScanner(state.config).scan()
-            except Exception:
-                state.progress.finish("Package cache scan failed", percent=0)
-                raise
+            result = self._scan_endpoint(
+                "devcaches", "Scanning package manager caches",
+                lambda: PackageManagerCacheScanner(state.config).scan(),
+                fail="Package cache scan failed",
+                done=lambda r: f"Package cache scan completed · {len(r.items)} caches")
             with state.lock:
                 state.dev_caches = result
                 self._bump_generation("developer-caches")
-            state.progress.finish(f"Package cache scan completed · {len(result.items)} caches")
             return {"status": result.status, "isComplete": result.is_complete, "issues": result.issues, "notes": result.notes,
                     "items": [dict(item.web_dict(), bytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes)) for item in result.items], "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes)}
         if path.startswith("/api/developer/"):
@@ -532,14 +545,12 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             if kind not in {"runtimes", "environments", "tools", "sdks"}: raise FileNotFoundError(path)
             category = kind.removesuffix("s")
             service = {"runtime": "runtimes", "environment": "environments", "tool": "devtools", "sdk": "sdks"}[category]
-            state.progress.start(service, f"Scanning developer {kind}")
-            state.progress.update(10, "Querying installed managers", "")
-            try:
-                items = DeveloperInventory(state.config).scan(category)
-            except Exception:
-                state.progress.finish(f"Developer {kind} scan failed", percent=0)
-                raise
-            state.progress.finish(f"Developer {kind} scan completed · {len(items)} item(s)")
+            items = self._scan_endpoint(
+                service, f"Scanning developer {kind}",
+                lambda: DeveloperInventory(state.config).scan(category),
+                fail=f"Developer {kind} scan failed",
+                on_start=lambda: state.progress.update(10, "Querying installed managers", ""),
+                done=lambda r: f"Developer {kind} scan completed · {len(r)} item(s)")
             with state.lock:
                 state.developer_items[category] = items
                 self._bump_generation(f"developer-{category}")
@@ -678,6 +689,40 @@ class MacMaidHandler(BaseHTTPRequestHandler):
         progress_state.finish(f"Moved {len(moved)} item(s) to Trash")
         return moved
 
+    def _trash_reviewed_paths(
+        self,
+        body: dict,
+        raw_paths: object,
+        *,
+        scope: str,
+        state_attr: str,
+        missing_error: str,
+        progress_label: str,
+        summary_action: str,
+        on_moved=None,
+    ) -> dict:
+        """Shared flow for the reviewed "move selected paths to Trash" endpoints."""
+        state = self.server.state
+        requested = self._known_request_paths(raw_paths, getattr(state, state_attr), missing_error)
+        plan = analyzer_trash_plan(requested)
+        if review := self._review_gate(scope, body, plan): return review
+        estimates = {item: size_of(item) for item in requested}
+        free_space = FreeSpaceProbe.capture(requested)
+        moved = self._move_items_to_trash_with_progress(
+            scope, progress_label, requested, estimates, on_moved=on_moved
+        )
+        with state.lock: getattr(state, state_attr).difference_update(requested)
+        observed, notes = free_space.finish()
+        processed = sum(estimates.values())
+        Cleaner(state.config).log_space_summary(
+            summary_action, scanned=processed, processed=processed, reclaimed=0,
+            trash_moved=processed, observed=observed, unknown=0, notes=notes,
+        )
+        return {"success": True, "removed": len(moved), "moved": moved,
+                "processedEstimatedBytes": processed, "estimatedReclaimedBytes": 0,
+                "trashMovedEstimatedBytes": processed, "observedFreeBytesDelta": observed,
+                "measurementNotes": notes}
+
     def _route_post(self, path: str, body: dict) -> dict:
         state = self.server.state
         if path in {"/api/memory/stop", "/api/memory/force-stop"}:
@@ -798,25 +843,11 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 raise RuntimeError(result.stderr or result.stdout or "Open in Finder failed")
             return {"success": True, "path": str(requested)}
         if path == "/api/treemap/trash":
-            requested = self._known_request_paths(body.get("paths", []), state.treemap_paths, "Treemap path was not present in latest view")
-            plan = analyzer_trash_plan(requested)
-            if review := self._review_gate("treemap", body, plan): return review
-            estimates = {item: size_of(item) for item in requested}
-            free_space = FreeSpaceProbe.capture(requested)
-            moved = self._move_items_to_trash_with_progress(
-                "treemap", "Moving analyzed items to Trash", requested, estimates
-            )
-            with state.lock: state.treemap_paths.difference_update(requested)
-            observed, notes = free_space.finish()
-            processed = sum(estimates.values())
-            Cleaner(state.config).log_space_summary(
-                "treemap_trash_summary", scanned=processed, processed=processed, reclaimed=0,
-                trash_moved=processed, observed=observed, unknown=0, notes=notes,
-            )
-            return {"success": True, "removed": len(moved), "moved": moved,
-                    "processedEstimatedBytes": processed, "estimatedReclaimedBytes": 0,
-                    "trashMovedEstimatedBytes": processed, "observedFreeBytesDelta": observed,
-                    "measurementNotes": notes}
+            return self._trash_reviewed_paths(
+                body, body.get("paths", []), scope="treemap", state_attr="treemap_paths",
+                missing_error="Treemap path was not present in latest view",
+                progress_label="Moving analyzed items to Trash",
+                summary_action="treemap_trash_summary")
         if path == "/api/browser-storage/clean":
             if state.browser_storage is None: raise ValueError("Run browser storage scan first")
             items = self._select_ids(state.browser_storage, body.get("itemIds", []))
@@ -829,91 +860,32 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 state.browser_storage = None
             return _operation_payload(result)
         if path == "/api/smart-downloads/trash":
-            requested = self._known_request_paths(body.get("paths", []), state.smart_downloads, "Smart Downloads item was not present in latest scan")
-            plan = analyzer_trash_plan(requested)
-            if review := self._review_gate("smart-downloads", body, plan): return review
-            estimates = {item: size_of(item) for item in requested}
-            free_space = FreeSpaceProbe.capture(requested)
-            moved = self._move_items_to_trash_with_progress(
-                "smart-downloads", "Moving downloads to Trash", requested, estimates
-            )
-            with state.lock: state.smart_downloads.difference_update(requested)
-            observed, notes = free_space.finish()
-            processed = sum(estimates.values())
-            Cleaner(state.config).log_space_summary(
-                "smart_downloads_trash_summary", scanned=processed, processed=processed, reclaimed=0,
-                trash_moved=processed, observed=observed, unknown=0, notes=notes,
-            )
-            return {"success": True, "removed": len(moved), "moved": moved,
-                    "processedEstimatedBytes": processed, "estimatedReclaimedBytes": 0,
-                    "trashMovedEstimatedBytes": processed, "observedFreeBytesDelta": observed,
-                    "measurementNotes": notes}
+            return self._trash_reviewed_paths(
+                body, body.get("paths", []), scope="smart-downloads", state_attr="smart_downloads",
+                missing_error="Smart Downloads item was not present in latest scan",
+                progress_label="Moving downloads to Trash",
+                summary_action="smart_downloads_trash_summary")
         if path == "/api/large-files/trash":
-            requested = self._known_request_paths(body.get("paths", []), state.large_files, "Large/old file was not present in latest scan")
-            plan = analyzer_trash_plan(requested)
-            if review := self._review_gate("large-files", body, plan): return review
-            estimates = {item: size_of(item) for item in requested}
-            free_space = FreeSpaceProbe.capture(requested)
-            moved = self._move_items_to_trash_with_progress(
-                "large-files", "Moving large files to Trash", requested, estimates
-            )
-            with state.lock: state.large_files.difference_update(requested)
-            observed, notes = free_space.finish()
-            processed = sum(estimates.values())
-            Cleaner(state.config).log_space_summary(
-                "large_files_trash_summary", scanned=processed, processed=processed, reclaimed=0,
-                trash_moved=processed, observed=observed, unknown=0, notes=notes,
-            )
-            return {"success": True, "removed": len(moved), "moved": moved,
-                    "processedEstimatedBytes": processed, "estimatedReclaimedBytes": 0,
-                    "trashMovedEstimatedBytes": processed, "observedFreeBytesDelta": observed,
-                    "measurementNotes": notes}
+            return self._trash_reviewed_paths(
+                body, body.get("paths", []), scope="large-files", state_attr="large_files",
+                missing_error="Large/old file was not present in latest scan",
+                progress_label="Moving large files to Trash",
+                summary_action="large_files_trash_summary")
         if path == "/api/duplicates/trash":
-            requested = self._known_request_paths(body.get("paths", []), state.duplicates, "Duplicate path was not present in latest duplicate scan")
-            plan = analyzer_trash_plan(requested)
-            if review := self._review_gate("duplicates", body, plan): return review
-            estimates = {item: size_of(item) for item in requested}
-            free_space = FreeSpaceProbe.capture(requested)
-            moved = self._move_items_to_trash_with_progress(
-                "duplicates", "Moving duplicates to Trash", requested, estimates
-            )
-            with state.lock: state.duplicates.difference_update(requested)
-            observed, notes = free_space.finish()
-            processed = sum(estimates.values())
-            Cleaner(state.config).log_space_summary(
-                "duplicate_trash_summary", scanned=processed, processed=processed, reclaimed=0,
-                trash_moved=processed, observed=observed, unknown=0, notes=notes,
-            )
-            return {"success": True, "removed": len(moved), "moved": moved,
-                    "processedEstimatedBytes": processed, "estimatedReclaimedBytes": 0,
-                    "trashMovedEstimatedBytes": processed, "observedFreeBytesDelta": observed,
-                    "measurementNotes": notes}
+            return self._trash_reviewed_paths(
+                body, body.get("paths", []), scope="duplicates", state_attr="duplicates",
+                missing_error="Duplicate path was not present in latest duplicate scan",
+                progress_label="Moving duplicates to Trash",
+                summary_action="duplicate_trash_summary")
         if path == "/api/analyze/trash":
             raw = body.get("paths", [])
             if "path" in body: raw = [body["path"]]
-            requested = self._known_request_paths(raw, state.analyzed_paths, "Path was not present in latest analysis")
-            plan = analyzer_trash_plan(requested)
-            if review := self._review_gate("analyzer", body, plan): return review
-            estimates = {item: size_of(item) for item in requested}
-            free_space = FreeSpaceProbe.capture(requested)
-            moved = self._move_items_to_trash_with_progress(
-                "analyzer",
-                "Moving analyzed items to Trash",
-                requested,
-                estimates,
-                on_moved=state.analyzer.invalidate_after_removal,
-            )
-            with state.lock: state.analyzed_paths.difference_update(requested)
-            observed, notes = free_space.finish()
-            processed = sum(estimates.values())
-            Cleaner(state.config).log_space_summary(
-                "analyzer_trash_summary", scanned=processed, processed=processed, reclaimed=0,
-                trash_moved=processed, observed=observed, unknown=0, notes=notes,
-            )
-            return {"success": True, "removed": len(moved), "moved": moved,
-                    "processedEstimatedBytes": processed, "estimatedReclaimedBytes": 0,
-                    "trashMovedEstimatedBytes": processed, "observedFreeBytesDelta": observed,
-                    "measurementNotes": notes}
+            return self._trash_reviewed_paths(
+                body, raw, scope="analyzer", state_attr="analyzed_paths",
+                missing_error="Path was not present in latest analysis",
+                progress_label="Moving analyzed items to Trash",
+                summary_action="analyzer_trash_summary",
+                on_moved=state.analyzer.invalidate_after_removal)
         if path == "/api/recovery/restore":
             return RecoveryCenter(state.config).restore(str(body.get("operationId", "")), str(body.get("trashPath", "")), copy=bool(body.get("copy", False)))
         if path == "/api/snapshots/thin":

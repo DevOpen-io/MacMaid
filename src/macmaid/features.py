@@ -7,9 +7,12 @@ import plistlib
 import re
 import shutil
 import socket
+import stat
 import sys
+import tempfile
 import threading
 import time
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -25,7 +28,7 @@ from .config import Config
 from .models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
 from .reporting import FreeSpaceProbe
 from .safety import PathSafety, PathSafetyError
-from .system import human_bytes, process_running, run_command, size_of, sizes_of, which
+from .system import human_bytes, iter_app_bundles, process_running, run_command, size_of, sizes_of, which
 
 
 @dataclass(slots=True)
@@ -97,30 +100,22 @@ class ApplicationManager:
         for root in (Path("/Applications"), Path.home() / "Applications"):
             if not root.exists():
                 continue
-            for directory, names, _ in os.walk(root):
+            for path in iter_app_bundles(root):
                 token.check()
-                base = Path(directory)
-                if base.suffix == ".app":
-                    names[:] = []
+                info_path = path / "Contents/Info.plist"
+                try:
+                    with info_path.open("rb") as handle:
+                        info = plistlib.load(handle)
+                except (OSError, plistlib.InvalidFileException):
                     continue
-                app_dirs = [name for name in names if name.endswith(".app")]
-                for name in app_dirs:
-                    path = base / name
-                    info_path = path / "Contents/Info.plist"
-                    try:
-                        with info_path.open("rb") as handle:
-                            info = plistlib.load(handle)
-                    except (OSError, plistlib.InvalidFileException):
-                        continue
-                    bundle_id = str(info.get("CFBundleIdentifier", ""))
-                    display = str(info.get("CFBundleDisplayName") or info.get("CFBundleName") or path.stem)
-                    version = info.get("CFBundleShortVersionString")
-                    apps.append(InstalledApplication(display, path, bundle_id, str(version) if version else None))
-                names[:] = [name for name in names if name not in app_dirs]
+                bundle_id = str(info.get("CFBundleIdentifier", ""))
+                display = str(info.get("CFBundleDisplayName") or info.get("CFBundleName") or path.stem)
+                version = info.get("CFBundleShortVersionString")
+                apps.append(InstalledApplication(display, path, bundle_id, str(version) if version else None))
         paths = (app.path for app in apps)
-        measured = sizes_of(paths, cancel=token.check) if cancellation is not None else sizes_of(paths)
+        measured = sizes_of(paths, cancel=token.check)
         token.check()
-        ownership = self._homebrew_ownership(token) if cancellation is not None else self._homebrew_ownership()
+        ownership = self._homebrew_ownership(token)
         for app in apps:
             app.bytes = measured.get(app.path, 0)
             if app.path.parent == Path("/Applications"):
@@ -173,7 +168,7 @@ class ApplicationManager:
         if launch_agent.exists():
             candidates.append(("Launch Agent", launch_agent, "safe", True))
         paths = (path for _, path, _, _ in candidates)
-        measured = sizes_of(paths, cancel=token.check) if cancellation is not None else sizes_of(paths)
+        measured = sizes_of(paths, cancel=token.check)
         result.extend(AppComponent(label, path, measured.get(path, 0), risk, selected) for label, path, risk, selected in candidates)
         return result
 
@@ -193,9 +188,45 @@ class ApplicationManager:
             Cleaner(self.config)._log(item, "failed", str(exc))
             raise
 
+    def _refresh_identity(self, app: InstalledApplication) -> InstalledApplication | None:
+        """Re-read only the reviewed bundle's identity instead of rescanning all apps.
+
+        Mirrors what ``scan()`` would report for this path: a missing/unreadable
+        Info.plist yields ``None``, and Homebrew ownership is re-queried exactly
+        as the inventory does for ``/Applications`` bundles.
+        """
+        try:
+            with (app.path / "Contents/Info.plist").open("rb") as handle:
+                info = plistlib.load(handle)
+        except (OSError, plistlib.InvalidFileException):
+            return None
+        bundle_id = str(info.get("CFBundleIdentifier", ""))
+        display = str(info.get("CFBundleDisplayName") or info.get("CFBundleName") or app.path.stem)
+        version = info.get("CFBundleShortVersionString")
+        current = InstalledApplication(display, app.path, bundle_id, str(version) if version else None)
+        current.bytes = app.bytes
+        if app.path.parent == Path("/Applications"):
+            current.brew_cask = self._homebrew_ownership().get(app.path.name.lower())
+        return current
+
+    def _bundles_with_id(self, bundle_id: str) -> list[str]:
+        """Enumerate installed bundle paths carrying ``bundle_id`` (no size measurement)."""
+        found = []
+        for root in (Path("/Applications"), Path.home() / "Applications"):
+            if not root.exists():
+                continue
+            for path in iter_app_bundles(root):
+                try:
+                    with (path / "Contents/Info.plist").open("rb") as handle:
+                        if str(plistlib.load(handle).get("CFBundleIdentifier", "")) == bundle_id:
+                            found.append(str(path))
+                except (OSError, plistlib.InvalidFileException):
+                    continue
+        return sorted(found)
+
     def _remove_selected(self, app: InstalledApplication, selected: set[Path],
                          progress: Callable[[int, int, Path], None] | None) -> dict[str, Any]:
-        current = next((item for item in self.scan() if item.path == app.path), None)
+        current = self._refresh_identity(app)
         if current is None or current.bundle_id != app.bundle_id or current.brew_cask != app.brew_cask:
             raise PermissionError("application identity changed after review")
         if app.path.is_symlink() or process_running(str(app.path)):
@@ -220,6 +251,7 @@ class ApplicationManager:
             else:
                 trash_moved += max(0, allowed[app.path].bytes)
         moved = []
+        cleaner = Cleaner(self.config)
         for path in ordered_leftovers:
             progress_index += 1
             if progress: progress(progress_index, total, path)
@@ -231,13 +263,13 @@ class ApplicationManager:
                 if process_running(str(current.path)):
                     raise PermissionError("application is currently running")
                 return PathSafety(extra_allowed_roots=[raw]).validate_deletion_path(raw)
-            destination = Cleaner(self.config).move_reviewed_item_to_trash(path, validate_component, allowed[path].bytes)
+            destination = cleaner.move_reviewed_item_to_trash(path, validate_component, allowed[path].bytes)
             moved.append(str(destination))
             processed += max(0, allowed[path].bytes)
             trash_moved += max(0, allowed[path].bytes)
         observed, notes = free_space.finish()
-        duplicates = [str(item.path) for item in self.scan() if item.bundle_id == app.bundle_id]
-        Cleaner(self.config).log_space_summary(
+        duplicates = self._bundles_with_id(app.bundle_id)
+        cleaner.log_space_summary(
             "application_remove_summary", scanned=sum(max(0, allowed[path].bytes) for path in selected),
             processed=processed, reclaimed=0, trash_moved=trash_moved, observed=observed,
             unknown=unknown, notes=notes,
@@ -345,7 +377,7 @@ class ProjectPurgeManager:
                     names.remove(name)
                 names[:] = [name for name in names if not name.startswith(".") or name in {".build", ".next", ".nuxt", ".svelte-kit", ".turbo", ".parcel-cache", ".vite", ".venv"}]
         paths = (path for _, path, _ in candidates)
-        measured = sizes_of(paths, cancel=token.check) if cancellation is not None else sizes_of(paths)
+        measured = sizes_of(paths, cancel=token.check)
         result = []
         now = time.time()
         for project, path, dependency in candidates:
@@ -600,7 +632,9 @@ def system_status(*, force_health_refresh: bool = False) -> dict[str, Any]:
     network_before = psutil.net_io_counters()
     disk_before = psutil.disk_io_counters()
     psutil.cpu_percent(interval=None)
+    sample_started = time.monotonic()
     time.sleep(0.1)
+    sample_seconds = max(time.monotonic() - sample_started, 0.001)
     network_after = psutil.net_io_counters()
     disk_after = psutil.disk_io_counters()
     processes = []
@@ -626,9 +660,9 @@ def system_status(*, force_health_refresh: bool = False) -> dict[str, Any]:
         "diskUsed": disk.used, "diskTotal": disk.total, "diskFree": disk.free, "diskPercent": disk.percent,
         "diskMount": str(disk_mount), "diskUsageBasis": "macOS Data volume" if disk_mount == data_volume else "root volume",
         "network": network_after._asdict(), "bootTime": boot_time,
-        "networkDownPerSecond": max(0, (network_after.bytes_recv - network_before.bytes_recv) * 10),
-        "networkUpPerSecond": max(0, (network_after.bytes_sent - network_before.bytes_sent) * 10),
-        "diskIOPerSecond": 0 if not disk_before or not disk_after else max(0, ((disk_after.read_bytes + disk_after.write_bytes) - (disk_before.read_bytes + disk_before.write_bytes)) * 10),
+        "networkDownPerSecond": max(0, (network_after.bytes_recv - network_before.bytes_recv) / sample_seconds),
+        "networkUpPerSecond": max(0, (network_after.bytes_sent - network_before.bytes_sent) / sample_seconds),
+        "diskIOPerSecond": 0 if not disk_before or not disk_after else max(0, ((disk_after.read_bytes + disk_after.write_bytes) - (disk_before.read_bytes + disk_before.write_bytes)) / sample_seconds),
         "battery": probes["battery"], "thermal": probes["thermal"], "processes": processes,
         "memoryPressureFreePercent": probes["memoryFreePercent"],
         "batteryProbeSucceeded": probes["batteryProbeSucceeded"],
@@ -764,11 +798,12 @@ def thin_snapshots(bytes_to_free: int, config: Config | None = None) -> dict[str
 def history(limit: int = 40, config: Config | None = None) -> list[dict[str, Any]]:
     path = (config or Config()).operation_log
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()[-max(1, limit):]
+        with path.open("r", encoding="utf-8") as handle:
+            lines = deque(handle, maxlen=max(1, limit))
     except OSError:
         return []
     records = []
-    for line in reversed(lines):
+    for line in reversed(list(lines)):
         try:
             records.append(json.loads(line))
         except json.JSONDecodeError:
@@ -1016,6 +1051,37 @@ _macmaid() {{
 _macmaid "$@"'''
 
 
+def _atomic_write_text(path: Path, text: str) -> None:
+    """Replace ``path`` atomically, preserving an existing file's mode.
+
+    A symlinked ``path`` (dotfiles managed by stow/chezmoi) is written through
+    in place — the pre-refactor ``write_text`` contract — so the link, inode,
+    ACLs and extended attributes survive. Atomic replacement would swap the
+    link for a regular file and macOS exposes no stdlib xattr API to copy them.
+    """
+    if path.is_symlink():
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        return
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            mode = stat.S_IMODE(path.stat().st_mode)
+        except OSError:
+            mode = 0o644
+        os.chmod(temporary, mode)
+        os.replace(temporary, path)
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
+
+
 def install_completion(shell: str, config: Config | None = None) -> Path:
     config = config or Config(); config.ensure_files()
     home = config.home
@@ -1024,11 +1090,11 @@ def install_completion(shell: str, config: Config | None = None) -> Path:
     if shell == "fish":
         destination = home / ".config/fish/completions/macmaid.fish"
         destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(completion_script("fish") + "\n", encoding="utf-8")
+        _atomic_write_text(destination, completion_script("fish") + "\n")
         return destination
     destination = config.config_dir / "completions" / ("zsh/_macmaid" if shell == "zsh" else "macmaid.bash")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(completion_script(shell) + "\n", encoding="utf-8")
+    _atomic_write_text(destination, completion_script(shell) + "\n")
     if shell == "zsh":
         rc = home / ".zshrc"
         block = f'\n{marker}\nfpath=("$HOME/.config/macmaid/completions/zsh" $fpath)\nautoload -Uz compinit\ncompinit\n{end}\n'
@@ -1037,7 +1103,7 @@ def install_completion(shell: str, config: Config | None = None) -> Path:
         block = f'\n{marker}\n[ -f "$HOME/.config/macmaid/completions/macmaid.bash" ] && source "$HOME/.config/macmaid/completions/macmaid.bash"\n{end}\n'
     current = rc.read_text(encoding="utf-8") if rc.exists() else ""
     if marker not in current:
-        rc.write_text(current + block, encoding="utf-8")
+        _atomic_write_text(rc, current + block)
     return destination
 
 
@@ -1058,12 +1124,14 @@ def remove_completion_hooks() -> None:
     for rc in (Path.home() / ".zshrc", Path.home() / ".bashrc", Path.home() / ".bash_profile"):
         try: text = rc.read_text(encoding="utf-8")
         except OSError: continue
+        original = text
         for marker, end in marker_pairs:
             while marker in text and end in text[text.index(marker):]:
                 start = text.index(marker); finish = text.index(end, start) + len(end)
                 if finish < len(text) and text[finish] == "\n": finish += 1
                 text = text[:start] + text[finish:]
-        rc.write_text(text, encoding="utf-8")
+        if text != original:
+            _atomic_write_text(rc, text)
     legacy_command = "deep" + "clean"
     for fish in (Path.home() / ".config/fish/completions/macmaid.fish", Path.home() / f".config/fish/completions/{legacy_command}.fish"):
         fish.unlink(missing_ok=True)

@@ -78,6 +78,17 @@ def test_homebrew_libexec_symlink_structure_resolution(tmp_path: Path) -> None:
         assert (resolved.parent / "_internal").is_dir()
 
 
+def test_ci_requires_python_lint_and_type_checks() -> None:
+    root = Path(__file__).resolve().parents[1]
+    workflow = (root / ".github/workflows/ci.yml").read_text()
+    project = (root / "pyproject.toml").read_text()
+
+    assert "uv run ruff check src/macmaid" in workflow
+    assert "uv run mypy" in workflow
+    assert '"ruff>=0.11,<1"' in project
+    assert '"mypy>=1.15,<2"' in project
+
+
 def test_memory_release_version_surfaces_are_synchronized() -> None:
     import re
     import tomllib

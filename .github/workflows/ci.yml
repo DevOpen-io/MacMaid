@@ -36,6 +36,12 @@ jobs:
       - name: Sync locked dependencies
         run: uv sync --locked --all-groups
 
+      - name: Lint Python
+        run: uv run ruff check src/macmaid
+
+      - name: Type-check memory Python
+        run: uv run mypy
+
       - name: Compile Python
         run: uv run python -m compileall -q src/macmaid
 

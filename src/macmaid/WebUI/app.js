@@ -1251,7 +1251,7 @@ const MEMORY_COPY = {
   'exited': ['Exited', 'Sonlandı'], 'still-running': ['Still running — Force Stop is available after review', 'Hâlâ çalışıyor — inceleme sonrası Zorla Durdur kullanılabilir'], skipped: ['Skipped', 'Atlandı'], requested: ['Stop requested', 'Durdurma istendi'], automatic: ['Automatic', 'Otomatik'], manual: ['Manual', 'Elle'],
   'other-user': ['Protected: another user', 'Korumalı: başka kullanıcı'], 'macmaid-or-ancestor': ['Protected: MacMaid / launcher', 'Korumalı: MacMaid / başlatıcı'], 'unverified-identity': ['Protected: identity unavailable', 'Korumalı: kimlik alınamadı'], 'system-process': ['Protected: macOS process', 'Korumalı: macOS süreci'], excluded: ['Protected: never stop', 'Korumalı: asla durdurma'],
   'dart-analysis': ['Dart analysis server', 'Dart analiz sunucusu'], 'typescript-server': ['TypeScript server', 'TypeScript sunucusu'], 'dart-tool': ['Dart / Flutter tool', 'Dart / Flutter aracı'], 'flutter-tool': ['Flutter tool', 'Flutter aracı'], 'development-tool': ['Development tool', 'Geliştirme aracı'], application: ['Application / process', 'Uygulama / süreç'],
-  threshold: ['RSS threshold (GiB)', 'RSS eşiği (GiB)'], duration: ['Above threshold for (minutes)', 'Eşik üzerinde kalma süresi (dakika)'], headroom: ['Only when pressure headroom is below (%)', 'Yalnızca baskı payı bu değerin altındayken (%)'], save: ['Save helper rule', 'Yardımcı kuralını kaydet'], ruleImpact: ['This exact helper executable and role may receive SIGTERM without another confirmation. Analysis or editor assistance may be interrupted. Rules wait 30 minutes between attempts and pause after two failures.', 'Bu yardımcı dosyası ve rolü, başka onay olmadan SIGTERM alabilir. Analiz veya düzenleyici desteği kesilebilir. Kurallar denemeler arasında 30 dakika bekler ve iki başarısızlık sonrası duraklar.'], enabled: ['Enabled', 'Etkin'], disabled: ['Paused after failures', 'Başarısızlıklar sonrası duraklatıldı'], ruleSummary: ['Above {rss} for {minutes} min; pressure headroom below {pressure}%.', '{minutes} dakika boyunca {rss} üzerinde; baskı payı %{pressure} altında.'], trend: ['Resident memory over the last hour', 'Son saatteki yerleşik bellek'], trendRange: ['{old} seconds ago → now · {low} to {high}', '{old} saniye önce → şimdi · {low} ile {high}'], evidence: ['Growing memory means more than 256 MiB and 25% growth over ten minutes, with at least seven increasing minute-to-minute medians.', 'Bellek büyümesi, on dakikada 256 MiB ve %25 üzerinde artış ve dakikalık medyanlarda en az yedi yükseliş anlamına gelir.'], refresh: ['Refresh Memory to retry.', 'Yeniden denemek için Bellek bölümünü yenileyin.'],
+  threshold: ['RSS threshold (GiB)', 'RSS eşiği (GiB)'], duration: ['Above threshold for (minutes)', 'Eşik üzerinde kalma süresi (dakika)'], headroom: ['Only when pressure headroom is below (%)', 'Yalnızca baskı payı bu değerin altındayken (%)'], ruleHeadroom: ['Below {pressure}% headroom', 'Baskı payı %{pressure} altında'], save: ['Save helper rule', 'Yardımcı kuralını kaydet'], ruleImpact: ['This exact helper executable and role may receive SIGTERM without another confirmation. Analysis or editor assistance may be interrupted. Rules wait 30 minutes between attempts and pause after two failures.', 'Bu yardımcı dosyası ve rolü, başka onay olmadan SIGTERM alabilir. Analiz veya düzenleyici desteği kesilebilir. Kurallar denemeler arasında 30 dakika bekler ve iki başarısızlık sonrası duraklar.'], enabled: ['Enabled', 'Etkin'], disabled: ['Paused after failures', 'Başarısızlıklar sonrası duraklatıldı'], ruleSummary: ['Above {rss} for {minutes} min; pressure headroom below {pressure}%.', '{minutes} dakika boyunca {rss} üzerinde; baskı payı %{pressure} altında.'], trend: ['Resident memory over the last hour', 'Son saatteki yerleşik bellek'], trendRange: ['{old} seconds ago → now · {low} to {high}', '{old} saniye önce → şimdi · {low} ile {high}'], evidence: ['Growing memory means more than 256 MiB and 25% growth over ten minutes, with at least seven increasing minute-to-minute medians.', 'Bellek büyümesi, on dakikada 256 MiB ve %25 üzerinde artış ve dakikalık medyanlarda en az yedi yükseliş anlamına gelir.'], refresh: ['Refresh Memory to retry.', 'Yeniden denemek için Bellek bölümünü yenileyin.'],
   refreshBtn: ['Refresh', 'Yenile'], refreshProcesses: ['Refresh processes', 'Süreçleri yenile'], processFilters: ['Process filters', 'Süreç filtreleri'], filterGrowing: ['Growing', 'Büyüyen'], filterProtected: ['Protected', 'Korumalı'],
   pressureNormal: ['Normal', 'Normal'], pressureElevated: ['Elevated', 'Yüksek'], pressureCritical: ['Critical', 'Kritik'],
   close: ['Close', 'Kapat'], peak: ['Peak in window', 'Penceredeki en yüksek'], currentRss: ['Current RSS', 'Geçerli RSS'],
@@ -2109,55 +2109,24 @@ async function executeClean() {
   const isDryRun = document.getElementById('chk-dryrun').checked;
   const itemsToClean = state.currentScan.items.filter(i => state.selectedCleanItems.has(i.id));
   const payload = { itemIds: itemsToClean.map(i => i.id), dryRun: isDryRun };
-  let reviewResponse;
-  try {
-    reviewResponse = await requestOperationReview('/api/clean', payload);
-  } catch (err) {
-    showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error');
-    return;
-  }
-
-  showModal(
-    reviewResponse.review.title,
-    operationReviewHtml(reviewResponse.review),
-    [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      {
-        text: isDryRun ? t('clean.btn_run_sim', 'Run Simulation') : t('clean.btn_clean_reclaim', 'Clean & Reclaim Space'),
-        class: 'btn-danger',
-        onClick: async () => {
-          const authorized = reviewedPayload(payload, reviewResponse);
-          if (!authorized) return;
-          hideModal();
-          startLiveProgressPolling(isDryRun ? t('clean.action_simulating', 'Simulating cleanup…') : t('clean.action_cleaning_items', 'Cleaning selected items…'));
-          const btn = document.getElementById('btn-execute-clean');
-          btn.disabled = true;
-          btn.innerHTML = `<span>${t('common.cleaning', 'Cleaning...')}</span>`;
-
-          try {
-            const res = await fetch('/api/clean', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(authorized)
-            });
-            const result = await readAPIResponse(res);
-            Confetti.launch();
-            SoundEffects.playSuccess();
-            showOutcomeToast(result);
-            document.getElementById('scan-results-box').classList.add('hidden');
-            fetchStatus();
-          } catch (err) {
-            showOperationOutcome('error', err.message);
-            showToast(`${t('toast.error_prefix', 'Error: ')}${err.message}`, 'error');
-          } finally {
-            stopLiveProgressPolling();
-            btn.disabled = false;
-            btn.innerHTML = `<span>${t('clean.btn_execute', 'Start Cleaning')}</span>`;
-          }
-        }
-      }
-    ]
-  );
+  await reviewedMutation('/api/clean', payload, {
+    confirmText: isDryRun ? t('clean.btn_run_sim', 'Run Simulation') : t('clean.btn_clean_reclaim', 'Clean & Reclaim Space'),
+    progressLabel: isDryRun ? t('clean.action_simulating', 'Simulating cleanup…') : t('clean.action_cleaning_items', 'Cleaning selected items…'),
+    buttonId: 'btn-execute-clean',
+    onAuthorized: btn => { if (btn) btn.innerHTML = `<span>${t('common.cleaning', 'Cleaning...')}</span>`; },
+    onSuccess: result => {
+      Confetti.launch();
+      SoundEffects.playSuccess();
+      showOutcomeToast(result);
+      document.getElementById('scan-results-box').classList.add('hidden');
+      fetchStatus();
+    },
+    onError: err => {
+      showOperationOutcome('error', err.message);
+      showToast(`${t('toast.error_prefix', 'Error: ')}${err.message}`, 'error');
+    },
+    onFinally: btn => { if (btn) btn.innerHTML = `<span>${t('clean.btn_execute', 'Start Cleaning')}</span>`; },
+  });
 }
 
 // =========================================================
@@ -2306,51 +2275,22 @@ async function uninstallSelectedApp() {
   if (!state.selectedApp) return;
   const app = state.selectedApp;
   const payload = { path: app.path, bundleId: app.bundleId, leftoverPaths: state.appLeftovers.map(l => l.path) };
-  let reviewResponse;
-  try {
-    reviewResponse = await requestOperationReview('/api/apps/uninstall', payload);
-  } catch (err) {
-    showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error');
-    return;
-  }
-
-  showModal(
-    reviewResponse.review.title,
-    operationReviewHtml(reviewResponse.review),
-    [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      {
-        text: t('apps.btn_uninstall', 'Uninstall'),
-        class: 'btn-danger',
-        onClick: async () => {
-          const authorized = reviewedPayload(payload, reviewResponse);
-          if (!authorized) return;
-          hideModal();
-          startLiveProgressPolling();
-          try {
-            const res = await fetch('/api/apps/uninstall', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(authorized)
-            });
-            const data = await readAPIResponse(res);
-            Confetti.launch();
-            SoundEffects.playSuccess();
-            showOutcomeToast(data, `${app.name} ${t('toast.uninstalled', 'uninstalled')} · `);
-            state.selectedApp = null;
-            document.getElementById('app-detail-view').classList.add('hidden');
-            document.getElementById('app-detail-empty').classList.remove('hidden');
-            await fetchApplications();
-          } catch (e) {
-            showOperationOutcome('error', e.message);
-            showToast(`${t('toast.uninstall_error', 'Uninstall error: ')}${e.message}`, 'error');
-          } finally {
-            stopLiveProgressPolling();
-          }
-        }
-      }
-    ]
-  );
+  await reviewedMutation('/api/apps/uninstall', payload, {
+    confirmText: t('apps.btn_uninstall', 'Uninstall'),
+    onSuccess: async data => {
+      Confetti.launch();
+      SoundEffects.playSuccess();
+      showOutcomeToast(data, `${app.name} ${t('toast.uninstalled', 'uninstalled')} · `);
+      state.selectedApp = null;
+      document.getElementById('app-detail-view').classList.add('hidden');
+      document.getElementById('app-detail-empty').classList.remove('hidden');
+      await fetchApplications();
+    },
+    onError: e => {
+      showOperationOutcome('error', e.message);
+      showToast(`${t('toast.uninstall_error', 'Uninstall error: ')}${e.message}`, 'error');
+    },
+  });
 }
 
 // =========================================================
@@ -2416,45 +2356,16 @@ async function executeInstallersClean() {
 
   const paths = Array.from(state.selectedInstallers);
   const payload = { paths };
-  let reviewResponse;
-  try { reviewResponse = await requestOperationReview('/api/installers/clean', payload); }
-  catch (err) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error'); return; }
-  showModal(
-    reviewResponse.review.title,
-    operationReviewHtml(reviewResponse.review),
-    [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      {
-        text: t('common.move_to_trash', 'Move to Trash'),
-        class: 'btn-danger',
-        onClick: async () => {
-          const authorized = reviewedPayload(payload, reviewResponse);
-          if (!authorized) return;
-          hideModal();
-          startLiveProgressPolling();
-          const actionBtn = document.getElementById('btn-execute-installers-clean');
-          if (actionBtn) actionBtn.disabled = true;
-          try {
-            const res = await fetch('/api/installers/clean', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(authorized)
-            });
-            const data = await readAPIResponse(res);
-            Confetti.launch();
-            SoundEffects.playSuccess();
-            showOutcomeToast(data);
-            scanInstallers();
-          } catch (e) {
-            showToast(`${t('toast.error_prefix', 'Error: ')}${e.message}`, 'error');
-          } finally {
-            if (actionBtn) actionBtn.disabled = false;
-            stopLiveProgressPolling();
-          }
-        }
-      }
-    ]
-  );
+  await reviewedMutation('/api/installers/clean', payload, {
+    confirmText: t('common.move_to_trash', 'Move to Trash'),
+    buttonId: 'btn-execute-installers-clean',
+    onSuccess: data => {
+      Confetti.launch();
+      SoundEffects.playSuccess();
+      showOutcomeToast(data);
+      scanInstallers();
+    },
+  });
 }
 
 // =========================================================
@@ -2522,45 +2433,16 @@ async function executeLeftoversClean() {
 
   const itemIds = Array.from(state.selectedLeftovers);
   const payload = { itemIds };
-  let reviewResponse;
-  try { reviewResponse = await requestOperationReview('/api/leftovers/clean', payload); }
-  catch (err) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error'); return; }
-  showModal(
-    reviewResponse.review.title,
-    operationReviewHtml(reviewResponse.review),
-    [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      {
-        text: t('common.delete', 'Delete'),
-        class: 'btn-danger',
-        onClick: async () => {
-          const authorized = reviewedPayload(payload, reviewResponse);
-          if (!authorized) return;
-          hideModal();
-          startLiveProgressPolling();
-          const actionBtn = document.getElementById('btn-execute-leftovers-clean');
-          if (actionBtn) actionBtn.disabled = true;
-          try {
-            const res = await fetch('/api/leftovers/clean', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(authorized)
-            });
-            const data = await readAPIResponse(res);
-            Confetti.launch();
-            SoundEffects.playSuccess();
-            showOutcomeToast(data);
-            scanLeftovers();
-          } catch (e) {
-            showToast(`${t('toast.error_prefix', 'Error: ')}${e.message}`, 'error');
-          } finally {
-            if (actionBtn) actionBtn.disabled = false;
-            stopLiveProgressPolling();
-          }
-        }
-      }
-    ]
-  );
+  await reviewedMutation('/api/leftovers/clean', payload, {
+    confirmText: t('common.delete', 'Delete'),
+    buttonId: 'btn-execute-leftovers-clean',
+    onSuccess: data => {
+      Confetti.launch();
+      SoundEffects.playSuccess();
+      showOutcomeToast(data);
+      scanLeftovers();
+    },
+  });
 }
 
 // =========================================================
@@ -2642,29 +2524,18 @@ function renderAnalyzerSnapshot(data, requestId) {
       btn.addEventListener('click', async () => {
         const path = btn.dataset.path;
         const payload = { path };
-        let reviewResponse;
-        try { reviewResponse = await requestOperationReview('/api/analyze/trash', payload); }
-        catch (error) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${error.message}`, 'error'); return; }
-        showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-          { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-          { text: t('common.move_to_trash', 'Move to Trash'), class: 'btn-danger', onClick: async () => {
-            const authorized = reviewedPayload(payload, reviewResponse);
-            if (!authorized) return;
-            hideModal();
-            startLiveProgressPolling(t('analyzer.action_trashing', 'Moving file to Trash…'));
-            try {
-              const response = await fetch('/api/analyze/trash', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized)
-              });
-              const data = await readAPIResponse(response);
-              showOutcomeToast(data);
-              runDiskAnalyzer(state.currentAnalyzePath, { force: true });
-            } catch (error) {
-              showToast(`${t('toast.error_prefix', 'Error: ')}${error.message}`, 'error');
-              showOperationOutcome('error', error.message);
-            } finally { stopLiveProgressPolling(); }
-          }}
-        ]);
+        await reviewedMutation('/api/analyze/trash', payload, {
+          confirmText: t('common.move_to_trash', 'Move to Trash'),
+          progressLabel: t('analyzer.action_trashing', 'Moving file to Trash…'),
+          onSuccess: data => {
+            showOutcomeToast(data);
+            runDiskAnalyzer(state.currentAnalyzePath, { force: true });
+          },
+          onError: error => {
+            showToast(`${t('toast.error_prefix', 'Error: ')}${error.message}`, 'error');
+            showOperationOutcome('error', error.message);
+          },
+        });
       });
     });
   }
@@ -2832,43 +2703,15 @@ async function executePurge() {
 
   const selected = state.purgeArtifacts.filter(a => state.selectedPurgeArtifacts.has(a.id));
   const payload = { paths: selected.map(s => s.path) };
-  let reviewResponse;
-  try { reviewResponse = await requestOperationReview('/api/purge', payload); }
-  catch (err) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error'); return; }
-
-  showModal(
-    reviewResponse.review.title,
-    operationReviewHtml(reviewResponse.review),
-    [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      {
-        text: t('common.move_to_trash', 'Move to Trash'),
-        class: 'btn-danger',
-        onClick: async () => {
-          const authorized = reviewedPayload(payload, reviewResponse);
-          if (!authorized) return;
-          hideModal();
-          startLiveProgressPolling();
-          try {
-            const res = await fetch('/api/purge', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(authorized)
-            });
-            const data = await readAPIResponse(res);
-            Confetti.launch();
-            SoundEffects.playSuccess();
-            showOutcomeToast(data);
-            scanProjectArtifacts();
-          } catch (e) {
-            showToast(`${t('toast.error_prefix', 'Error: ')}${e.message}`, 'error');
-          } finally {
-            stopLiveProgressPolling();
-          }
-        }
-      }
-    ]
-  );
+  await reviewedMutation('/api/purge', payload, {
+    confirmText: t('common.move_to_trash', 'Move to Trash'),
+    onSuccess: data => {
+      Confetti.launch();
+      SoundEffects.playSuccess();
+      showOutcomeToast(data);
+      scanProjectArtifacts();
+    },
+  });
 }
 
 // =========================================================
@@ -2978,45 +2821,16 @@ async function executeDeveloperCachesClean() {
 
   const itemIds = Array.from(state.selectedDevCaches);
   const payload = { itemIds };
-  let reviewResponse;
-  try { reviewResponse = await requestOperationReview('/api/developer/caches/clean', payload); }
-  catch (err) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error'); return; }
-  showModal(
-    reviewResponse.review.title,
-    operationReviewHtml(reviewResponse.review),
-    [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      {
-        text: t('common.clean', 'Clean'),
-        class: 'btn-danger',
-        onClick: async () => {
-          const authorized = reviewedPayload(payload, reviewResponse);
-          if (!authorized) return;
-          hideModal();
-          startLiveProgressPolling();
-          const actionBtn = document.getElementById('btn-execute-devcaches-clean');
-          if (actionBtn) actionBtn.disabled = true;
-          try {
-            const res = await fetch('/api/developer/caches/clean', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(authorized)
-            });
-            const data = await readAPIResponse(res);
-            Confetti.launch();
-            SoundEffects.playSuccess();
-            showOutcomeToast(data);
-            scanDeveloperCaches();
-          } catch (e) {
-            showToast(`${t('toast.error_prefix', 'Error: ')}${e.message}`, 'error');
-          } finally {
-            if (actionBtn) actionBtn.disabled = false;
-            stopLiveProgressPolling();
-          }
-        }
-      }
-    ]
-  );
+  await reviewedMutation('/api/developer/caches/clean', payload, {
+    confirmText: t('common.clean', 'Clean'),
+    buttonId: 'btn-execute-devcaches-clean',
+    onSuccess: data => {
+      Confetti.launch();
+      SoundEffects.playSuccess();
+      showOutcomeToast(data);
+      scanDeveloperCaches();
+    },
+  });
 }
 
 // Developer Item Details & Removal Modal
@@ -3081,29 +2895,18 @@ function showDeveloperItemModal(item, onRefresh) {
       class: 'btn-danger',
       onClick: async () => {
         const payload = { category: item.category, id: item.id };
-        let reviewResponse;
-        try { reviewResponse = await requestOperationReview('/api/developer/remove', payload); }
-        catch (e) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${e.message}`, 'error'); return; }
-        showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-          { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-          { text: t('dev.btn_uninstall_manager', 'Uninstall with Manager'), class: 'btn-danger', onClick: async () => {
-            const authorized = reviewedPayload(payload, reviewResponse);
-            if (!authorized) return;
-            hideModal();
-            startLiveProgressPolling(`${title} ${t('hud.in_progress', 'removing…')}`);
-            try {
-              const res = await fetch('/api/developer/remove', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized)
-              });
-              const resData = await readAPIResponse(res);
-              Confetti.launch(); SoundEffects.playSuccess();
-              showOutcomeToast(resData, `${title} ${t('toast.uninstalled', 'uninstalled')} · `);
-              if (typeof onRefresh === 'function') await onRefresh();
-            } catch (e) {
-              showToast(`${t('toast.uninstall_failed', 'Uninstall failed: ')}${e.message}`, 'error'); showOperationOutcome('error', e.message);
-            } finally { stopLiveProgressPolling(); }
-          }}
-        ]);
+        await reviewedMutation('/api/developer/remove', payload, {
+          confirmText: t('dev.btn_uninstall_manager', 'Uninstall with Manager'),
+          progressLabel: `${title} ${t('hud.in_progress', 'removing…')}`,
+          onSuccess: async resData => {
+            Confetti.launch(); SoundEffects.playSuccess();
+            showOutcomeToast(resData, `${title} ${t('toast.uninstalled', 'uninstalled')} · `);
+            if (typeof onRefresh === 'function') await onRefresh();
+          },
+          onError: e => {
+            showToast(`${t('toast.uninstall_failed', 'Uninstall failed: ')}${e.message}`, 'error'); showOperationOutcome('error', e.message);
+          },
+        });
       }
     });
   }
@@ -3346,45 +3149,17 @@ async function executeSnapshotThin() {
   const pill = document.querySelector('.snapshot-thin-pill.active');
   const targetGB = parseInt(pill ? pill.dataset.gb : '10', 10);
   const payload = { targetGB };
-  let reviewResponse;
-  try { reviewResponse = await requestOperationReview('/api/snapshots/thin', payload); }
-  catch (err) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error'); return; }
-
-  showModal(
-    reviewResponse.review.title,
-    operationReviewHtml(reviewResponse.review),
-    [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      {
-        text: t('more.btn_start_thinning', 'Start Thinning'),
-        class: 'btn-danger',
-        onClick: async () => {
-          const authorized = reviewedPayload(payload, reviewResponse);
-          if (!authorized) return;
-          hideModal();
-          startLiveProgressPolling();
-          try {
-            const res = await fetch('/api/snapshots/thin', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(authorized)
-            });
-            const data = await readAPIResponse(res);
-            SoundEffects.playSuccess();
-            const observed = data.observedFreeBytesDelta === null || data.observedFreeBytesDelta === undefined
-              ? t('outcome.diff_unmeasured', 'observed difference unmeasured')
-              : `${t('more.observed_free_space', 'observed free space ')}${formatBytes(Math.abs(data.observedFreeBytesDelta))} ${data.observedFreeBytesDelta >= 0 ? t('common.increased', 'increased') : t('common.decreased', 'decreased')}`;
-            showToast(`${t('toast.snapshot_thinned', 'Snapshot thinning request completed · actual manager impact unknown · ')}${observed}${t('outcome.not_strictly_macmaid', ' (not strictly attributable to MacMaid)')}`, 'success');
-            fetchSnapshotsList();
-          } catch (e) {
-            showToast(`${t('toast.error_prefix', 'Error: ')}${e.message}`, 'error');
-          } finally {
-            stopLiveProgressPolling();
-          }
-        }
-      }
-    ]
-  );
+  await reviewedMutation('/api/snapshots/thin', payload, {
+    confirmText: t('more.btn_start_thinning', 'Start Thinning'),
+    onSuccess: data => {
+      SoundEffects.playSuccess();
+      const observed = data.observedFreeBytesDelta === null || data.observedFreeBytesDelta === undefined
+        ? t('outcome.diff_unmeasured', 'observed difference unmeasured')
+        : `${t('more.observed_free_space', 'observed free space ')}${formatBytes(Math.abs(data.observedFreeBytesDelta))} ${data.observedFreeBytesDelta >= 0 ? t('common.increased', 'increased') : t('common.decreased', 'decreased')}`;
+      showToast(`${t('toast.snapshot_thinned', 'Snapshot thinning request completed · actual manager impact unknown · ')}${observed}${t('outcome.not_strictly_macmaid', ' (not strictly attributable to MacMaid)')}`, 'success');
+      fetchSnapshotsList();
+    },
+  });
 }
 
 // =========================================================
@@ -3435,25 +3210,12 @@ function renderOptimizationTasks(tasks, unavailableReason = t('optimize.empty_ta
 async function runSingleOptimizeTask(taskId) {
   SoundEffects.playClick();
   const payload = { taskId };
-  let reviewResponse;
-  try { reviewResponse = await requestOperationReview('/api/optimize/run', payload); }
-  catch (err) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error'); return; }
-  showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-    { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-    { text: t('optimize.btn_run_task', 'Run Task'), class: 'btn-danger', onClick: async () => {
-      const authorized = reviewedPayload(payload, reviewResponse);
-      if (!authorized) return;
-      hideModal(); startLiveProgressPolling();
-      try {
-        const res = await fetch('/api/optimize/run', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized)
-        });
-        const data = await readAPIResponse(res);
-        SoundEffects.playSuccess(); showToast(`${t('toast.task_completed', 'Task completed: ')}${data.message || t('hud.ok', 'Successful')}`, 'success');
-      } catch (err) { showToast(`${t('toast.error_prefix', 'Error: ')}${err.message}`, 'error'); }
-      finally { stopLiveProgressPolling(); }
-    }}
-  ]);
+  await reviewedMutation('/api/optimize/run', payload, {
+    confirmText: t('optimize.btn_run_task', 'Run Task'),
+    onSuccess: data => {
+      SoundEffects.playSuccess(); showToast(`${t('toast.task_completed', 'Task completed: ')}${data.message || t('hud.ok', 'Successful')}`, 'success');
+    },
+  });
 }
 
 // =========================================================
@@ -3673,20 +3435,14 @@ async function openTreemapPath(path) {
 
 async function trashTreemapPath(path) {
   const payload = { paths: [path] };
-  try {
-    const reviewResponse = await requestOperationReview('/api/treemap/trash', payload);
-    showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      { text: t('common.move_to_trash', 'Move to Trash'), class: 'btn-danger', onClick: async () => {
-        const authorized = reviewedPayload({ ...payload, extraOptIn: true }, reviewResponse);
-        if (!authorized) return;
-        hideModal();
-        const result = await readAPIResponse(await fetch('/api/treemap/trash', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) }));
-        showOutcomeToast(result);
-        fetchTreemap(treemapPath, true);
-      }}
-    ]);
-  } catch (err) { showToast(`Treemap cleanup failed: ${err.message}`, 'error'); }
+  await reviewedMutation('/api/treemap/trash', payload, {
+    confirmText: t('common.move_to_trash', 'Move to Trash'),
+    trackProgress: false,
+    onSuccess: result => {
+      showOutcomeToast(result);
+      fetchTreemap(treemapPath, true);
+    },
+  });
 }
 
 // =========================================================
@@ -3727,22 +3483,14 @@ async function cleanBrowserCache() {
   const ids = Array.from(document.querySelectorAll('.browser-storage-chk:checked')).map(chk => chk.dataset.id).filter(Boolean);
   if (ids.length === 0) return showToast(t('toast.no_safe_cache_warn', 'No safe cache area selected for Smart Clean.'), 'warning');
   const payload = { itemIds: ids };
-  try {
-    const reviewResponse = await requestOperationReview('/api/browser-storage/clean', payload);
-    showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      { text: t('common.clean', 'Clean'), class: 'btn-danger', onClick: async () => {
-        const authorized = reviewedPayload(payload, reviewResponse);
-        if (!authorized) return;
-        hideModal();
-        const result = await readAPIResponse(await fetch('/api/browser-storage/clean', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) }));
-        showOutcomeToast(result);
-        fetchBrowserStorage();
-      }}
-    ]);
-  } catch (err) {
-    showToast(`Browser Smart Clean failed: ${err.message}`, 'error');
-  }
+  await reviewedMutation('/api/browser-storage/clean', payload, {
+    confirmText: t('common.clean', 'Clean'),
+    trackProgress: false,
+    onSuccess: result => {
+      showOutcomeToast(result);
+      fetchBrowserStorage();
+    },
+  });
 }
 
 // =========================================================
@@ -3772,22 +3520,14 @@ async function fetchSmartDownloads() {
 async function trashSmartDownloadPath(path) {
   if (!path) return;
   const payload = { paths: [path] };
-  try {
-    const reviewResponse = await requestOperationReview('/api/smart-downloads/trash', payload);
-    showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      { text: t('common.move_to_trash', 'Move to Trash'), class: 'btn-danger', onClick: async () => {
-        const authorized = reviewedPayload({ ...payload, extraOptIn: true }, reviewResponse);
-        if (!authorized) return;
-        hideModal();
-        const result = await readAPIResponse(await fetch('/api/smart-downloads/trash', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) }));
-        showOutcomeToast(result);
-        fetchSmartDownloads();
-      }}
-    ]);
-  } catch (err) {
-    showToast(`Smart Downloads cleanup failed: ${err.message}`, 'error');
-  }
+  await reviewedMutation('/api/smart-downloads/trash', payload, {
+    confirmText: t('common.move_to_trash', 'Move to Trash'),
+    trackProgress: false,
+    onSuccess: result => {
+      showOutcomeToast(result);
+      fetchSmartDownloads();
+    },
+  });
 }
 
 // =========================================================
@@ -3823,22 +3563,14 @@ async function fetchLargeFiles() {
 async function trashLargeFilePath(path) {
   if (!path) return;
   const payload = { paths: [path] };
-  try {
-    const reviewResponse = await requestOperationReview('/api/large-files/trash', payload);
-    showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      { text: t('common.move_to_trash', 'Move to Trash'), class: 'btn-danger', onClick: async () => {
-        const authorized = reviewedPayload({ ...payload, extraOptIn: true }, reviewResponse);
-        if (!authorized) return;
-        hideModal();
-        const result = await readAPIResponse(await fetch('/api/large-files/trash', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) }));
-        showOutcomeToast(result);
-        fetchLargeFiles();
-      }}
-    ]);
-  } catch (err) {
-    showToast(`${t('more.large_clean_failed', 'Large/old cleanup failed: ')}${err.message}`, 'error');
-  }
+  await reviewedMutation('/api/large-files/trash', payload, {
+    confirmText: t('common.move_to_trash', 'Move to Trash'),
+    trackProgress: false,
+    onSuccess: result => {
+      showOutcomeToast(result);
+      fetchLargeFiles();
+    },
+  });
 }
 
 // =========================================================
@@ -3875,23 +3607,14 @@ async function fetchDuplicates() {
 async function trashDuplicatePath(path) {
   if (!path) return;
   const payload = { paths: [path] };
-  try {
-    const reviewResponse = await requestOperationReview('/api/duplicates/trash', payload);
-    showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      { text: t('common.move_to_trash', 'Move to Trash'), class: 'btn-danger', onClick: async () => {
-        const authorized = reviewedPayload({ ...payload, extraOptIn: true }, reviewResponse);
-        if (!authorized) return;
-        hideModal();
-        const res = await fetch('/api/duplicates/trash', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized) });
-        const result = await readAPIResponse(res);
-        showOutcomeToast(result);
-        fetchDuplicates();
-      }}
-    ]);
-  } catch (err) {
-    showToast(`Duplicate cleanup failed: ${err.message}`, 'error');
-  }
+  await reviewedMutation('/api/duplicates/trash', payload, {
+    confirmText: t('common.move_to_trash', 'Move to Trash'),
+    trackProgress: false,
+    onSuccess: result => {
+      showOutcomeToast(result);
+      fetchDuplicates();
+    },
+  });
 }
 
 // =========================================================
@@ -4149,26 +3872,19 @@ async function checkMacMaidUpdate() {
     status.textContent = t('settings.update_available', 'Update available: {current} → {latest}')
       .replace('{current}', result.installedVersion || 'current')
       .replace('{latest}', result.latestVersion || 'latest');
-    const review = await requestOperationReview('/api/macmaid/update', {});
-    showModal(review.review.title, operationReviewHtml(review.review), [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      { text: t('settings.update_with_brew', 'Update with Homebrew'), class: 'btn-danger', onClick: async () => {
-        const payload = reviewedPayload({}, review);
-        if (!payload) return;
-        hideModal();
-        status.textContent = t('settings.update_installing', 'Installing update with Homebrew…');
-        try {
-          const updated = await readAPIResponse(await fetch('/api/macmaid/update', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-          }));
-          status.textContent = updated.updated ? t('settings.update_installed', 'Update installed. Restart MacMaid to use the new version.') : (updated.reason || t('settings.update_up_to_date', 'MacMaid is up to date.'));
-          showToast(status.textContent, 'success');
-        } catch (error) {
-          status.textContent = t('settings.update_failed', 'Update failed: {error}').replace('{error}', error.message);
-          showToast(status.textContent, 'error');
-        }
-      }}
-    ]);
+    await reviewedMutation('/api/macmaid/update', {}, {
+      confirmText: t('settings.update_with_brew', 'Update with Homebrew'),
+      trackProgress: false,
+      onAuthorized: () => { status.textContent = t('settings.update_installing', 'Installing update with Homebrew…'); },
+      onSuccess: updated => {
+        status.textContent = updated.updated ? t('settings.update_installed', 'Update installed. Restart MacMaid to use the new version.') : (updated.reason || t('settings.update_up_to_date', 'MacMaid is up to date.'));
+        showToast(status.textContent, 'success');
+      },
+      onError: error => {
+        status.textContent = t('settings.update_failed', 'Update failed: {error}').replace('{error}', error.message);
+        showToast(status.textContent, 'error');
+      },
+    });
   } catch (error) {
     status.textContent = t('settings.update_check_failed', 'Update check failed: {error}').replace('{error}', error.message);
     showToast(status.textContent, 'error');
@@ -4251,6 +3967,56 @@ function reviewedPayload(payload, reviewResponse) {
     return null;
   }
   return { ...payload, reviewToken: reviewResponse.reviewToken, extraOptIn };
+}
+
+// Shared review → confirm → POST flow used by every destructive endpoint.
+// Callers only supply the confirm label, progress label, and outcome handling.
+async function reviewedMutation(endpoint, payload, {
+  confirmText,
+  progressLabel,
+  trackProgress = true,
+  buttonId = null,
+  onAuthorized = null,
+  onSuccess = null,
+  onError = null,
+  onFinally = null,
+} = {}) {
+  let reviewResponse;
+  try {
+    reviewResponse = await requestOperationReview(endpoint, payload);
+  } catch (err) {
+    showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${err.message}`, 'error');
+    return;
+  }
+  showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
+    { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
+    {
+      text: confirmText, class: 'btn-danger', onClick: async () => {
+        const authorized = reviewedPayload(payload, reviewResponse);
+        if (!authorized) return;
+        hideModal();
+        if (trackProgress) startLiveProgressPolling(progressLabel);
+        const actionBtn = buttonId ? document.getElementById(buttonId) : null;
+        if (actionBtn) actionBtn.disabled = true;
+        if (onAuthorized) onAuthorized(actionBtn);
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(authorized)
+          });
+          if (onSuccess) await onSuccess(await readAPIResponse(res));
+        } catch (err) {
+          if (onError) await onError(err);
+          else showToast(`${t('toast.error_prefix', 'Error: ')}${err.message}`, 'error');
+        } finally {
+          if (onFinally) await onFinally(actionBtn);
+          if (actionBtn) actionBtn.disabled = false;
+          if (trackProgress) stopLiveProgressPolling();
+        }
+      }
+    }
+  ]);
 }
 
 // =========================================================
@@ -4649,25 +4415,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-run-all-optimize')?.addEventListener('click', async () => {
     SoundEffects.playClick();
     const payload = {};
-    let reviewResponse;
-    try { reviewResponse = await requestOperationReview('/api/optimize/run-all', payload); }
-    catch (e) { showToast(`${t('toast.review_failed', 'Failed to prepare review: ')}${e.message}`, 'error'); return; }
-    showModal(reviewResponse.review.title, operationReviewHtml(reviewResponse.review), [
-      { text: t('common.cancel', 'Cancel'), class: 'btn-secondary', onClick: hideModal },
-      { text: t('optimize.btn_run_all', 'Run All'), class: 'btn-danger', onClick: async () => {
-        const authorized = reviewedPayload(payload, reviewResponse);
-        if (!authorized) return;
-        hideModal(); startLiveProgressPolling();
-        try {
-          const res = await fetch('/api/optimize/run-all', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorized)
-          });
-          const result = await readAPIResponse(res);
-          SoundEffects.playSuccess(); showToast(`${result.executed}/${result.total} ${t('toast.tasks_completed_count', 'maintenance tasks completed.')}`, 'success');
-        } catch (e) { showToast(`${t('toast.error_prefix', 'Error: ')}${e.message}`, 'error'); }
-        finally { stopLiveProgressPolling(); }
-      }}
-    ]);
+    await reviewedMutation('/api/optimize/run-all', payload, {
+      confirmText: t('optimize.btn_run_all', 'Run All'),
+      onSuccess: result => {
+        SoundEffects.playSuccess(); showToast(`${result.executed}/${result.total} ${t('toast.tasks_completed_count', 'maintenance tasks completed.')}`, 'success');
+      },
+    });
   });
 
   // Doctor & Settings
