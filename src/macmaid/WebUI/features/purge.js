@@ -77,7 +77,6 @@ async function executePurge() {
   await reviewedMutation('/api/purge', payload, {
     confirmText: t('common.move_to_trash', 'Move to Trash'),
     onSuccess: data => {
-      Confetti.launch();
       SoundEffects.playSuccess();
       showOutcomeToast(data);
       scanProjectArtifacts();

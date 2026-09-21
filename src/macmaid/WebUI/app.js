@@ -66,7 +66,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function activateTopLevelTab(tab, navItem = document.querySelector(`.nav-item[data-tab="${tab}"]`)) {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.removeAttribute('aria-current'));
-    document.querySelectorAll('.nav-item.has-submenu').forEach(n => { if (n !== navItem) n.classList.remove('expanded'); });
+    document.querySelectorAll('.nav-item.has-submenu').forEach(n => {
+      if (n !== navItem) {
+        n.classList.remove('expanded');
+        n.setAttribute('aria-expanded', 'false');
+      }
+    });
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
 
     const settingsBtn = document.getElementById('settings-btn');
@@ -79,7 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (navItem) {
       navItem.classList.add('active');
       navItem.setAttribute('aria-current', 'page');
-      if (navItem.classList.contains('has-submenu')) navItem.classList.add('expanded');
+      if (navItem.classList.contains('has-submenu')) {
+        navItem.classList.add('expanded');
+        navItem.setAttribute('aria-expanded', 'true');
+      }
     }
     const targetPane = document.getElementById(`pane-${tab}`);
     if (targetPane) targetPane.classList.add('active');
@@ -120,9 +128,12 @@ document.addEventListener('DOMContentLoaded', () => {
     item.addEventListener('click', () => {
       SoundEffects.playClick();
       const tab = item.dataset.tab;
+      if (item.classList.contains('has-submenu')) {
+        const expanded = item.classList.toggle('expanded');
+        item.setAttribute('aria-expanded', String(expanded));
+        return;
+      }
       activateTopLevelTab(tab, item);
-
-      if (item.classList.contains('has-submenu')) return;
 
       // Only lazy load static settings / metadata; DO NOT auto-run scans without user action
       if (tab === 'optimize' && (!state.optimizeTasks || state.optimizeTasks.length === 0)) fetchOptimizationTasks();
@@ -269,10 +280,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Expand submenus if they are the active tab
   if (state.activeTab === 'more') {
-    document.querySelector('.nav-item[data-tab="more"]')?.classList.add('expanded');
+    const moreNav = document.querySelector('.nav-item[data-tab="more"]');
+    moreNav?.classList.add('expanded');
+    moreNav?.setAttribute('aria-expanded', 'true');
   }
   if (state.activeTab === 'developer') {
-    document.querySelector('.nav-item[data-tab="developer"]')?.classList.add('expanded');
+    const developerNav = document.querySelector('.nav-item[data-tab="developer"]');
+    developerNav?.classList.add('expanded');
+    developerNav?.setAttribute('aria-expanded', 'true');
   }
 
   // Initial polling: a single progress probe; status polling starts only when

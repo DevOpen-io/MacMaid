@@ -314,7 +314,7 @@ window.toggleInPageLogs = function(service) {
   if (!container) return;
   const isHidden = container.classList.toggle('hidden');
   if (btnText) {
-    btnText.textContent = isHidden ? t('clean.logs_btn', '▸ Live Log Stream') : t('clean.logs_hide_btn', '▾ Hide Log Stream');
+    btnText.textContent = isHidden ? t('clean.logs_btn', 'Show details') : t('clean.logs_hide_btn', 'Hide details');
   }
 };
 

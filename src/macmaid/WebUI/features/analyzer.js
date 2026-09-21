@@ -195,6 +195,11 @@ function navigateAnalyzerToParent() {
 // =========================================================
 let treemapPath = '~';
 let treemapParent = '~';
+
+function syncTreemapParentButton() {
+  const button = document.getElementById('btn-treemap-back');
+  if (button) button.disabled = treemapPath === '~' || treemapParent === treemapPath;
+}
 let treemapRequestId = 0;
 let lastTreemapData = null;
 let lastTreemapRenderSignature = '';
@@ -287,7 +292,7 @@ function renderTreemap(data) {
           return `<div class="treemap-tile ${rect.directory ? 'is-directory' : 'is-file'} ${tiny ? 'is-tiny' : ''}" data-path="${escapeHtml(rect.path)}" data-directory="${rect.directory ? 'true' : 'false'}" title="${escapeHtml(rect.name)} · ${escapeHtml(rect.humanBytes || formatBytes(rect.value))} · ${percent.toFixed(1)}%" style="left:${rect.x + pad}px;top:${rect.y + pad}px;width:${Math.max(0, rect.width - pad * 2)}px;height:${Math.max(0, rect.height - pad * 2)}px;--tile-color:${color};--tile-glow:${color}66;--tile-alpha:${intensity};">
             <div class="treemap-tile-bg"></div>
             ${tiny ? '' : `<div class="treemap-tile-content">
-              <div class="treemap-tile-name">${escapeHtml(rect.directory ? '▸ ' : '')}${escapeHtml(rect.name)}</div>
+              <div class="treemap-tile-name">${escapeHtml(rect.name)}</div>
               <div class="treemap-tile-meta">${escapeHtml(rect.humanBytes || formatBytes(rect.value))} · ${percent.toFixed(1)}%</div>
               ${compact ? '' : `<div class="treemap-tile-actions"><button class="mini-btn treemap-open" data-path="${escapeHtml(rect.path)}">Finder</button>${rect.directory ? `<button class="mini-btn treemap-drill" data-path="${escapeHtml(rect.path)}">Drill down</button>` : ''}${action}</div>`}
             </div>`}
@@ -318,6 +323,7 @@ async function fetchTreemap(path = treemapPath, force = false, polling = false, 
     if (localSnapshot) {
       treemapPath = localSnapshot.path || path;
       treemapParent = localSnapshot.parent || '~';
+      syncTreemapParentButton();
       document.getElementById('treemap-path').textContent = `${treemapPath} · ${localSnapshot.humanTotal || '0 B'}`;
       lastTreemapData = localSnapshot;
       lastTreemapRenderSignature = getTreemapRenderSignature(localSnapshot);
@@ -335,6 +341,7 @@ async function fetchTreemap(path = treemapPath, force = false, polling = false, 
     if (requestId !== treemapRequestId) return;
     treemapPath = data.path || path;
     treemapParent = data.parent || '~';
+    syncTreemapParentButton();
     treemapViews.set(path, data);
     if (data.path) treemapViews.set(data.path, data);
     const total = Math.max(0, Number(data.total || 0));
@@ -391,6 +398,7 @@ function reconnectTreemap() {
   if (!cachedView) return;
   treemapPath = cachedView.path || treemapPath;
   treemapParent = cachedView.parent || '~';
+  syncTreemapParentButton();
   document.getElementById('treemap-path').textContent = `${treemapPath} · ${cachedView.humanTotal || '0 B'}`;
   lastTreemapData = cachedView;
   lastTreemapRenderSignature = getTreemapRenderSignature(cachedView);

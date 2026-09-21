@@ -114,7 +114,6 @@ async function executeDeveloperCachesClean() {
     confirmText: t('common.clean', 'Clean'),
     buttonId: 'btn-execute-devcaches-clean',
     onSuccess: data => {
-      Confetti.launch();
       SoundEffects.playSuccess();
       showOutcomeToast(data);
       scanDeveloperCaches();
@@ -144,7 +143,7 @@ function showDeveloperItemModal(item, onRefresh) {
       </div>
 
       <div style="display: grid; grid-template-columns: 120px 1fr; gap: 9px 14px; align-items: baseline;">
-        <span class="text-muted">Kategori:</span>
+        <span class="text-muted">${t('common.category', 'Category')}:</span>
         <span><strong>${escapeHtml((item.category || t('dev.title', 'DEVELOPER')).toUpperCase())}</strong></span>
 
         ${item.version ? `
@@ -158,12 +157,12 @@ function showDeveloperItemModal(item, onRefresh) {
         <span class="text-muted">${t('dev.occupied_space', 'Occupied Space')}:</span>
         <strong class="highlight-cyan" style="font-family: var(--font-mono);">${escapeHtml(item.humanBytes || formatBytes(item.bytes || 0))}</strong>
 
-        <span class="text-muted">Kurulum Yolu:</span>
+        <span class="text-muted">${t('dev.install_path', 'Install path')}:</span>
         <span style="font-family: var(--font-mono); font-size: 11.5px; word-break: break-all; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 4px; border: 1px solid var(--border-glass);">
           ${escapeHtml(item.path)}
         </span>
 
-        <span class="text-muted">Durum:</span>
+        <span class="text-muted">${t('dev.th_status', 'Status')}:</span>
         <div>${statusHtml}</div>
 
         ${item.note ? `
@@ -175,7 +174,7 @@ function showDeveloperItemModal(item, onRefresh) {
   `;
 
   const buttons = [
-    { text: 'Kapat', class: 'btn-secondary', onClick: hideModal }
+    { text: t('common.close', 'Close'), class: 'btn-secondary', onClick: hideModal }
   ];
 
   if (item.removable && !item.isActive) {
@@ -188,7 +187,7 @@ function showDeveloperItemModal(item, onRefresh) {
           confirmText: t('dev.btn_uninstall_manager', 'Uninstall with Manager'),
           progressLabel: `${title} ${t('hud.in_progress', 'removing…')}`,
           onSuccess: async resData => {
-            Confetti.launch(); SoundEffects.playSuccess();
+            SoundEffects.playSuccess();
             showOutcomeToast(resData, `${title} ${t('toast.uninstalled', 'uninstalled')} · `);
             if (typeof onRefresh === 'function') await onRefresh();
           },
@@ -271,7 +270,7 @@ async function scanDeveloperEnvironments() {
     const changed = collectionFingerprint(previousItems) !== collectionFingerprint(items);
     state.developerEnvironments = items;
     document.getElementById('devenvironments-total-size').textContent = data.humanTotal || formatBytes(data.totalBytes);
-    document.getElementById('devenvironments-count').textContent = `(${items.length} ortam tespit edildi)`;
+    document.getElementById('devenvironments-count').textContent = t('dev.environment_count', '{count} environments').replace('{count}', String(items.length));
 
     if (items.length === 0) {
       tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('dev.empty_venvs_found', 'No virtual environments found.')}</td></tr>`;

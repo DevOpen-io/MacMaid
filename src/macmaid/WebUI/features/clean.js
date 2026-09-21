@@ -57,7 +57,7 @@ function renderScanResults(scanData) {
 
   const tbody = document.getElementById('tbody-clean-items');
   if (!scanData.items || scanData.items.length === 0) {
-    const message = scanData.isComplete ? t('clean.empty_clean', 'No items to clean. Your system is pristine! ✨') : `${t('clean.title', 'Scan')} ${escapeHtml(scanData.status || '')} · ${t('toast.results_incomplete', 'results incomplete')}`;
+    const message = scanData.isComplete ? t('clean.empty_clean', 'No cleanup items found.') : `${t('clean.title', 'Clean')} ${escapeHtml(scanData.status || '')} · ${t('toast.results_incomplete', 'results incomplete')}`;
     tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${message}</td></tr>`;
     return;
   }
@@ -138,7 +138,6 @@ async function executeClean() {
     buttonId: 'btn-execute-clean',
     onAuthorized: btn => { if (btn) btn.innerHTML = `<span>${t('common.cleaning', 'Cleaning...')}</span>`; },
     onSuccess: result => {
-      Confetti.launch();
       SoundEffects.playSuccess();
       showOutcomeToast(result);
       document.getElementById('scan-results-box').classList.add('hidden');

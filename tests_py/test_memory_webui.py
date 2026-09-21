@@ -68,7 +68,8 @@ def test_memory_workspace_keeps_overview_controls_and_safety_context_together():
     assert 'data-i18n="memory.monitoring"' in html
     assert 'data-i18n="memory.rssNote"' in html
     assert 'data-i18n-title="memory.refreshProcesses"' in html
-    assert 'data-i18n-aria="memory.processFilters"' in html
+    assert 'id="memory-filter-pills"' not in html
+    assert 'id="memory-filter"' in html
     assert 'data-i18n-aria="memory.select"' in html
     assert "sfSymbol('gearshape')" not in script
     assert "'user', 'mini-icon'" not in script

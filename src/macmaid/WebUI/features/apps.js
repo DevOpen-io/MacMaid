@@ -152,7 +152,6 @@ async function uninstallSelectedApp() {
   await reviewedMutation('/api/apps/uninstall', payload, {
     confirmText: t('apps.btn_uninstall', 'Uninstall'),
     onSuccess: async data => {
-      Confetti.launch();
       SoundEffects.playSuccess();
       showOutcomeToast(data, `${app.name} ${t('toast.uninstalled', 'uninstalled')} · `);
       state.selectedApp = null;

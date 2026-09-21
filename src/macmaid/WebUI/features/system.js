@@ -48,14 +48,12 @@ function renderStatus(data) {
 
   if (metrics) {
     const cpuPct = metrics.cpuPercent.toFixed(1);
-    document.getElementById('header-cpu-val').textContent = `${cpuPct}%`;
     document.getElementById('dash-cpu-val').textContent = `${cpuPct}%`;
     setGauge('gauge-cpu-circle', metrics.cpuPercent);
 
     const ramUsedGB = (metrics.memoryUsed / (1024 ** 3)).toFixed(1);
     const ramTotalGB = (metrics.memoryTotal / (1024 ** 3)).toFixed(1);
     const ramPct = ((metrics.memoryUsed / metrics.memoryTotal) * 100) || 0;
-    document.getElementById('header-ram-val').textContent = `${ramUsedGB} GB`;
     document.getElementById('dash-ram-val').textContent = `${ramPct.toFixed(0)}%`;
     document.getElementById('dash-ram-used-val').textContent = `${ramUsedGB} GB`;
     document.getElementById('dash-ram-total-val').textContent = `${ramTotalGB} GB`;
@@ -67,7 +65,6 @@ function renderStatus(data) {
     const diskTotalGB = (metrics.diskTotal / (1024 ** 3)).toFixed(1);
     const diskFreeGB = Math.max(0, Number(metrics.diskFree ?? (metrics.diskTotal - metrics.diskUsed)) / (1024 ** 3)).toFixed(1);
     const diskPct = Number(metrics.diskPercent ?? ((metrics.diskUsed / metrics.diskTotal) * 100)) || 0;
-    document.getElementById('header-disk-val').textContent = `${diskFreeGB} GB ${t('sidebar.free', 'free')}`;
     document.getElementById('dash-disk-percent-val').textContent = `${diskPct.toFixed(0)}%`;
     document.getElementById('dash-disk-free-val').textContent = `${diskFreeGB} GB`;
     document.getElementById('dash-disk-used-val').textContent = `${diskUsedGB} GB`;
@@ -85,21 +82,23 @@ function renderStatus(data) {
   if (uptime) {
     const hours = Math.floor(uptime / 3600);
     const mins = Math.floor((uptime % 3600) / 60);
-    document.getElementById('dash-uptime-val').textContent = `${hours} saat ${mins} dk`;
+    document.getElementById('dash-uptime-val').textContent = t('status.uptime_format', '{hours}h {minutes}m')
+      .replace('{hours}', String(hours))
+      .replace('{minutes}', String(mins));
   }
 
   if (battery && battery.percent !== null && battery.percent !== undefined) {
     document.getElementById('dash-batt-pct').textContent = `${battery.percent}%`;
     document.getElementById('dash-batt-bar').style.width = `${battery.percent}%`;
-    document.getElementById('dash-batt-state').textContent = battery.charging ? t('status.charging', 'Charging ⚡') : t('status.on_battery', 'On Battery');
+    document.getElementById('dash-batt-state').textContent = battery.charging ? t('status.charging', 'Charging') : t('status.on_battery', 'On Battery');
     document.getElementById('dash-batt-cycles').textContent = battery.cycleCount ? `${battery.cycleCount} ${t('status.cycles', 'Cycles')}` : t('status.state_normal', 'Normal');
   } else {
     const batteryHealth = Array.isArray(health) ? health.find(item => item.id === 'battery') : null;
     const absent = batteryHealth?.state === 'not_applicable';
-    document.getElementById('dash-batt-pct').textContent = absent ? 'Pil Yok' : 'Bilinmiyor';
+    document.getElementById('dash-batt-pct').textContent = absent ? t('status.no_battery', 'No battery') : t('status.unknown', 'Unknown');
     document.getElementById('dash-batt-bar').style.width = '0%';
     document.getElementById('dash-batt-state').textContent = absent ? t('status.desktop_ac', 'Desktop / AC') : t('status.batt_unavailable', 'Battery data unavailable');
-    document.getElementById('dash-batt-cycles').textContent = absent ? 'Uygulanamaz' : 'Bilinmiyor';
+    document.getElementById('dash-batt-cycles').textContent = absent ? t('status.not_applicable', 'Not applicable') : t('status.unknown', 'Unknown');
   }
 
   if (processes && processes.length) {
@@ -265,7 +264,7 @@ async function fetchHistory() {
       const restorable = Boolean(e.restorable && e.trash_path && e.operation_id);
       const restoreStatus = e.restoreStatus || (restorable ? 'Restorable' : 'Not Restorable');
       const actions = restorable
-        ? `<div class="row-actions"><button class="mini-btn recovery-restore" data-index="${index}" data-copy="false">Restore</button><button class="mini-btn recovery-restore" data-index="${index}" data-copy="true">Restore as copy</button></div>`
+        ? `<div class="row-actions"><button class="mini-btn recovery-restore" data-index="${index}" data-copy="false">${t('history.restore', 'Restore')}</button><button class="mini-btn recovery-restore" data-index="${index}" data-copy="true">${t('history.restore_copy', 'Restore as copy')}</button></div>`
         : `<span class="text-muted">${escapeHtml(restoreStatus)}</span>`;
       return `
       <tr>
@@ -284,8 +283,8 @@ async function fetchHistory() {
 
 async function restoreHistoryEntry(entry, copy) {
   if (!entry || !entry.operation_id || !entry.trash_path) return;
-  const action = copy ? 'Restore as copy' : 'Restore';
-  if (!confirm(`${action} this item?\n\n${entry.original_path || ''}`)) return;
+  const action = copy ? t('history.restore_copy', 'Restore as copy') : t('history.restore', 'Restore');
+  if (!confirm(`${t('history.restore_confirm', 'Restore this item?')}\n\n${entry.original_path || ''}`)) return;
   try {
     const res = await fetch('/api/recovery/restore', {
       method: 'POST',
@@ -293,10 +292,10 @@ async function restoreHistoryEntry(entry, copy) {
       body: JSON.stringify({ operationId: entry.operation_id, trashPath: entry.trash_path, copy })
     });
     const result = await readAPIResponse(res);
-    showToast(`Restored: ${result.restored_path}`, 'success');
+    showToast(`${t('history.restored', 'Restored')}: ${result.restored_path}`, 'success');
     fetchHistory();
   } catch (err) {
-    showToast(`Restore failed: ${err.message}`, 'error');
+    showToast(`${t('history.restore_failed', 'Restore failed')}: ${err.message}`, 'error');
   }
 }
 

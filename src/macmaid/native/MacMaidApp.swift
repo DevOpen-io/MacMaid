@@ -100,11 +100,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
 
     func setupWindow() {
         // Use the visible frame so the initial window stays clear of the Dock and menu bar.
-        let fallbackSize = NSSize(width: 1200, height: 800)
+        let preferredSize = NSSize(width: 1240, height: 800)
         let screenRect = NSScreen.main?.visibleFrame
-            ?? NSRect(origin: .zero, size: fallbackSize)
-        let width = screenRect.width * 0.8
-        let height = screenRect.height * 0.8
+            ?? NSRect(origin: .zero, size: preferredSize)
+        let width = min(preferredSize.width, screenRect.width * 0.92)
+        let height = min(preferredSize.height, screenRect.height * 0.90)
         let frame = NSRect(
             x: screenRect.midX - (width / 2),
             y: screenRect.midY - (height / 2),
@@ -122,12 +122,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = false
-        // Never require a size larger than this display's initial 80% frame.
+        // Preserve the table-oriented minimum while adapting to smaller displays.
         window.minSize = NSSize(width: min(960, width), height: min(640, height))
         window.isReleasedWhenClosed = false
         window.delegate = self
-        window.appearance = NSAppearance(named: .darkAqua)
-        window.backgroundColor = NSColor(red: 0.027, green: 0.039, blue: 0.063, alpha: 1.0) // #070a10
+        // Follow the system appearance; WebUI themes remain user-selectable inside the app.
+        window.appearance = nil
+        window.backgroundColor = .windowBackgroundColor
 
         let contentView = window.contentView!
 
@@ -143,10 +144,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         let overlay = NSView(frame: contentView.bounds)
         overlay.autoresizingMask = [.width, .height]
         overlay.wantsLayer = true
-        overlay.layer?.backgroundColor = NSColor(red: 0.027, green: 0.039, blue: 0.063, alpha: 1.0).cgColor
+        overlay.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         let loadingLabel = NSTextField(labelWithString: "MacMaid")
         loadingLabel.font = NSFont.systemFont(ofSize: 25, weight: .semibold)
-        loadingLabel.textColor = NSColor(red: 0.37, green: 0.91, blue: 0.91, alpha: 1.0)
+        loadingLabel.textColor = .labelColor
         loadingLabel.alignment = .center
 
         let launchStack = NSStackView()

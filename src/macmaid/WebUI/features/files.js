@@ -39,7 +39,7 @@ function renderInstallers() {
   state.selectedInstallers = new Set(visible.map(i => i.path));
 
   document.getElementById('installers-total-size').textContent = formatBytes(visible.reduce((sum, i) => sum + (i.bytes || 0), 0));
-  document.getElementById('installers-count').textContent = `(${visible.length} dosya)`;
+  document.getElementById('installers-count').textContent = t('common.file_count', '{count} files').replace('{count}', String(visible.length));
   syncMasterCheckbox('master-installers-chk', visible.length, state.selectedInstallers.size);
 
   if (visible.length === 0) {
@@ -79,7 +79,6 @@ async function executeInstallersClean() {
     confirmText: t('common.move_to_trash', 'Move to Trash'),
     buttonId: 'btn-execute-installers-clean',
     onSuccess: data => {
-      Confetti.launch();
       SoundEffects.playSuccess();
       showOutcomeToast(data);
       scanInstallers();
@@ -168,7 +167,6 @@ async function executeLeftoversClean() {
     confirmText: t('common.delete', 'Delete'),
     buttonId: 'btn-execute-leftovers-clean',
     onSuccess: data => {
-      Confetti.launch();
       SoundEffects.playSuccess();
       showOutcomeToast(data);
       scanLeftovers();
@@ -240,7 +238,7 @@ async function fetchSmartDownloads() {
       <td><strong>${escapeHtml(file.name || '')}</strong><br><span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(file.path)}</span></td>
       <td>${Number(file.ageDays || 0)}d</td>
       <td>${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
-      <td><button class="mini-btn smart-download-trash" data-path="${escapeHtml(file.path)}">Move to Trash</button></td>
+      <td><button class="mini-btn smart-download-trash" data-path="${escapeHtml(file.path)}">${t('common.move_to_trash', 'Move to Trash')}</button></td>
     </tr>`).join('') || `<tr><td colspan="5" class="empty-state">${t('more.empty_downloads_found', 'No smart download candidates found.')}</td></tr>`;
     tbody.querySelectorAll('.smart-download-trash').forEach(button => button.addEventListener('click', () => trashSmartDownloadPath(button.dataset.path)));
   } catch (err) {
@@ -319,10 +317,10 @@ async function fetchDuplicates() {
     (data.groups || []).forEach((group, groupIndex) => {
       (group.files || []).forEach(file => {
         rows.push(`<tr>
-          <td>Group ${groupIndex + 1}<br><small>${escapeHtml(group.humanWasted || '')} review</small></td>
+          <td>${t('duplicates.group', 'Group')} ${groupIndex + 1}<br><small>${escapeHtml(group.humanWasted || '')}</small></td>
           <td><span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(file.path)}</span></td>
           <td>${escapeHtml(file.humanBytes || formatBytes(file.bytes || 0))}</td>
-          <td><button class="mini-btn duplicate-trash" data-path="${escapeHtml(file.path)}">Move to Trash</button></td>
+          <td><button class="mini-btn duplicate-trash" data-path="${escapeHtml(file.path)}">${t('common.move_to_trash', 'Move to Trash')}</button></td>
         </tr>`);
       });
     });

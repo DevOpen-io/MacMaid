@@ -167,6 +167,30 @@ def test_settings_ui_exposes_read_only_permission_status() -> None:
     assert ".modal-body" in styles and "overflow-y: auto" in styles
 
 
+def test_web_ui_uses_restrained_native_utility_chrome() -> None:
+    root = Path(__file__).resolve().parents[1]
+    webui = root / "src/macmaid/WebUI"
+    markup = (webui / "index.html").read_text()
+    icons = (webui / "icons.js").read_text()
+    styles = (webui / "styles.css").read_text()
+
+    for removed_decoration in (
+        "ambient-glow",
+        "confetti-canvas",
+        "sidebar-pro-badge",
+        "sidebar-metric",
+    ):
+        assert removed_decoration not in markup
+    assert "fonts.googleapis.com" not in markup
+    assert 'data-icon="chevron.down"' in markup
+    assert "'chevron.down':" in icons
+    assert 'aria-controls="submenu-developer"' in markup
+    assert 'aria-controls="submenu-more"' in markup
+    assert 'data-i18n="theme.dark"' in markup
+    assert ".glass-card" in styles and "box-shadow: none" in styles
+    assert ".data-table td { padding: 7px 10px;" in styles
+
+
 def test_release_version_is_consistent_across_metadata_and_web_ui() -> None:
     root = Path(__file__).resolve().parents[1]
     metadata = tomllib.loads((root / "pyproject.toml").read_text())
@@ -176,5 +200,5 @@ def test_release_version_is_consistent_across_metadata_and_web_ui() -> None:
 
     assert metadata["project"]["version"] == __version__
     assert locked_project["version"] == __version__
-    assert f"v{__version__} Python" in web_ui
-    assert f">{__version__} (Python 3.11+)<" in web_ui
+    assert f'class="settings-info-value settings-info-mono">{__version__}<' in web_ui
+    assert "version-tag" not in web_ui

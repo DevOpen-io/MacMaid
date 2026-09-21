@@ -8,20 +8,9 @@
   <title>MacMaid Pro — macOS System Optimizer & Cleaner</title>
   <link rel="icon" type="image/png" href="/assets/MacMaid-Logo.png">
   <link rel="stylesheet" href="/styles.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
   <a class="skip-link" href="#main-content" data-i18n="skip_link">Skip to main content</a>
-  <!-- Ambient background glow elements -->
-  <div class="ambient-glow glow-1"></div>
-  <div class="ambient-glow glow-2"></div>
-  <div class="ambient-glow glow-3"></div>
-
-  <!-- Confetti Canvas -->
-  <canvas id="confetti-canvas"></canvas>
-
   <div class="app-layout">
     <div class="main-body">
       <!-- Left Navigation Sidebar -->
@@ -35,21 +24,17 @@
               <img src="/assets/MacMaid-Logo.png" alt="MacMaid Logo" class="brand-logo-img">
             </div>
             <div class="brand-text-wrap">
-              <span class="brand-name">MacMaid <span class="badge-pro">PRO</span></span>
-              <span class="version-tag">v0.14.7 Python</span>
+              <span class="brand-name">MacMaid</span>
             </div>
           </div>
         </div>
 
         <nav class="nav-menu" aria-label="MacMaid tools" data-i18n-title="nav.aria_tools">
-          <div class="nav-section-title" data-i18n="nav.section_title">MACMAID (MAIN MENU)</div>
-          
           <!-- 1. Clean -->
           <button class="nav-item active" data-tab="cleaner">
             <span class="nav-symbol" data-icon="sparkles"></span>
             <div class="nav-text-group">
               <span class="nav-main-title" data-i18n="nav.clean">Clean</span>
-              <span class="nav-sub-title" data-i18n="nav.clean_sub">Smart Clean</span>
             </div>
             <span class="nav-task-dot hidden" id="dot-cleaner"></span>
           </button>
@@ -58,8 +43,7 @@
           <button class="nav-item" data-tab="apps">
             <span class="nav-symbol" data-icon="trash"></span>
             <div class="nav-text-group">
-              <span class="nav-main-title" data-i18n="nav.apps">Uninstall Apps</span>
-              <span class="nav-sub-title" data-i18n="nav.apps_sub">App Uninstaller</span>
+              <span class="nav-main-title" data-i18n="nav.apps">Applications</span>
             </div>
             <span class="nav-task-dot hidden" id="dot-apps"></span>
           </button>
@@ -68,8 +52,7 @@
           <button class="nav-item" data-tab="optimize">
             <span class="nav-symbol" data-icon="gearshape"></span>
             <div class="nav-text-group">
-              <span class="nav-main-title" data-i18n="nav.optimize">Optimize</span>
-              <span class="nav-sub-title" data-i18n="nav.optimize_sub">Mac Optimization</span>
+              <span class="nav-main-title" data-i18n="nav.optimize">Maintenance</span>
             </div>
             <span class="nav-task-dot hidden" id="dot-optimize"></span>
           </button>
@@ -78,8 +61,7 @@
           <button class="nav-item" data-tab="analyzer">
             <span class="nav-symbol" data-icon="internaldrive"></span>
             <div class="nav-text-group">
-              <span class="nav-main-title" data-i18n="nav.analyzer">Analyze</span>
-              <span class="nav-sub-title" data-i18n="nav.analyzer_sub">Disk Space Analyzer</span>
+              <span class="nav-main-title" data-i18n="nav.analyzer">Storage</span>
             </div>
             <span class="nav-task-dot hidden" id="dot-analyzer"></span>
           </button>
@@ -88,46 +70,44 @@
           <button class="nav-item" data-tab="purge">
             <span class="nav-symbol" data-icon="folder.badge.gearshape"></span>
             <div class="nav-text-group">
-              <span class="nav-main-title" data-i18n="nav.purge">Project Purge</span>
-              <span class="nav-sub-title" data-i18n="nav.purge_sub">Developer Projects</span>
+              <span class="nav-main-title" data-i18n="nav.purge">Project Cleanup</span>
             </div>
             <span class="nav-task-dot hidden" id="dot-purge"></span>
           </button>
 
           <!-- 6. Developer Tools -->
-          <button class="nav-item has-submenu" data-tab="developer">
+          <button class="nav-item has-submenu" data-tab="developer" aria-expanded="false" aria-controls="submenu-developer">
             <span class="nav-symbol" data-icon="terminal"></span>
             <div class="nav-text-group">
-              <span class="nav-main-title" data-i18n="nav.developer">Developer Tools</span>
-              <span class="nav-sub-title" data-i18n="nav.developer_sub">Runtimes, SDKs & Caches</span>
+              <span class="nav-main-title" data-i18n="nav.developer">Developer</span>
             </div>
-            <span class="nav-submenu-toggle">▼</span>
+            <span class="nav-submenu-toggle" data-icon="chevron.down"></span>
             <span class="nav-task-dot hidden" id="dot-developer"></span>
           </button>
           <div class="nav-submenu" id="submenu-developer">
             <button class="nav-submenu-item" data-devsubtab="storage">
               <span class="nav-submenu-symbol" data-icon="cylinder"></span>
-              <span>Storage Center</span>
+              <span data-i18n="nav.dev_storage">Storage</span>
             </button>
             <button class="nav-submenu-item" data-devsubtab="caches">
               <span class="nav-submenu-symbol" data-icon="archivebox"></span>
-              <span>Package Caches</span>
+              <span data-i18n="nav.dev_caches">Package Caches</span>
             </button>
             <button class="nav-submenu-item" data-devsubtab="runtimes">
               <span class="nav-submenu-symbol" data-icon="curlybraces"></span>
-              <span>Runtimes & Languages</span>
+              <span data-i18n="nav.dev_runtimes">Runtimes</span>
             </button>
             <button class="nav-submenu-item" data-devsubtab="environments">
               <span class="nav-submenu-symbol" data-icon="circle.circle"></span>
-              <span>Environments</span>
+              <span data-i18n="nav.dev_environments">Environments</span>
             </button>
             <button class="nav-submenu-item" data-devsubtab="tools">
               <span class="nav-submenu-symbol" data-icon="hammer"></span>
-              <span>Global CLI Tools</span>
+              <span data-i18n="nav.dev_tools">Global Tools</span>
             </button>
             <button class="nav-submenu-item" data-devsubtab="sdks">
               <span class="nav-submenu-symbol" data-icon="square.stack.3d.up"></span>
-              <span>SDKs & Simulators</span>
+              <span data-i18n="nav.dev_sdks">SDKs &amp; Simulators</span>
             </button>
           </div>
 
@@ -139,65 +119,63 @@
           <button class="nav-item" data-tab="dashboard">
             <span class="nav-symbol" data-icon="waveform.path.ecg"></span>
             <div class="nav-text-group">
-              <span class="nav-main-title" data-i18n="nav.status">Status</span>
-              <span class="nav-sub-title" data-i18n="nav.status_sub">System & Metrics</span>
+              <span class="nav-main-title" data-i18n="nav.status">System Status</span>
             </div>
             <span class="nav-task-dot hidden" id="dot-dashboard"></span>
           </button>
 
           <!-- 8. More Tools -->
-          <button class="nav-item has-submenu" data-tab="more">
+          <button class="nav-item has-submenu" data-tab="more" aria-expanded="false" aria-controls="submenu-more">
             <span class="nav-symbol" data-icon="ellipsis.circle"></span>
             <div class="nav-text-group">
-              <span class="nav-main-title" data-i18n="nav.more">More Tools</span>
-              <span class="nav-sub-title" data-i18n="nav.more_sub">Leftovers, Diagnostics & History</span>
+              <span class="nav-main-title" data-i18n="nav.more">Utilities</span>
             </div>
-            <span class="nav-submenu-toggle">▼</span>
+            <span class="nav-submenu-toggle" data-icon="chevron.down"></span>
             <span class="nav-task-dot hidden" id="dot-more"></span>
           </button>
           <div class="nav-submenu" id="submenu-more">
-            <div class="nav-submenu-category">Cleanup</div>
+            <div class="nav-submenu-category" data-i18n="nav.group_cleanup">Cleanup</div>
             <button class="nav-submenu-item" data-subtab="leftovers">
               <span class="nav-submenu-symbol" data-icon="tray.full"></span>
-              <span>Leftovers</span>
+              <span data-i18n="nav.leftovers">Leftovers</span>
             </button>
             <button class="nav-submenu-item" data-subtab="installers">
               <span class="nav-submenu-symbol" data-icon="arrow.down.circle"></span>
-              <span>Installers</span>
+              <span data-i18n="nav.installers">Installers</span>
             </button>
-            <div class="nav-submenu-category">Storage & Data</div>
+            <div class="nav-submenu-category" data-i18n="nav.group_storage">Storage &amp; Files</div>
             <button class="nav-submenu-item" data-subtab="treemap">
               <span class="nav-submenu-symbol" data-icon="square.grid.2x2"></span>
-              <span>Treemap</span>
+              <span data-i18n="nav.treemap">Treemap</span>
             </button>
             <button class="nav-submenu-item" data-subtab="browser-storage">
               <span class="nav-submenu-symbol" data-icon="globe"></span>
-              <span>Browsers</span>
+              <span data-i18n="nav.browsers">Browser Storage</span>
             </button>
             <button class="nav-submenu-item" data-subtab="smart-downloads">
               <span class="nav-submenu-symbol" data-icon="arrow.down.circle"></span>
-              <span>Smart Downloads</span>
+              <span data-i18n="nav.downloads">Downloads</span>
             </button>
             <button class="nav-submenu-item" data-subtab="duplicates">
               <span class="nav-submenu-symbol" data-icon="doc.on.doc"></span>
-              <span>Duplicates</span>
+              <span data-i18n="nav.duplicates">Duplicates</span>
             </button>
             <button class="nav-submenu-item" data-subtab="large-files">
               <span class="nav-submenu-symbol" data-icon="doc.text.magnifyingglass"></span>
-              <span>Large & Old</span>
+              <span data-i18n="nav.large_files">Large Files</span>
             </button>
-            <div class="nav-submenu-category">System & History</div>
+            <div class="nav-submenu-category" data-i18n="nav.group_system">System &amp; History</div>
             <button class="nav-submenu-item" data-subtab="snapshots">
               <span class="nav-submenu-symbol" data-icon="clock.arrow.circlepath"></span>
-              <span>Snapshots</span>
+              <span data-i18n="nav.snapshots">Snapshots</span>
             </button>
             <button class="nav-submenu-item" data-subtab="doctor">
               <span class="nav-submenu-symbol" data-icon="stethoscope"></span>
-              <span>Doctor</span>
+              <span data-i18n="nav.doctor">Diagnostics</span>
             </button>
             <button class="nav-submenu-item" data-subtab="history">
               <span class="nav-submenu-symbol" data-icon="list.bullet"></span>
-              <span>History</span>
+              <span data-i18n="nav.history">History</span>
             </button>
             <button class="nav-submenu-item" data-subtab="whitelist">
               <span class="nav-submenu-symbol" data-icon="checkmark.shield"></span>
@@ -207,46 +185,13 @@
         </nav>
 
         <div class="sidebar-footer">
-          <!-- Sidebar Live System Metric Pills -->
-          <div class="sidebar-metrics">
-            <div class="quick-pill" id="quick-cpu" title="Live CPU Usage" data-i18n-title="sidebar.cpu_tip">
-              <span class="pill-dot cpu-dot"></span>
-              <span class="pill-label">CPU:</span>
-              <span class="pill-val" id="header-cpu-val">--%</span>
-            </div>
-            <div class="quick-pill" id="quick-ram" title="Live RAM Usage" data-i18n-title="sidebar.ram_tip">
-              <span class="pill-dot ram-dot"></span>
-              <span class="pill-label">RAM:</span>
-              <span class="pill-val" id="header-ram-val">-- GB</span>
-            </div>
-            <div class="quick-pill" id="quick-disk" title="Disk Usage" data-i18n-title="sidebar.disk_tip">
-              <span class="pill-dot disk-dot"></span>
-              <span class="pill-label">Disk:</span>
-              <span class="pill-val" id="header-disk-val">-- GB</span>
-            </div>
-          </div>
-
-          <!-- Bottom Tools Row: Theme, Sound, Safety -->
           <div class="sidebar-tools-row">
-            <div class="theme-dropdown">
-              <button class="btn-icon" id="theme-btn" title="Appearance Theme" data-i18n-title="sidebar.theme_tip" aria-label="Appearance Theme">
-                <span data-icon="sun.max"></span>
-              </button>
-            </div>
-
-            <button class="btn-icon" id="sound-toggle" title="Sound Effects" data-i18n-title="sidebar.sound_tip" aria-label="Sound Effects">
-              <span class="icon-sound-on" data-icon="speaker.wave.2"></span>
-              <span class="icon-sound-off hidden" data-icon="speaker.slash"></span>
+            <button class="btn-icon" id="theme-btn" title="Appearance" data-i18n-title="sidebar.theme_tip" aria-label="Appearance">
+              <span data-icon="sun.max"></span>
             </button>
-
             <button class="btn-icon" id="settings-btn" title="Settings" data-i18n-title="sidebar.settings_tip" aria-label="Settings">
               <span data-icon="gearshape"></span>
             </button>
-
-            <div class="safety-badge" title="SIP & System Data Protected">
-              <span class="inline-icon" data-icon="checkmark.shield"></span>
-              <span data-i18n="sidebar.sip_safe">SIP Safe</span>
-            </div>
           </div>
         </div>
       </aside>
@@ -258,17 +203,12 @@
           <div class="pane-header memory-heading">
             <div>
               <h1 class="pane-title" data-i18n="memory.title">Memory</h1>
-              <p class="pane-subtitle" data-i18n="memory.subtitle">Find growing processes. Review what stops. Keep your work in control.</p>
             </div>
             <div class="memory-header-actions">
               <button class="btn btn-secondary btn-sm memory-refresh-btn" id="memory-refresh-btn" title="Refresh processes" aria-label="Refresh processes" data-i18n-title="memory.refreshProcesses">
                 <span data-icon="arrow.clockwise"></span>
                 <span class="memory-refresh-text" data-i18n="memory.refreshBtn">Refresh</span>
               </button>
-              <div class="memory-live-status">
-                <span class="memory-live-dot" aria-hidden="true"></span>
-                <span data-i18n="memory.monitoringShort">Monitoring while MacMaid runs</span>
-              </div>
             </div>
           </div>
           <div id="memory-error" class="memory-notice" role="status" hidden></div>
@@ -282,29 +222,6 @@
               <div>
                 <h2 id="memory-process-heading" data-i18n="memory.processes">Processes</h2>
                 <p id="memory-summary" class="memory-note" aria-live="polite"></p>
-              </div>
-              <div class="memory-filter-pills" id="memory-filter-pills" role="tablist" aria-label="Process filters" data-i18n-aria="memory.processFilters">
-                <button type="button" class="memory-pill active" data-pill="all" role="tab" aria-selected="true">
-                  <span data-i18n="memory.all">All processes</span>
-                  <span class="memory-pill-count" id="pill-count-all">0</span>
-                </button>
-                <button type="button" class="memory-pill pill-growing" data-pill="growing" role="tab" aria-selected="false">
-                  <span class="pill-dot" aria-hidden="true"></span>
-                  <span data-i18n="memory.filterGrowing">Growing</span>
-                  <span class="memory-pill-count" id="pill-count-growing">0</span>
-                </button>
-                <button type="button" class="memory-pill" data-pill="developer" role="tab" aria-selected="false">
-                  <span data-i18n="memory.developer">Developer tools</span>
-                  <span class="memory-pill-count" id="pill-count-developer">0</span>
-                </button>
-                <button type="button" class="memory-pill" data-pill="flutter" role="tab" aria-selected="false">
-                  <span data-i18n="memory.flutter">Flutter / Dart</span>
-                  <span class="memory-pill-count" id="pill-count-flutter">0</span>
-                </button>
-                <button type="button" class="memory-pill" data-pill="protected" role="tab" aria-selected="false">
-                  <span data-i18n="memory.filterProtected">Protected</span>
-                  <span class="memory-pill-count" id="pill-count-protected">0</span>
-                </button>
               </div>
             </div>
             <div class="memory-toolbar">
@@ -419,12 +336,10 @@
         <section class="tab-pane" id="pane-dashboard">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title" data-i18n="status.title">Mac Health</h1>
-              <p class="pane-subtitle" data-i18n="status.subtitle">Tangible disk, memory pressure, thermal and battery metrics. No arbitrary scores or automated interference.</p>
+              <h1 class="pane-title" data-i18n="status.title">System Status</h1>
             </div>
             <button class="btn btn-primary btn-hero-scan" id="dash-quick-scan-btn">
-              <span class="inline-icon" data-icon="sparkles"></span>
-              <span data-i18n="status.btn_goto_clean">Go to Clean Screen</span>
+              <span data-i18n="status.btn_goto_clean">Open Clean</span>
             </button>
           </div>
 
@@ -621,8 +536,7 @@
         <section class="tab-pane active" id="pane-cleaner">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title" data-i18n="clean.title">Clean — Smart System Maintenance</h1>
-              <p class="pane-subtitle" data-i18n="clean.subtitle">Scan safely, choose a profile, then reclaim space.</p>
+              <h1 class="pane-title" data-i18n="clean.title">Clean</h1>
             </div>
           </div>
 
@@ -648,7 +562,7 @@
             </div>
             <div class="inpage-logs-drawer">
               <button class="inpage-logs-btn" type="button" data-log-service="cleaner">
-                <span id="cleaner-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
+                <span id="cleaner-logs-btn-text" data-i18n="clean.logs_btn">Show details</span>
               </button>
               <div class="inpage-logs-container hidden" id="cleaner-logs-container"></div>
             </div>
@@ -702,7 +616,7 @@
               </div>
 
               <div class="scan-action-wrap">
-                <button class="btn btn-primary btn-large" id="btn-start-scan">
+                <button class="btn btn-secondary" id="btn-start-scan">
                   <span class="inline-icon" data-icon="magnifyingglass"></span>
                   <span data-i18n="clean.btn_scan">Scan System</span>
                 </button>
@@ -774,8 +688,7 @@
         <section class="tab-pane" id="pane-apps">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title" data-i18n="apps.title">Uninstall Apps — Application Cleaner</h1>
-              <p class="pane-subtitle" data-i18n="apps.subtitle">Remove applications plus exact, reviewable leftovers.</p>
+              <h1 class="pane-title" data-i18n="apps.title">Applications</h1>
             </div>
             <button class="btn btn-primary" id="btn-refresh-apps">
               <span class="inline-icon" data-icon="trash"></span>
@@ -805,7 +718,7 @@
             </div>
             <div class="inpage-logs-drawer">
               <button class="inpage-logs-btn" type="button" data-log-service="apps">
-                <span id="apps-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
+                <span id="apps-logs-btn-text" data-i18n="clean.logs_btn">Show details</span>
               </button>
               <div class="inpage-logs-container hidden" id="apps-logs-container"></div>
             </div>
@@ -827,7 +740,7 @@
               </div>
 
               <div class="apps-scroll-list" id="apps-list-container">
-                <div class="empty-state" style="padding: 40px; text-align: center;" data-i18n="apps.empty_list">Click <strong>"Scan Applications"</strong> above to list installed applications and analyze their leftovers.</div>
+                <div class="empty-state" data-i18n="apps.empty_list">Scan to list installed applications and review associated files.</div>
               </div>
             </div>
 
@@ -875,8 +788,8 @@
         <section class="tab-pane" id="pane-optimize">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title" data-i18n="optimize.title">Optimize — macOS Tuning</h1>
-              <p class="pane-subtitle" data-i18n="optimize.subtitle">Maintenance tasks are temporarily paused pending stability review.</p>
+              <h1 class="pane-title" data-i18n="optimize.title">Maintenance</h1>
+              <p class="pane-subtitle essential-copy" data-i18n="optimize.subtitle">Maintenance tasks are temporarily unavailable.</p>
             </div>
           </div>
 
@@ -902,7 +815,7 @@
             </div>
             <div class="inpage-logs-drawer">
               <button class="inpage-logs-btn" type="button" data-log-service="optimize">
-                <span id="optimize-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
+                <span id="optimize-logs-btn-text" data-i18n="clean.logs_btn">Show details</span>
               </button>
               <div class="inpage-logs-container hidden" id="optimize-logs-container"></div>
             </div>
@@ -918,8 +831,7 @@
         <section class="tab-pane" id="pane-analyzer">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title" data-i18n="analyzer.title">Analyze — Disk Space Analyzer</h1>
-              <p class="pane-subtitle" data-i18n="analyzer.subtitle">Browse disk usage, search, multi-select and move items to Trash.</p>
+              <h1 class="pane-title" data-i18n="analyzer.title">Storage</h1>
             </div>
           </div>
 
@@ -945,7 +857,7 @@
             </div>
             <div class="inpage-logs-drawer">
               <button class="inpage-logs-btn" type="button" data-log-service="analyzer">
-                <span id="analyzer-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
+                <span id="analyzer-logs-btn-text" data-i18n="clean.logs_btn">Show details</span>
               </button>
               <div class="inpage-logs-container hidden" id="analyzer-logs-container"></div>
             </div>
@@ -954,7 +866,7 @@
           <div class="glass-card">
             <div class="analyzer-bar">
               <button class="btn-sm btn-secondary" id="btn-analyzer-parent" title="Return to parent directory" data-i18n-title="analyzer.tip_parent">
-                <span style="font-weight: 700; margin-right: 4px;">↑</span>
+                <span class="inline-icon" data-icon="arrow.up"></span>
                 <span data-i18n="analyzer.btn_parent">Parent Directory</span>
               </button>
               <div class="analyzer-input-group">
@@ -967,7 +879,7 @@
                 <button class="btn-sm btn-secondary btn-quick-path" data-path="~/Library">Library</button>
                 <button class="btn-sm btn-secondary btn-quick-path" data-path="~/Developer">Developer</button>
               </div>
-              <button class="btn btn-primary" id="btn-run-analyzer">
+              <button class="btn btn-secondary" id="btn-run-analyzer">
                 <span class="inline-icon" data-icon="internaldrive"></span>
                 <span data-i18n="analyzer.btn_analyze">Analyze</span>
               </button>
@@ -976,8 +888,7 @@
             <!-- Idle State Prompt before scan -->
             <div class="tab-hero-state" id="analyzer-idle-state" style="margin: 20px 0;">
               <div class="hero-state-symbol" data-icon="internaldrive"></div>
-              <h2 class="hero-state-title" data-i18n="nav.analyzer_sub">Disk Space Analyzer</h2>
-              <p class="hero-state-desc" data-i18n="analyzer.idle_desc">Select or type the directory you want to inspect above, then click <strong>"Analyze"</strong>.</p>
+              <p class="hero-state-desc" data-i18n="analyzer.idle_desc">Choose a folder to inspect.</p>
             </div>
 
             <!-- Visual Bar Chart of Child Folders -->
@@ -986,7 +897,7 @@
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <span class="text-muted" data-i18n="analyzer.lbl_active_path">Active Location: </span>
                   <strong id="analyzer-current-path" style="font-family: var(--font-mono);">~</strong>
-                  <span class="badge-status badge-cyan hidden" id="analyzer-cached-badge" data-i18n="analyzer.cached_badge">⚡ Cached</span>
+                  <span class="text-muted hidden" id="analyzer-cached-badge" data-i18n="analyzer.cached_badge">Cached</span>
                 </div>
                 <div>
                   <span class="text-muted" data-i18n="analyzer.lbl_total_size">Total Analyzed Size: </span>
@@ -1027,8 +938,8 @@
         <section class="tab-pane" id="pane-purge">
           <div class="pane-header">
             <div>
-              <h1 class="pane-title" data-i18n="purge.title">Project Purge — Developer Projects</h1>
-              <p class="pane-subtitle" data-i18n="purge.subtitle">Find old rebuildable project artifacts and dependency folders (node_modules, target, .build, Pods).</p>
+              <h1 class="pane-title" data-i18n="purge.title">Project Cleanup</h1>
+              <p class="pane-subtitle essential-copy" data-i18n="purge.subtitle">Find rebuildable project artifacts and dependency folders.</p>
             </div>
             <button class="btn btn-primary" id="btn-scan-projects">
               <span class="inline-icon" data-icon="folder.badge.gearshape"></span>
@@ -1058,7 +969,7 @@
             </div>
             <div class="inpage-logs-drawer">
               <button class="inpage-logs-btn" type="button" data-log-service="purge">
-                <span id="purge-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
+                <span id="purge-logs-btn-text" data-i18n="clean.logs_btn">Show details</span>
               </button>
               <div class="inpage-logs-container hidden" id="purge-logs-container"></div>
             </div>
@@ -1104,18 +1015,12 @@
 
         <!-- ================= TAB 6: DEVELOPER TOOLS ================= -->
         <section class="tab-pane" id="pane-developer">
-          <div class="pane-header">
-            <div>
-              <h1 class="pane-title" data-i18n="dev.title">Developer Tools — Environments & SDKs</h1>
-              <p class="pane-subtitle" data-i18n="dev.subtitle">Inspect runtimes, SDKs, global tools and package caches.</p>
-            </div>
-          </div>
 
           <!-- Sub-Pane 1: Developer Storage Center -->
           <div class="sub-pane active" id="subpane-dev-storage">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Developer Storage Center</h3>
+                <h1 class="pane-title" data-i18n="dev.storage_title">Developer Storage</h1>
                 <p class="pane-subtitle" data-i18n="dev.storage_desc">Displays Xcode, Node.js, Python, Rust, Android and Docker storage read-only.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-devstorage"><span data-i18n="dev.btn_scan_storage">Scan Storage</span></button>
@@ -1161,7 +1066,7 @@
                       <th width="120" style="text-align: right;" data-i18n="clean.th_size">Size</th>
                     </tr>
                   </thead>
-                  <tbody id="tbody-devstorage"><tr><td colspan="5" class="empty-state" data-i18n="dev.empty_storage">Click above to scan Developer Storage Center.</td></tr></tbody>
+                  <tbody id="tbody-devstorage"><tr><td colspan="5" class="empty-state" data-i18n="dev.empty_storage">Scan to measure developer storage.</td></tr></tbody>
                 </table>
               </div>
             </div>
@@ -1202,7 +1107,7 @@
               </div>
               <div class="inpage-logs-drawer">
                 <button class="inpage-logs-btn" type="button" data-log-service="devcaches">
-                  <span id="devcaches-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
+                  <span id="devcaches-logs-btn-text" data-i18n="clean.logs_btn">Show details</span>
                 </button>
                 <div class="inpage-logs-container hidden" id="devcaches-logs-container"></div>
               </div>
@@ -1252,7 +1157,7 @@
                 <p class="pane-subtitle" data-i18n="dev.runtimes_desc">Python (pyenv), Ruby (rbenv), Rust (rustup), Node (nvm), Go, Java installations.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-runtimes">
-                <span style="margin-right: 6px;">{}</span>
+                <span class="inline-icon" data-icon="curlybraces"></span>
                 <span data-i18n="dev.btn_scan_runtimes">Scan Runtimes</span>
               </button>
             </div>
@@ -1500,12 +1405,6 @@
 
         <!-- ================= TAB 8: MORE TOOLS ================= -->
         <section class="tab-pane" id="pane-more">
-          <div class="pane-header">
-            <div>
-              <h1 class="pane-title">Tool Center</h1>
-              <p class="pane-subtitle" data-i18n="more.subtitle">Tools are grouped by purpose: Cleanup, Storage & Data, and System & History.</p>
-            </div>
-          </div>
 
           <!-- Sub-Pane 1: Leftovers -->
           <div class="sub-pane active" id="subpane-more-leftovers">
@@ -1542,7 +1441,7 @@
               </div>
               <div class="inpage-logs-drawer">
                 <button class="inpage-logs-btn" type="button" data-log-service="leftovers">
-                  <span id="leftovers-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
+                  <span id="leftovers-logs-btn-text" data-i18n="clean.logs_btn">Show details</span>
                 </button>
                 <div class="inpage-logs-container hidden" id="leftovers-logs-container"></div>
               </div>
@@ -1636,7 +1535,7 @@
               </div>
               <div class="inpage-logs-drawer">
                 <button class="inpage-logs-btn" type="button" data-log-service="installers">
-                  <span id="installers-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
+                  <span id="installers-logs-btn-text" data-i18n="clean.logs_btn">Show details</span>
                 </button>
                 <div class="inpage-logs-container hidden" id="installers-logs-container"></div>
               </div>
@@ -1693,7 +1592,7 @@
           <div class="sub-pane" id="subpane-more-treemap">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Storage Treemap</h3>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="more.treemap_title">Treemap</h3>
                 <p class="pane-subtitle" data-i18n="more.treemap_desc">Displays folder sizes, percentages and file counts with drill-down and Open in Finder support.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-treemap"><span data-i18n="more.btn_scan_treemap">Scan Treemap</span></button>
@@ -1704,7 +1603,7 @@
               <div class="inpage-path-ticker"><span class="inpage-path-icon" data-icon="folder"></span><span id="treemap-progress-path" data-i18n="clean.path_preparing2">Preparing...</span></div>
             </div>
             <div class="glass-card">
-              <div class="table-toolbar"><button class="btn btn-secondary btn-sm" id="btn-treemap-back">Back</button><strong id="treemap-path" class="highlight-cyan">~</strong></div>
+              <div class="table-toolbar"><button class="btn btn-secondary btn-sm" id="btn-treemap-back" data-i18n="common.parent_folder" disabled>Parent</button><strong id="treemap-path">~</strong></div>
               <div id="treemap-box" class="table-container"><div class="empty-state" data-i18n="more.empty_treemap">Click above to generate treemap.</div></div>
             </div>
           </div>
@@ -1713,7 +1612,7 @@
           <div class="sub-pane" id="subpane-more-browser-storage">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Browser Storage Inspector</h3>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="more.browsers_title">Browser Storage</h3>
                 <p class="pane-subtitle" data-i18n="more.browsers_desc">Displays Safari, Chrome, Brave, Edge, Firefox and Arc storage. Smart Clean selects only safe cache areas.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-browser-storage"><span data-i18n="more.btn_scan_browsers">Scan Browser Storage</span></button>
@@ -1733,7 +1632,7 @@
           <div class="sub-pane" id="subpane-more-smart-downloads">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Smart Downloads</h3>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="more.downloads_title">Downloads</h3>
                 <p class="pane-subtitle" data-i18n="more.downloads_desc">Categorizes Installers, Archives, Old Downloads, and Incomplete Downloads. Documents and source code are never classified as junk.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-smart-downloads"><span class="inline-icon" data-icon="arrow.down.circle"></span><span data-i18n="more.btn_scan_downloads">Scan Smart Downloads</span></button>
@@ -1756,7 +1655,7 @@
           <div class="sub-pane" id="subpane-more-duplicates">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Duplicate File Finder</h3>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="more.duplicates_title">Duplicates</h3>
                 <p class="pane-subtitle" data-i18n="more.duplicates_desc">Verifies byte-for-byte matches via size, partial hash, and full SHA256. No files are auto-selected.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-duplicates"><span class="inline-icon" data-icon="doc.on.doc"></span><span data-i18n="more.btn_scan_duplicates">Scan Duplicates</span></button>
@@ -1775,7 +1674,7 @@
           <div class="sub-pane" id="subpane-more-large-files">
             <div class="pane-header" style="margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 600;">Large & Old Files</h3>
+                <h3 style="font-size: 16px; font-weight: 600;" data-i18n="more.large_files_title">Large Files</h3>
                 <p class="pane-subtitle" data-i18n="more.large_files_desc">Filters by size (500MB - 10GB) and age (30 - 365 days). Personal files are never auto-selected.</p>
               </div>
               <button class="btn btn-primary" id="btn-scan-large-files"><span class="inline-icon" data-icon="doc.text.magnifyingglass"></span><span data-i18n="more.btn_scan_large">Scan Large/Old</span></button>
@@ -1801,7 +1700,7 @@
               </div>
               <div class="inpage-logs-drawer">
                 <button class="inpage-logs-btn" type="button" data-log-service="largefiles">
-                  <span id="largefiles-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
+                  <span id="largefiles-logs-btn-text" data-i18n="clean.logs_btn">Show details</span>
                 </button>
                 <div class="inpage-logs-container hidden" id="largefiles-logs-container"></div>
               </div>
@@ -1857,7 +1756,7 @@
               </div>
               <div class="inpage-logs-drawer">
                 <button class="inpage-logs-btn" type="button" data-log-service="snapshots">
-                  <span id="snapshots-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
+                  <span id="snapshots-logs-btn-text" data-i18n="clean.logs_btn">Show details</span>
                 </button>
                 <div class="inpage-logs-container hidden" id="snapshots-logs-container"></div>
               </div>
@@ -1931,7 +1830,7 @@
               </div>
               <div class="inpage-logs-drawer">
                 <button class="inpage-logs-btn" type="button" data-log-service="doctor">
-                  <span id="doctor-logs-btn-text" data-i18n="clean.logs_btn">▸ Live Log Stream</span>
+                  <span id="doctor-logs-btn-text" data-i18n="clean.logs_btn">Show details</span>
                 </button>
                 <div class="inpage-logs-container hidden" id="doctor-logs-container"></div>
               </div>
@@ -2045,10 +1944,10 @@
                       <p class="text-muted" data-i18n="more.desc_ui_theme">Choose your preferred macOS color palette.</p>
                     </div>
                     <select id="theme-selector-setting" class="select-box">
-                      <option value="dark">Obsidian</option>
-                      <option value="midnight">Midnight Indigo</option>
-                      <option value="cyber">Emerald Noir</option>
-                      <option value="light">Porcelain</option>
+                      <option value="dark" data-i18n="theme.dark">Dark</option>
+                      <option value="midnight" data-i18n="theme.midnight">Midnight</option>
+                      <option value="cyber" data-i18n="theme.contrast">High Contrast</option>
+                      <option value="light" data-i18n="theme.light">Light</option>
                     </select>
                   </div>
 
@@ -2073,12 +1972,7 @@
           <div class="pane-header">
             <div>
               <h1 class="pane-title" data-i18n="settings.title">Settings</h1>
-              <p class="pane-subtitle" data-i18n="settings.subtitle">Configure application preferences, interface language, and system parameters.</p>
             </div>
-            <button class="btn btn-primary" id="btn-save-main-settings">
-              <span class="inline-icon" data-icon="square.and.arrow.down"></span>
-              <span data-i18n="settings.save_btn">Save Settings</span>
-            </button>
           </div>
 
           <div class="settings-grid settings-grid-premium">
@@ -2121,10 +2015,10 @@
                     <p class="text-muted" data-i18n="settings.theme_sub">Select your preferred macOS aesthetic palette.</p>
                   </div>
                   <select id="main-theme-selector" class="select-box settings-select">
-                    <option value="dark">Obsidian (Dark)</option>
-                    <option value="midnight">Midnight Indigo</option>
-                    <option value="cyber">Emerald Noir</option>
-                    <option value="light">Porcelain (Light)</option>
+                    <option value="dark" data-i18n="theme.dark">Dark</option>
+                    <option value="midnight" data-i18n="theme.midnight">Midnight</option>
+                    <option value="cyber" data-i18n="theme.contrast">High Contrast</option>
+                    <option value="light" data-i18n="theme.light">Light</option>
                   </select>
                 </div>
                 <div class="setting-row setting-row-premium">
@@ -2151,7 +2045,7 @@
                 </div>
               </div>
               <div class="permissions-card-controls">
-                <button class="btn btn-primary" id="btn-manage-permissions" data-i18n="settings.permissions_manage">Manage Permissions</button>
+                <button class="btn btn-secondary" id="btn-manage-permissions" data-i18n="settings.permissions_manage">Manage Permissions</button>
                 <button class="btn btn-secondary btn-sm" id="btn-refresh-permissions" data-i18n="settings.permissions_refresh">Refresh</button>
               </div>
             </div>
@@ -2163,7 +2057,6 @@
                 <div class="about-settings-copy">
                   <div class="settings-title-line">
                     <h3 data-i18n="settings.about_title">About MacMaid</h3>
-                    <span class="badge-pro settings-pro-badge">PRO</span>
                   </div>
                   <p class="card-desc" data-i18n="settings.about_desc">System maintenance, disk optimization and developer environment cleaner built exclusively for macOS.</p>
                 </div>
@@ -2175,7 +2068,7 @@
               <div class="settings-info-grid">
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.version_label">Version</div>
-                  <div class="settings-info-value settings-info-mono">0.14.7 (Python 3.11+)</div>
+                  <div class="settings-info-value settings-info-mono">0.14.8</div>
                 </div>
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.safety_label">Safety Model</div>

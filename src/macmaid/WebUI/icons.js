@@ -17,6 +17,7 @@ const SF_SYMBOLS = {
   'arrow.up.arrow.down': ['stroke', '<path d="M8 4v16"/><path d="M4.5 7.5 8 4l3.5 3.5"/><path d="M16 20V4"/><path d="M12.5 16.5 16 20l3.5-3.5"/>'],
   'bolt': ['fill', '<path d="M13.1 2 4.6 13.6h5.3L8.8 22l8.7-11.6h-5.3L13.1 2z"/>'],
   'chart.line.uptrend.xyaxis': ['stroke', '<path d="M4 4v15a1 1 0 0 0 1 1h15"/><path d="M7.5 14.5l3.5-3.5 2.5 2.5 5-5"/><path d="M15.6 8.5h3v3"/>'],
+  'chevron.down': ['stroke', '<path d="m6.5 9 5.5 5.5L17.5 9"/>'],
   'checkmark': ['stroke', '<path d="M5 12.5l4.5 4.5L19 7.5"/>'],
   'checkmark.circle': ['fill', '<path fill-rule="evenodd" d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zm4.8 6.7-6.2 6.2-3.4-3.4 1.2-1.2 2.2 2.2 5-5 1.2 1.2z"/>'],
   'checkmark.shield': ['fill', '<path fill-rule="evenodd" d="M12 2.3l7.5 2.8v6.4c0 4.9-3.2 8-7.5 9.7-4.3-1.7-7.5-4.8-7.5-9.7V5.1L12 2.3zm4.6 7.2-5.6 5.6-2.7-2.7 1.1-1.1 1.6 1.6 4.5-4.5 1.1 1.1z"/>'],
