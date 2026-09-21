@@ -648,3 +648,119 @@ def test_cli_memory_watch_collects_multiple_samples(service, monkeypatch, capsys
     assert "Process" in output
     assert len(service.histories[key(service)]) == 4
 
+
+
+def _progress(row):
+    return (row["growthWindowElapsedSeconds"], row["growthWindowRemainingSeconds"], row["growthWindowProgress"])
+
+
+def test_growth_progress_starts_near_zero_for_new_process(service):
+    row = service.snapshot()["processes"][0]
+    elapsed, remaining, progress = _progress(row)
+    assert 0 <= elapsed < 60 and progress < 0.1
+    assert 540 < remaining <= memory.GROWTH_WINDOW_SECONDS
+    assert row["historyReady"] is False and row["growthBytes"] is None
+
+
+def test_growth_progress_halfway_after_five_minutes(service):
+    for _ in range(60):
+        record_memory(service, service.proc.rss)
+    row = service.snapshot()["processes"][0]
+    elapsed, remaining, progress = _progress(row)
+    assert 295 <= elapsed <= 305
+    assert 295 <= remaining <= 305
+    assert 0.45 <= progress <= 0.55
+    assert row["historyReady"] is False
+
+
+def test_growth_progress_ready_and_clamped_at_full_window(service):
+    for _ in range(150):  # 750 seconds of history, beyond the 600s window
+        record_memory(service, service.proc.rss)
+    row = service.snapshot()["processes"][0]
+    elapsed, remaining, progress = _progress(row)
+    assert row["historyReady"] is True and row["growthBytes"] is not None
+    assert progress == 1.0 and remaining == 0
+    assert elapsed <= memory.GROWTH_WINDOW_SECONDS + 5
+
+
+def test_growth_progress_resets_on_process_identity_change(service):
+    for _ in range(60):
+        record_memory(service, service.proc.rss)
+    assert _progress(service.snapshot()["processes"][0])[2] > 0.4
+    service.proc.created += 1  # PID reuse / restart -> new identity key
+    record_memory(service, service.proc.rss)
+    rows = service.snapshot()["processes"]
+    assert len(rows) == 1
+    elapsed, _, progress = _progress(rows[0])
+    assert elapsed < 60 and progress < 0.1
+    assert rows[0]["historyReady"] is False
+
+
+def test_growth_progress_resets_after_stale_sampling_gap(service):
+    for _ in range(60):
+        record_memory(service, service.proc.rss)
+    assert _progress(service.snapshot()["processes"][0])[2] > 0.4
+    advance(service, 30)
+    service.last_sample -= 30  # simulate the sampler being stalled past STALE_SAMPLE_SECONDS
+    service.sample()
+    elapsed, _, progress = _progress(service.snapshot()["processes"][0])
+    assert elapsed < 60 and progress < 0.1
+
+
+def test_growth_progress_unavailable_rows_report_no_progress(service):
+    service.proc.denied = True
+    service.sample()
+    row = service.snapshot()["processes"][0]
+    assert row["protected"] == "unverified-identity"
+    assert _progress(row) == (None, None, None)
+    assert row["historyReady"] is False and row["growthBytes"] is None
+
+
+def test_growth_progress_tracks_only_the_processes_own_history(service, monkeypatch):
+    for _ in range(96):  # MacMaid has been running ~8 minutes
+        record_memory(service, service.proc.rss)
+    newcomer = FakeProcess(pid=999, created=200.0)
+    monkeypatch.setattr(memory.psutil, "process_iter", lambda *a, **kw: [service.proc, newcomer])
+    monkeypatch.setattr(memory.psutil, "Process", lambda pid: service.proc if pid == service.proc.pid else newcomer)
+    service.clock.mono += 5
+    service.clock.wall += 5
+    service.sample()
+    rows = {row["pid"]: row for row in service.snapshot()["processes"]}
+    old_elapsed, _, _ = _progress(rows[service.proc.pid])
+    new_elapsed, _, new_progress = _progress(rows[999])
+    assert old_elapsed >= 470
+    assert new_elapsed < 60 and new_progress < 0.1
+
+
+def test_memory_api_exposes_growth_progress_fields(service):
+    state = WebState(service.config)
+    state.memory = service
+    handler = object.__new__(MacMaidHandler)
+    handler.server = SimpleNamespace(state=state)
+    for _ in range(60):
+        record_memory(service, service.proc.rss)
+    payload = handler._route_get("/api/memory", {})
+    row = payload["processes"][0]
+    assert 295 <= row["growthWindowElapsedSeconds"] <= 305
+    assert 295 <= row["growthWindowRemainingSeconds"] <= 305
+    assert 0.45 <= row["growthWindowProgress"] <= 0.55
+    assert row["historyReady"] is False
+    for _ in range(60):
+        record_memory(service, service.proc.rss)
+    row = handler._route_get("/api/memory", {})["processes"][0]
+    assert row["historyReady"] is True
+    assert row["growthWindowProgress"] == 1.0 and row["growthWindowRemainingSeconds"] == 0
+
+
+def test_growth_window_progress_clamps_beyond_window():
+    meta = memory.growth_window_progress([(100.0, 1024)], 900.0)
+    assert meta["growthWindowElapsedSeconds"] == 800.0
+    assert meta["growthWindowProgress"] == 1.0
+    assert meta["growthWindowRemainingSeconds"] == 0.0
+
+
+def test_growth_window_progress_empty_history_is_zero():
+    meta = memory.growth_window_progress([], 5000.0)
+    assert meta["growthWindowElapsedSeconds"] == 0.0
+    assert meta["growthWindowProgress"] == 0.0
+    assert meta["growthWindowRemainingSeconds"] == memory.GROWTH_WINDOW_SECONDS

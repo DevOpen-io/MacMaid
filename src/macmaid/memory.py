@@ -97,21 +97,37 @@ def classify(executable: str, arguments: list[str]) -> tuple[str, str, str]:
     return "all", "application", ""
 
 
+def growth_window_progress(window: list[tuple[float, int]], now: float) -> dict[str, float]:
+    """Progress metadata for the growth collection window.
+
+    Derived from the exact same in-window sample set the readiness check
+    inspects: ``window[0]`` is the oldest sample inside ``GROWTH_WINDOW_SECONDS``,
+    so UI progress can never claim more history than the detector has.
+    """
+    elapsed = max(0.0, now - window[0][0]) if window else 0.0
+    return {
+        "growthWindowElapsedSeconds": elapsed,
+        "growthWindowRemainingSeconds": max(0.0, float(GROWTH_WINDOW_SECONDS) - elapsed),
+        "growthWindowProgress": min(1.0, elapsed / GROWTH_WINDOW_SECONDS),
+    }
+
+
 def growth(samples: list[tuple[float, int]], now: float) -> dict:
     window = [(stamp, rss) for stamp, rss in samples if stamp >= now - GROWTH_WINDOW_SECONDS]
+    progress = growth_window_progress(window, now)
     if not window or window[0][0] > now - (GROWTH_WINDOW_SECONDS - GROWTH_WINDOW_TOLERANCE_SECONDS):
-        return {"growthBytes": None, "growing": False, "historyReady": False}
+        return {"growthBytes": None, "growing": False, "historyReady": False, **progress}
     medians = []
     for minute in range(GROWTH_BUCKET_COUNT):
         start = now - GROWTH_WINDOW_SECONDS + minute * SECONDS_PER_MINUTE
         values = [rss for stamp, rss in window if start <= stamp < start + SECONDS_PER_MINUTE]
         if not values:
-            return {"growthBytes": None, "growing": False, "historyReady": False}
+            return {"growthBytes": None, "growing": False, "historyReady": False, **progress}
         medians.append(statistics.median(values))
     delta = window[-1][1] - window[0][1]
     increasing = sum(b > a for a, b in zip(medians, medians[1:]))
     return {"growthBytes": delta, "growing": delta > GROWTH_MINIMUM_BYTES and delta > window[0][1] * GROWTH_MINIMUM_RATIO and increasing >= GROWTH_REQUIRED_INCREASING_BUCKETS,
-            "historyReady": True}
+            "historyReady": True, **progress}
 
 
 class MemoryService:
@@ -305,7 +321,10 @@ class MemoryService:
                                  "exe": "", "category": "all", "role": "application", "entrypoint": "",
                                  "rssBytes": None, "cpuPercent": None, "protected": "unverified-identity",
                                  "helper": False, "growthBytes": None, "growing": False,
-                                 "historyReady": False, "forceEligible": False}
+                                 "historyReady": False, "forceEligible": False,
+                                 "growthWindowElapsedSeconds": None,
+                                 "growthWindowRemainingSeconds": None,
+                                 "growthWindowProgress": None}
                     continue
                 key = row["key"]
                 history = self.histories.setdefault(key, deque(maxlen=MAX_HISTORY_SAMPLES))

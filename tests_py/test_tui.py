@@ -683,3 +683,72 @@ def test_tui_memory_table_rendering_and_detail(monkeypatch) -> None:
 
     asyncio.run(exercise())
 
+
+
+def _memory_collecting_row() -> dict:
+    return {
+        "key": "7:100", "pid": 7, "name": "proc", "exe": "/x/proc",
+        "rssBytes": 100 * 1024**2, "growthBytes": None, "growing": False,
+        "cpuPercent": 1.0, "role": "application", "protected": None,
+        "historyReady": False, "entrypoint": "",
+        "growthWindowElapsedSeconds": 402.0, "growthWindowRemainingSeconds": 198.0,
+        "growthWindowProgress": 0.67,
+    }
+
+
+def _memory_unavailable_row() -> dict:
+    return {
+        "key": "9:unavailable", "pid": 9, "name": "hidden", "exe": "",
+        "rssBytes": None, "growthBytes": None, "growing": False,
+        "cpuPercent": None, "role": "application", "protected": "unverified-identity",
+        "historyReady": False, "entrypoint": "",
+        "growthWindowElapsedSeconds": None, "growthWindowRemainingSeconds": None,
+        "growthWindowProgress": None,
+    }
+
+
+def test_tui_memory_growth_progress_cell(monkeypatch) -> None:
+    monkeypatch.setattr(tui, "system_status", _metrics)
+
+    async def exercise() -> None:
+        app = tui.MacMaidTUI()
+        async with app.run_test(size=(140, 40)) as pilot:
+            await pilot.pause()
+            app.open_page("memory")
+            snapshot = {
+                "metrics": {"used": 8 * 1024**3, "total": 16 * 1024**3, "swap": 1024**3},
+                "processes": [_memory_collecting_row(), _memory_unavailable_row()],
+            }
+            app._finish_memory(snapshot, None)
+            table = app.query_one("#memory-table", DataTable)
+            growth_cell = table.get_row_at(0)[1]
+            assert "[+++++...] 6:42/10:00" in str(growth_cell)
+            unavailable_cell = table.get_row_at(1)[1]
+            assert "unavailable" in str(unavailable_cell)
+            assert "6:42" not in str(unavailable_cell)
+
+            detail = str(app.query_one("#memory-detail", Static).content)
+            assert "collecting 6:42/10:00" in detail
+
+    asyncio.run(exercise())
+
+
+def test_tui_memory_growth_progress_narrow_terminal(monkeypatch) -> None:
+    monkeypatch.setattr(tui, "system_status", _metrics)
+
+    async def exercise() -> None:
+        app = tui.MacMaidTUI()
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.pause()
+            app.open_page("memory")
+            snapshot = {
+                "metrics": {"used": 8 * 1024**3, "total": 16 * 1024**3, "swap": 1024**3},
+                "processes": [_memory_collecting_row()],
+            }
+            app._finish_memory(snapshot, None)
+            table = app.query_one("#memory-table", DataTable)
+            growth_cell = str(table.get_row_at(0)[1])
+            assert "6:42/10:00" in growth_cell
+            assert "[" not in growth_cell  # compact fallback drops the bar
+
+    asyncio.run(exercise())

@@ -353,6 +353,7 @@ _TR_FRAGMENTS: Final[tuple[tuple[str, str], ...]] = tuple(sorted({
     "Memory monitoring failed: ": "Bellek izleme başarısız: ", "Protected process: ": "Korumalı süreç: ",
     " processes": " süreç", " growing": " büyüyor", " · Role: ": " · Rol: ", " · Growth: ": " · Büyüme: ",
     " · Status: ": " · Durum: ", "Path: ": "Yol: ",
+    "collecting ": "toplanıyor ",
     "granted": "izinli", "denied": "engelli", "limited": "sınırlı", "not applicable": "uygulanamaz",
 }.items(), key=lambda item: len(item[0]), reverse=True))
 

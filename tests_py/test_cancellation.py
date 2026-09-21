@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 from textual.widgets import Static
 
-from macmaid import tui, web
+from macmaid import tui, web, web_mutations
 from macmaid.analyzer import IncrementalAnalyzer
 from macmaid.cancellation import CancellationToken, ScanCancelled
 from macmaid.config import Config
@@ -299,4 +299,4 @@ def test_web_cancel_endpoint_and_incomplete_scan_gate(tmp_path):
     assert response["cancelled"] and token.cancelled
     partial = ScanResult([candidate(tmp_path / "cache")], status="cancelled")
     with pytest.raises(PermissionError, match="Incomplete"):
-        handler._select_ids(partial, [partial.items[0].id])
+        web_mutations._select_ids(partial, [partial.items[0].id])

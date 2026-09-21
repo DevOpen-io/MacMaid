@@ -8,7 +8,7 @@ from unittest.mock import ANY, Mock
 
 import pytest
 
-from macmaid import cli, tui, web
+from macmaid import cli, tui, web, web_mutations
 from macmaid.config import Config
 from macmaid.features import AppComponent, InstalledApplication, ProjectArtifact
 from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, OperationResult, RiskLevel, ScanResult
@@ -123,7 +123,7 @@ def test_get_routes_never_mutate(monkeypatch, tmp_path, path):
     monkeypatch.setattr(web, "Config", lambda: Config(home=tmp_path))
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     purge = Mock()
-    monkeypatch.setattr(web.ProjectPurgeManager, "purge", purge)
+    monkeypatch.setattr(web_mutations.ProjectPurgeManager, "purge", purge)
     state = web.WebState()
     handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=state)
@@ -140,7 +140,7 @@ def test_get_routes_never_mutate(monkeypatch, tmp_path, path):
 def test_web_cleanup_requires_exact_reviewed_nonmanual_ids(monkeypatch):
     reviewed = item()
     execute = Mock(return_value=OperationResult())
-    monkeypatch.setattr(web, "Cleaner", lambda config: SimpleNamespace(execute=execute))
+    monkeypatch.setattr(web_mutations, "Cleaner", lambda config: SimpleNamespace(execute=execute))
     state = review_state(scan=ScanResult([reviewed]), config=object())
     handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=state)
@@ -169,8 +169,8 @@ def test_web_app_and_purge_delegate_to_shared_managers(monkeypatch, tmp_path):
     remove, purge = Mock(return_value={"success": True}), Mock(return_value={"success": True})
     app_manager = Mock(return_value=SimpleNamespace(remove=remove, components=lambda app: [component]))
     purge_manager = Mock(return_value=SimpleNamespace(purge=purge))
-    monkeypatch.setattr(web, "ApplicationManager", app_manager)
-    monkeypatch.setattr(web, "ProjectPurgeManager", purge_manager)
+    monkeypatch.setattr(web_mutations, "ApplicationManager", app_manager)
+    monkeypatch.setattr(web_mutations, "ProjectPurgeManager", purge_manager)
     with pytest.raises(PermissionError): handler._route_post("/api/apps/uninstall", {"path": str(tmp_path / "Other.app")})
     with pytest.raises(PermissionError): handler._route_post("/api/purge", {"paths": [str(tmp_path / "source")]})
     remove.assert_not_called(); purge.assert_not_called()

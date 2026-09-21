@@ -4,6 +4,16 @@ import subprocess
 from pathlib import Path
 
 
+def _webui_js(root: Path) -> str:
+    """Concatenate every served Web UI script (root files plus features/)."""
+    webui = root / "src/macmaid/WebUI"
+    parts = [p.read_text() for p in sorted(webui.glob("*.js"))]
+    features = webui / "features"
+    if features.is_dir():
+        parts += [p.read_text() for p in sorted(features.glob("*.js"))]
+    return "\n".join(parts)
+
+
 def test_cleaner_does_not_enable_trash_scanning_by_default():
     html = (Path(__file__).parents[1] / "src/macmaid/WebUI/index.html").read_text()
     assert '<input type="checkbox" id="chk-trash">' in html
@@ -13,7 +23,7 @@ def test_cleaner_does_not_enable_trash_scanning_by_default():
 def test_webui_icons_use_shared_symbol_catalog():
     root = Path(__file__).parents[1]
     html = (root / "src/macmaid/WebUI/index.html").read_text()
-    app_js = (root / "src/macmaid/WebUI/app.js").read_text()
+    app_js = _webui_js(root)
     obsolete_icon_glyphs = "📂📁📄✦⌫⚙◫⌁⌘▤▦◌▣◇↓▧◉⧉◷✚≡⋯●×"
 
     memory_js = (root / "src/macmaid/WebUI/memory.js").read_text()
@@ -33,7 +43,7 @@ def test_every_referenced_icon_exists_in_symbol_catalog():
 
     root = Path(__file__).parents[1]
     html = (root / "src/macmaid/WebUI/index.html").read_text()
-    app_js = (root / "src/macmaid/WebUI/app.js").read_text()
+    app_js = _webui_js(root)
     memory_js = (root / "src/macmaid/WebUI/memory.js").read_text()
 
     catalog_start = app_js.index("const SF_SYMBOLS = {")
@@ -60,7 +70,7 @@ def test_every_referenced_icon_exists_in_symbol_catalog():
 
 
 def test_clean_selection_never_marks_incomplete_scan_as_selected():
-    source = (Path(__file__).parents[1] / "src/macmaid/WebUI/app.js").read_text()
+    source = _webui_js(Path(__file__).parents[1])
     start = source.index("function cleanActionableItems()")
     end = source.index("async function executeClean()", start)
     selection_code = source[start:end]

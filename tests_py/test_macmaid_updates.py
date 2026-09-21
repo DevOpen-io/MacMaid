@@ -4,7 +4,7 @@ import threading
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from macmaid import features, web
+from macmaid import features, web, web_mutations
 from macmaid.system import CommandResult
 
 
@@ -38,8 +38,8 @@ def test_update_check_refreshes_homebrew_and_update_requires_review(monkeypatch)
     status = {"installed": True, "available": True, "installedVersion": "0.9.27", "latestVersion": "0.9.28"}
     check = Mock(return_value=status)
     apply = Mock(return_value=dict(status, updated=True))
-    monkeypatch.setattr(web, "macmaid_brew_update_status", check)
-    monkeypatch.setattr(web, "apply_macmaid_brew_update", apply)
+    monkeypatch.setattr(web_mutations, "macmaid_brew_update_status", check)
+    monkeypatch.setattr(web_mutations, "apply_macmaid_brew_update", apply)
 
     assert route._route_post("/api/macmaid/update/check", {}) == status
     assert check.call_args.kwargs == {"refresh": True}

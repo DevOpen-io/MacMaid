@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from macmaid import __version__, developer, features, system, web
+from macmaid import __version__, developer, features, system, web, web_queries
 from macmaid.config import Config
 from macmaid.developer import DeveloperInventory
 
@@ -95,7 +95,7 @@ def test_permission_report_reflects_current_process_access(monkeypatch, tmp_path
 def test_web_permissions_endpoint_uses_configured_home(monkeypatch, tmp_path) -> None:
     expected = {"launchContext": "app", "fullDiskAccess": "unknown", "checks": []}
     report = Mock(return_value=expected)
-    monkeypatch.setattr(web, "macos_permission_report", report)
+    monkeypatch.setattr(web_queries, "macos_permission_report", report)
     handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=SimpleNamespace(config=Config(home=tmp_path)))
 
@@ -117,7 +117,7 @@ def test_web_progress_reports_current_item_and_real_item_counts() -> None:
 
 
 def test_web_doctor_does_not_present_unknown_or_failed_checks_as_ok(monkeypatch) -> None:
-    monkeypatch.setattr(web, "doctor", lambda: [
+    monkeypatch.setattr(web_queries, "doctor", lambda: [
         {"name": "macOS", "value": "26.2", "ok": True},
         {"name": "Architecture", "value": "unknown", "ok": False},
         {"name": "System Integrity Protection", "value": "Unknown", "ok": None},
@@ -142,8 +142,11 @@ def test_unicode_and_spaces_remain_one_subprocess_argument(monkeypatch) -> None:
 
 def test_settings_ui_exposes_read_only_permission_status() -> None:
     root = Path(__file__).resolve().parents[1]
-    web_ui = (root / "src/macmaid/WebUI/index.html").read_text()
-    javascript = (root / "src/macmaid/WebUI/app.js").read_text()
+    webui = root / "src/macmaid/WebUI"
+    web_ui = (webui / "index.html").read_text()
+    javascript = "\n".join(
+        p.read_text() for p in sorted(webui.glob("*.js")) + sorted((webui / "features").glob("*.js"))
+    )
     styles = (root / "src/macmaid/WebUI/styles.css").read_text()
 
     assert 'id="btn-manage-permissions"' in web_ui

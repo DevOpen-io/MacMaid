@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from macmaid import cleaner as cleaning, web
+from macmaid import cleaner as cleaning, web, web_mutations
 from macmaid.cleaner import Cleaner
 from macmaid.config import Config
 from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel, ScanResult
@@ -23,9 +23,7 @@ def _denied_size(path, *, cancel=None, on_error=None):
 
 
 def _gate():
-    handler = object.__new__(web.MacMaidHandler)
-    handler.server = SimpleNamespace(state=SimpleNamespace())
-    return handler._select_ids
+    return web_mutations._select_ids
 
 
 def test_leftover_measurement_errors_keep_result_mutable(monkeypatch, tmp_path):

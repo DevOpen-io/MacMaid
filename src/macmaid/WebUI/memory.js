@@ -27,6 +27,46 @@ function categoryIcon(row) {
   return 'app';
 }
 
+function memoryDuration(seconds) {
+  const total = Math.max(0, Math.round(seconds));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
+function memoryGrowthTime(row) {
+  if (typeof row.growthWindowElapsedSeconds !== 'number') return null;
+  const remaining = typeof row.growthWindowRemainingSeconds === 'number' ? row.growthWindowRemainingSeconds : 0;
+  return {
+    elapsed: row.growthWindowElapsedSeconds,
+    remaining,
+    total: row.growthWindowElapsedSeconds + remaining,
+    percent: Math.round(Math.min(1, Math.max(0, row.growthWindowProgress ?? 0)) * 100)
+  };
+}
+
+function memoryGrowthLabel(row) {
+  if (row.growthBytes != null) return memorySigned(row.growthBytes);
+  const time = memoryGrowthTime(row);
+  if (time) {
+    return `${mt('collecting')} · ${mt('collectingTime', {
+      elapsed: memoryDuration(time.elapsed), total: memoryDuration(time.total), remaining: memoryDuration(time.remaining)
+    })}`;
+  }
+  return mt(row.rssBytes == null ? 'unknown' : 'collecting');
+}
+
+function memoryGrowthCell(row, statusClass) {
+  if (row.growthBytes != null) {
+    return `<span class="memory-growth-pill ${statusClass}">${row.growing ? sfSymbol('chart.line.uptrend.xyaxis', 'mini-icon') : ''} ${escapeHtml(memorySigned(row.growthBytes))}</span>`;
+  }
+  const time = memoryGrowthTime(row);
+  if (!time) return `<span class="memory-growth-pill ${statusClass}">${escapeHtml(mt(row.rssBytes == null ? 'unknown' : 'collecting'))}</span>`;
+  return `<span class="memory-growth-pill ${statusClass}">${escapeHtml(mt('collecting'))}</span>
+    <div class="memory-bar-track" aria-hidden="true"><div class="memory-bar-fill growth-progress-fill" style="width: ${time.percent}%"></div></div>
+    <span class="memory-progress-caption">${escapeHtml(mt('collectingTime', {
+      elapsed: memoryDuration(time.elapsed), total: memoryDuration(time.total), remaining: memoryDuration(time.remaining)
+    }))}</span>`;
+}
+
 function memoryVisibleRows() {
   const search = document.getElementById('memory-search')?.value?.toLocaleLowerCase() || '';
   const filter = document.getElementById('memory-filter')?.value || 'all';
@@ -274,7 +314,7 @@ function renderMemory() {
         </td>
         <td class="memory-number ${growthClass}">
           <div class="memory-cell-metric">
-            <span class="memory-growth-pill ${statusClass}">${row.growing ? sfSymbol('chart.line.uptrend.xyaxis', 'mini-icon') : ''} ${e(row.growthBytes == null ? mt('collecting') : memorySigned(row.growthBytes))}</span>
+            ${memoryGrowthCell(row, statusClass)}
           </div>
         </td>
         <td class="memory-number memory-cpu-cell">
@@ -573,7 +613,7 @@ function renderMemoryDetails(row, result, scroll = false) {
       </div>
       <div class="memory-details-stat">
         <dt>${e(mt('growth'))}</dt>
-        <dd class="${row.growing ? 'memory-growth-positive' : ''}">${e(row.growthBytes == null ? mt('collecting') : memorySigned(row.growthBytes))}</dd>
+        <dd class="${row.growing ? 'memory-growth-positive' : ''}">${e(memoryGrowthLabel(row))}</dd>
       </div>
       <div class="memory-details-stat">
         <dt>${e(mt('cpu'))}</dt>

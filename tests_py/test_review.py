@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from macmaid import web
+from macmaid import web, web_mutations
 from macmaid.config import Config
 from macmaid.features import AppComponent, InstalledApplication
 from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, OperationResult, RiskLevel, ScanResult
@@ -86,7 +86,7 @@ def test_web_never_executes_without_fresh_review_and_token_is_single_use(monkeyp
     item = cleanup_item()
     current = state(scan=ScanResult([item]))
     execute = Mock(return_value=OperationResult())
-    monkeypatch.setattr(web, "Cleaner", lambda config: SimpleNamespace(execute=execute))
+    monkeypatch.setattr(web_mutations, "Cleaner", lambda config: SimpleNamespace(execute=execute))
     route = handler(current)
     payload = {"itemIds": [item.id]}
     with pytest.raises(PermissionError, match="fresh review"):
@@ -104,7 +104,7 @@ def test_new_scan_invalidates_existing_web_review(monkeypatch):
     item = cleanup_item()
     current = state(scan=ScanResult([item]))
     execute = Mock()
-    monkeypatch.setattr(web, "Cleaner", lambda config: SimpleNamespace(execute=execute))
+    monkeypatch.setattr(web_mutations, "Cleaner", lambda config: SimpleNamespace(execute=execute))
     route = handler(current)
     payload = {"itemIds": [item.id]}
     prepared = route._route_post("/api/clean", dict(payload, reviewOnly=True))
@@ -120,7 +120,7 @@ def test_analyzer_user_file_requires_separate_opt_in(monkeypatch, tmp_path):
     current = state(analyzed_paths={path}, generations={"analyzer": 1}, analyzer=Mock())
     move = Mock(return_value=tmp_path / ".Trash/document.txt")
     log_summary = Mock()
-    monkeypatch.setattr(web, "Cleaner", lambda config: SimpleNamespace(
+    monkeypatch.setattr(web_mutations, "Cleaner", lambda config: SimpleNamespace(
         move_analyzer_item_to_trash=move, log_space_summary=log_summary,
     ))
     route = handler(current)

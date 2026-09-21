@@ -19,12 +19,25 @@ from pathlib import Path
 
 import pytest
 
-from macmaid import tui, web
+from macmaid import tui, web_mutations
 from macmaid.config import Config
 from macmaid.web import MacMaidHTTPServer, WebState
 
 ROOT = Path(__file__).parents[1]
-APP_JS = (ROOT / "src/macmaid/WebUI/app.js").read_text()
+WEBUI_DIR = ROOT / "src/macmaid/WebUI"
+
+
+def _webui_js() -> str:
+    """Concatenate every served Web UI script (root files plus features/)."""
+    parts = [p.read_text() for p in sorted(WEBUI_DIR.glob("*.js"))]
+    features = WEBUI_DIR / "features"
+    if features.is_dir():
+        parts += [p.read_text() for p in sorted(features.glob("*.js"))]
+    return "\n".join(parts)
+
+
+APP_JS = (WEBUI_DIR / "app.js").read_text()
+ALL_JS = _webui_js()
 
 
 def _function_body(source: str, name: str) -> str:
@@ -81,7 +94,7 @@ def _listener_body(source: str, selector: str) -> str:
 # ---------------------------------------------------------------------------
 
 def test_more_subtab_navigation_never_starts_heavy_scans() -> None:
-    body = _function_body(APP_JS, "activateMoreSubtab")
+    body = _function_body(ALL_JS, "activateMoreSubtab")
     for forbidden in ("fetchBrowserStorage(", "fetchSmartDownloads(", "fetchDuplicates(",
                       "fetchLargeFiles(", "fetchTreemap(", "runDiskAnalyzer("):
         assert forbidden not in body, f"navigation triggers {forbidden}"
@@ -89,44 +102,44 @@ def test_more_subtab_navigation_never_starts_heavy_scans() -> None:
 
 
 def test_developer_subtab_navigation_never_scans_storage() -> None:
-    body = _function_body(APP_JS, "activateDeveloperSubtab")
+    body = _function_body(ALL_JS, "activateDeveloperSubtab")
     for forbidden in ("scanDeveloperStorage(", "scanDeveloperCaches(", "scanDeveloperRuntimes(",
                       "scanDeveloperEnvironments(", "scanDeveloperTools(", "scanDeveloperSDKs("):
         assert forbidden not in body, f"navigation triggers {forbidden}"
 
 
 def test_treemap_reconnect_never_starts_a_new_analysis() -> None:
-    body = _function_body(APP_JS, "reconnectTreemap")
+    body = _function_body(ALL_JS, "reconnectTreemap")
     assert "fetchTreemap(" in body
     # The reconnect call must pass polling=true so the backend sees start=false.
     reconnect_call = re.search(r"fetchTreemap\(([^)]*)\)", body)
     assert reconnect_call and "true" in reconnect_call.group(1), reconnect_call
     # fetchTreemap must derive the `start` query flag from the polling flag.
-    fetch_body = _function_body(APP_JS, "fetchTreemap")
+    fetch_body = _function_body(ALL_JS, "fetchTreemap")
     assert re.search(r"start:\s*polling\s*\?\s*'false'\s*:\s*'true'", fetch_body), fetch_body
 
 
 def test_age_pills_filter_cached_results_without_rescanning() -> None:
-    installers = _listener_body(APP_JS, ".installer-age-pill")
-    leftovers = _listener_body(APP_JS, ".leftover-age-pill")
+    installers = _listener_body(ALL_JS, ".installer-age-pill")
+    leftovers = _listener_body(ALL_JS, ".leftover-age-pill")
     assert "scanInstallers(" not in installers and "renderInstallers(" in installers
     assert "scanLeftovers(" not in leftovers and "renderLeftovers(" in leftovers
     # Discovery itself must run at the lowest threshold so the cached result is
     # a superset the pills can filter.
-    assert "olderThan=0" in _function_body(APP_JS, "scanInstallers")
-    assert "olderThan=0" in _function_body(APP_JS, "scanLeftovers")
+    assert "olderThan=0" in _function_body(ALL_JS, "scanInstallers")
+    assert "olderThan=0" in _function_body(ALL_JS, "scanLeftovers")
 
 
 def test_status_polling_is_page_scoped_to_dashboard() -> None:
-    assert APP_JS.count("setInterval(fetchStatus") == 1
-    poll_body = _function_body(APP_JS, "syncStatusPolling")
+    assert ALL_JS.count("setInterval(fetchStatus") == 1
+    poll_body = _function_body(ALL_JS, "syncStatusPolling")
     assert "setInterval(fetchStatus" in poll_body and "clearInterval" in poll_body
-    nav_body = _function_body(APP_JS, "activateTopLevelTab")
+    nav_body = _function_body(ALL_JS, "activateTopLevelTab")
     assert "syncStatusPolling()" in nav_body and "fetchStatus(" not in nav_body
 
 
 def test_settings_open_uses_cached_permission_report() -> None:
-    assert "if (!state.permissionReport) fetchPermissionReport();" in APP_JS
+    assert "if (!state.permissionReport) fetchPermissionReport();" in ALL_JS
 
 
 def test_domcontentloaded_does_not_start_global_polling() -> None:
@@ -232,7 +245,7 @@ def test_update_get_is_passive_and_never_invokes_brew(web_server, monkeypatch) -
     def explode(**kwargs):
         raise AssertionError("brew subprocess started by a passive GET")
 
-    monkeypatch.setattr(web, "macmaid_brew_update_status", explode)
+    monkeypatch.setattr(web_mutations, "macmaid_brew_update_status", explode)
     status, payload = _get(host, "/api/macmaid/update")
     assert status == 200
     assert payload["installed"] is False

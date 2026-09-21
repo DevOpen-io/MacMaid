@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from macmaid import cleaner as cleaner_module, features, web
+from macmaid import cleaner as cleaner_module, features, web, web_queries
 from macmaid.cleaner import Cleaner
 from macmaid.config import Config
 from macmaid.models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
@@ -79,7 +79,7 @@ def test_history_api_totals_only_explicit_estimated_reclaim(monkeypatch):
         {"recordType": "operation_summary", "timestamp": "1", "processedEstimatedBytes": 700,
          "estimatedReclaimedBytes": 0, "trashMovedEstimatedBytes": 0, "result": "partial"},
     ]
-    monkeypatch.setattr(web, "history", lambda limit: records)
+    monkeypatch.setattr(web_queries, "history", lambda limit: records)
     handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=SimpleNamespace())
     payload = handler._route_get("/api/history", {})

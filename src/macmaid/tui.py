@@ -106,6 +106,26 @@ def _localized_renderable(value: VisualType, language: str) -> VisualType:
     return value
 
 
+def _memory_duration(seconds: float) -> str:
+    total = max(0, int(round(seconds)))
+    return f"{total // 60}:{total % 60:02d}"
+
+
+def _memory_growth_progress(row: dict[str, Any], width: int) -> str | None:
+    """Compact collecting-progress text built only from server metadata."""
+    elapsed = row.get("growthWindowElapsedSeconds")
+    if not isinstance(elapsed, (int, float)):
+        return None
+    remaining = row.get("growthWindowRemainingSeconds")
+    remaining = remaining if isinstance(remaining, (int, float)) else 0.0
+    times = f"{_memory_duration(elapsed)}/{_memory_duration(elapsed + remaining)}"
+    if width < 110:
+        return times
+    progress = row.get("growthWindowProgress")
+    filled = round(max(0.0, min(1.0, progress)) * 8) if isinstance(progress, (int, float)) else 0
+    return f"[{'+' * filled}{'.' * (8 - filled)}] {times}"
+
+
 class Static(TextualStatic):
     """Static text that retains its source copy and localizes every update."""
 
@@ -1259,7 +1279,11 @@ class MacMaidTUI(App[None]):
             p = self.memory_rows[row]
             rss = human_bytes(p.get("rssBytes", 0)) if p.get("rssBytes") is not None else "?"
             delta = p.get("growthBytes")
-            growth_str = ("+" if delta >= 0 else "-") + human_bytes(abs(delta)) if delta is not None else "collecting"
+            if delta is not None:
+                growth_str = ("+" if delta >= 0 else "-") + human_bytes(abs(delta))
+            else:
+                progress = _memory_growth_progress(p, 0)
+                growth_str = f"collecting {progress}" if progress is not None else "unavailable"
             cpu = f"{p.get('cpuPercent', 0.0):.1f}%" if p.get("cpuPercent") is not None else "?"
             status = p.get("protected") or ("growing" if p.get("growing") else "stable" if p.get("historyReady") else "collecting")
             role = f" · Role: {p['role']}" if p.get("role") else ""
@@ -1822,7 +1846,8 @@ class MacMaidTUI(App[None]):
 
             delta = row.get("growthBytes")
             if delta is None:
-                growth_cell = Text("collecting", style="dim")
+                progress = _memory_growth_progress(row, self.size.width)
+                growth_cell = Text(progress if progress is not None else "unavailable", style="dim")
             elif row.get("growing"):
                 growth_cell = Text(f"+{human_bytes(abs(delta))} ^", style="bold #e3b341")
             elif delta < 0:

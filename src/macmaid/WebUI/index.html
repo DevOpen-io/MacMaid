@@ -36,7 +36,7 @@
             </div>
             <div class="brand-text-wrap">
               <span class="brand-name">MacMaid <span class="badge-pro">PRO</span></span>
-              <span class="version-tag">v0.14.5 Python</span>
+              <span class="version-tag">v0.14.7 Python</span>
             </div>
           </div>
         </div>
@@ -275,6 +275,7 @@
           <section class="memory-overview">
             <dl id="memory-metrics" class="memory-metrics"></dl>
             <p class="memory-context"><span data-icon="info.circle"></span><span data-i18n="memory.monitoring">Monitoring continues while MacMaid runs. Growth is a signal, not a confirmed leak.</span></p>
+            <p class="memory-context"><span data-icon="clock"></span><span data-i18n="memory.historyNote">Growth analysis needs 10 minutes of continuous history per process.</span></p>
           </section>
           <section class="memory-workbench" aria-labelledby="memory-process-heading">
             <div class="memory-workbench-head">
@@ -2174,7 +2175,7 @@
               <div class="settings-info-grid">
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.version_label">Version</div>
-                  <div class="settings-info-value settings-info-mono">0.14.5 (Python 3.11+)</div>
+                  <div class="settings-info-value settings-info-mono">0.14.7 (Python 3.11+)</div>
                 </div>
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.safety_label">Safety Model</div>
@@ -2237,7 +2238,20 @@
     </div>
   </div>
 
+  <script src="/i18n.js"></script>
+  <script src="/icons.js"></script>
+  <script src="/ui.js"></script>
+  <script src="/api.js"></script>
+  <script src="/progress.js"></script>
   <script src="/app.js"></script>
+  <script src="/features/clean.js"></script>
+  <script src="/features/apps.js"></script>
+  <script src="/features/files.js"></script>
+  <script src="/features/analyzer.js"></script>
+  <script src="/features/developer.js"></script>
+  <script src="/features/purge.js"></script>
+  <script src="/features/system.js"></script>
+  <script src="/features/settings.js"></script>
   <script src="/memory.js"></script>
 </body>
 </html>

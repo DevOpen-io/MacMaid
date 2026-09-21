@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from macmaid import cleaner as cleaning, web
+from macmaid import cleaner as cleaning, web, web_mutations
 from macmaid.config import Config
 from macmaid.web import WebState
 
@@ -44,7 +44,7 @@ def test_treemap_open_requires_latest_view(monkeypatch, tmp_path):
     path = tmp_path / "file.txt"
     path.write_text("x")
     run = Mock(return_value=SimpleNamespace(succeeded=True, stdout="", stderr=""))
-    monkeypatch.setattr(web, "run_command", run)
+    monkeypatch.setattr(web_mutations, "run_command", run)
     handler = object.__new__(web.MacMaidHandler)
     handler.server = SimpleNamespace(state=SimpleNamespace(treemap_paths={path}))
 
