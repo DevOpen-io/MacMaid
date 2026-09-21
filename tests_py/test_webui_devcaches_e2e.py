@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from macmaid import cleaner, web
+from macmaid import cleaner, scanner, web
 from macmaid.config import Config
 
 REAL_HOME = Path.home()
@@ -63,6 +63,7 @@ def test_devcaches_webui_scan_clean_rescan_isolated(monkeypatch, tmp_path):
 
     # Minimal PATH: only the fake provider exists; real brew/pnpm/uv/npm are invisible.
     monkeypatch.setenv("PATH", f"{fake_bin}:/usr/bin:/bin")
+    monkeypatch.setattr(scanner, "which", lambda name: str(npm_script) if name == "npm" else None)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     monkeypatch.setattr(web, "Config", lambda: Config(home=home))
     monkeypatch.setattr(cleaner.os, "geteuid", lambda: 501)
@@ -119,6 +120,7 @@ def test_devcaches_webui_scan_clean_rescan_isolated(monkeypatch, tmp_path):
             assert any(label.startswith("npm cache clean") for label in labels), labels
             assert any(label.startswith("npx package cache") for label in labels), labels
             assert not any("logs" in label.lower() for label in labels), labels
+            assert not [r for r in first if r["risk"] != "MANUAL" and not r["label"].startswith("npm cache clean")], first
             native = next(r for r in first if r["label"].startswith("npm cache clean"))
             manual = next(r for r in first if r["label"].startswith("npx package cache"))
             assert native["checked"] and not native["disabled"]

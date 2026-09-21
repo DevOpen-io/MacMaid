@@ -187,8 +187,8 @@ jobs:
           BASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/$VERSION_TAG"
           ARM_DMG="MacMaid-$VERSION-arm64.dmg"
           ARM_CLI="MacMaid-$VERSION-arm64-cli.tar.gz"
-          curl -fsSL "$BASE_URL/$ARM_DMG" -o "$ARM_DMG"
-          curl -fsSL "$BASE_URL/$ARM_CLI" -o "$ARM_CLI"
+          curl --retry 5 --retry-delay 2 --retry-all-errors -fsSL "$BASE_URL/$ARM_DMG" -o "$ARM_DMG"
+          curl --retry 5 --retry-delay 2 --retry-all-errors -fsSL "$BASE_URL/$ARM_CLI" -o "$ARM_CLI"
           ARM_DMG_SHA=$(sha256sum "$ARM_DMG" | awk '{print $1}')
           ARM_CLI_SHA=$(sha256sum "$ARM_CLI" | awk '{print $1}')
           mkdir -p tap/Casks tap/Formula

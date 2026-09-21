@@ -16,6 +16,15 @@ def test_workflow_packages_runtime_internal_and_uses_libexec() -> None:
     assert 'bin.install_symlink libexec/"macmaid"' in content
 
 
+def test_homebrew_update_retries_release_asset_downloads() -> None:
+    root = Path(__file__).resolve().parents[1]
+    workflow = (root / ".github/workflows/macos-dmg.yml").read_text()
+
+    retry_flags = "--retry 5 --retry-delay 2 --retry-all-errors"
+    assert f'curl {retry_flags} -fsSL "$BASE_URL/$ARM_DMG"' in workflow
+    assert f'curl {retry_flags} -fsSL "$BASE_URL/$ARM_CLI"' in workflow
+
+
 def test_build_macos_app_script_stages_cli_directory_with_internal() -> None:
     root = Path(__file__).resolve().parents[1]
     script_path = root / "scripts/build-macos-app.sh"
