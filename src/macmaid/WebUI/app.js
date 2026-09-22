@@ -41,9 +41,9 @@ const state = {
   analyzerViews: new Map(),
   analyzerRequestId: Date.now(),
   analyzerPollTimer: null,
-  theme: ['dark', 'midnight', 'cyber', 'light'].includes(localStorage.getItem('macmaid_theme'))
+  theme: ['system', 'dark', 'midnight', 'cyber', 'light'].includes(localStorage.getItem('macmaid_theme'))
     ? localStorage.getItem('macmaid_theme')
-    : 'dark',
+    : 'system',
   lang: ['en', 'tr'].includes(localStorage.getItem('macmaid_lang'))
     ? localStorage.getItem('macmaid_lang')
     : 'en',
@@ -55,8 +55,15 @@ const state = {
 // DOM Ready & Event Setup
 // =========================================================
 
+function applyAppearance(theme) {
+  state.theme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.style.colorScheme = theme === 'system' ? 'light dark' : (theme === 'light' ? 'light' : 'dark');
+  localStorage.setItem('macmaid_theme', theme);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  document.documentElement.setAttribute('data-theme', state.theme);
+  applyAppearance(state.theme);
   const themeSelect = document.getElementById('theme-selector-setting');
   if (themeSelect) themeSelect.value = state.theme;
   const soundSetting = document.getElementById('chk-sound-setting');
@@ -123,6 +130,39 @@ document.addEventListener('DOMContentLoaded', () => {
     if (moretab === 'whitelist' && (!state.whitelist || state.whitelist.length === 0)) fetchWhitelist();
   }
 
+  // Sidebar search filters the existing navigation; it never starts work.
+  const sidebarSearch = document.getElementById('sidebar-search');
+  const sidebar = document.querySelector('.sidebar');
+  const sidebarSearchEmpty = document.getElementById('sidebar-search-empty');
+  sidebarSearch?.addEventListener('input', () => {
+    const query = sidebarSearch.value.trim().toLocaleLowerCase(state.lang);
+    let visibleCount = 0;
+    sidebar?.classList.toggle('sidebar-filtering', Boolean(query));
+    document.querySelectorAll('.nav-item').forEach(item => {
+      const submenu = item.nextElementSibling?.classList.contains('nav-submenu') ? item.nextElementSibling : null;
+      const submenuItems = submenu ? [...submenu.querySelectorAll('.nav-submenu-item')] : [];
+      let childMatches = 0;
+      submenuItems.forEach(subItem => {
+        const matches = !query || subItem.textContent.toLocaleLowerCase(state.lang).includes(query);
+        subItem.hidden = !matches;
+        if (matches) childMatches += 1;
+      });
+      const ownMatch = !query || item.textContent.toLocaleLowerCase(state.lang).includes(query);
+      const visible = ownMatch || childMatches > 0;
+      item.hidden = !visible;
+      if (submenu) submenu.hidden = !visible || (Boolean(query) && childMatches === 0);
+      if (visible) visibleCount += 1;
+    });
+    sidebarSearchEmpty?.classList.toggle('hidden', visibleCount > 0 || !query);
+  });
+  sidebarSearch?.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      sidebarSearch.value = '';
+      sidebarSearch.dispatchEvent(new Event('input'));
+      sidebarSearch.blur();
+    }
+  });
+
   // Sidebar navigation
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
@@ -185,11 +225,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Theme toggle button in header
   document.getElementById('theme-btn')?.addEventListener('click', () => {
-    const themes = ['dark', 'midnight', 'cyber', 'light'];
+    const themes = ['system', 'dark', 'light'];
     let nextIdx = (themes.indexOf(state.theme) + 1) % themes.length;
-    state.theme = themes[nextIdx];
-    document.documentElement.setAttribute('data-theme', state.theme);
-    localStorage.setItem('macmaid_theme', state.theme);
+    if (nextIdx < 0) nextIdx = 0;
+    applyAppearance(themes[nextIdx]);
     if (themeSelect) themeSelect.value = state.theme;
     const mainTheme = document.getElementById('main-theme-selector');
     if (mainTheme) mainTheme.value = state.theme;
@@ -208,9 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (themeSelect) {
     themeSelect.addEventListener('change', (e) => {
-      state.theme = e.target.value;
-      document.documentElement.setAttribute('data-theme', state.theme);
-      localStorage.setItem('macmaid_theme', state.theme);
+      applyAppearance(e.target.value);
       const mainTheme = document.getElementById('main-theme-selector');
       if (mainTheme) mainTheme.value = state.theme;
     });
@@ -236,9 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (mainThemeSelect) {
     mainThemeSelect.value = state.theme;
     mainThemeSelect.addEventListener('change', (e) => {
-      state.theme = e.target.value;
-      document.documentElement.setAttribute('data-theme', state.theme);
-      localStorage.setItem('macmaid_theme', state.theme);
+      applyAppearance(e.target.value);
       if (themeSelect) themeSelect.value = state.theme;
       SoundEffects.playClick();
     });

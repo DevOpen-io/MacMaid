@@ -1,5 +1,6 @@
 """Small JS behavior checks without a browser or real process actions."""
 import subprocess
+from html.parser import HTMLParser
 from pathlib import Path
 
 
@@ -67,6 +68,9 @@ def test_memory_workspace_keeps_overview_controls_and_safety_context_together():
     assert 'class="memory-management-grid"' in html
     assert 'data-i18n="memory.monitoring"' in html
     assert 'data-i18n="memory.rssNote"' in html
+    assert 'class="memory-context"' not in html
+    assert 'class="memory-table-footnote"' not in html
+    assert 'class="memory-help"' in html
     assert 'data-i18n-title="memory.refreshProcesses"' in html
     assert 'id="memory-filter-pills"' not in html
     assert 'id="memory-filter"' in html
@@ -77,7 +81,65 @@ def test_memory_workspace_keeps_overview_controls_and_safety_context_together():
     assert 'const MEMORY_COPY = {' in catalog
     assert 'const MEMORY_COPY = {' not in script
     assert '.memory-status.is-growing' in styles
+    assert '.memory-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }' in styles
     assert '@media (max-width: 520px)' in styles
+
+
+def test_webui_surface_nesting_and_memory_border_budget():
+    """Guard against card-in-card and permanent explanatory-strip regressions."""
+    root = Path(__file__).parents[1]
+    html = (root / 'src/macmaid/WebUI/index.html').read_text()
+    styles = (root / 'src/macmaid/WebUI/styles.css').read_text()
+    fluent = styles[styles.index('Fluent hierarchy pass:'):]
+    global_fluent = styles[styles.index('Global fluent surface pass'):]
+    surfaces = {
+        'glass-card', 'memory-panel', 'memory-workbench', 'memory-details',
+        'results-summary-card', 'task-card', 'settings-card',
+    }
+
+    class SurfaceParser(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.stack = []
+            self.nested = []
+
+        def handle_starttag(self, tag, attrs):
+            classes = set(dict(attrs).get('class', '').split())
+            if classes & surfaces and any(parent & surfaces for parent in self.stack):
+                self.nested.append((tag, classes & surfaces))
+            if tag not in {'meta', 'link', 'img', 'input', 'br', 'hr'}:
+                self.stack.append(classes)
+
+        def handle_endtag(self, _tag):
+            if self.stack:
+                self.stack.pop()
+
+    parser = SurfaceParser()
+    parser.feed(html)
+    assert not parser.nested
+    assert 'ambient-glow' not in html
+    assert html.count('data-i18n="memory.monitoring"') == 1
+    assert '.memory-details-header { padding-bottom: var(--space-3); border: 0; }' in fluent
+    assert '.memory-details-stat { padding: 0; border: 0; }' in fluent
+    assert '.memory-trend { border: 0;' in fluent
+    assert '.memory-table td { border: 0; }' in fluent
+    assert 'box-shadow: var(--shadow-card)' not in fluent
+
+    for token in [
+        '--surface-window', '--surface-sidebar', '--surface-content',
+        '--surface-grouped', '--surface-control', '--surface-selected',
+        '--separator-subtle', '--separator-strong', '--radius-control',
+        '--radius-grouped', '--radius-modal',
+    ]:
+        assert token in styles
+    assert '#pane-developer .sub-pane > .glass-card' in global_fluent
+    assert '#pane-more .sub-pane > .glass-card' in global_fluent
+    assert '.data-table td {' in global_fluent
+    assert '.apps-list-card { border-right: 1px solid var(--separator-subtle); }' in global_fluent
+    assert '.permission-group { border: 0;' in global_fluent
+    assert '.inpage-progress-card {' in global_fluent
+    assert '.glass-modal {' in global_fluent
+    assert 'page section > .glass-card' not in global_fluent
 
 
 def test_memory_growth_progress_renders_server_values_only():

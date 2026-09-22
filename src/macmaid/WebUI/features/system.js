@@ -33,17 +33,22 @@ function renderStatus(data) {
   const healthGrid = document.getElementById('health-indicators');
   if (healthGrid && Array.isArray(health)) {
     const stateLabels = { normal: t('status.state_normal', 'NORMAL'), warning: t('status.state_warning', 'WARNING'), critical: t('status.state_critical', 'CRITICAL'), unknown: t('status.state_unknown', 'UNKNOWN'), not_applicable: t('status.state_na', 'N/A') };
-    healthGrid.innerHTML = health.map(item => `
-      <article class="health-indicator health-${escapeHtml(item.state)}">
-        <div class="health-indicator-head">
-          <strong>${escapeHtml(item.label)}</strong>
+    healthGrid.innerHTML = health.map(item => {
+      const explanation = [
+        item.detail,
+        item.recommendation ? `${t('status.recommendation', 'Recommendation: ')}${item.recommendation}` : '',
+        item.measuredAt ? `${t('status.measured_at', 'Measured: ')}${item.measuredAt}` : '',
+      ].filter(Boolean).join(' ');
+      return `
+        <article class="health-indicator health-${escapeHtml(item.state)}">
+          <div class="health-indicator-label">
+            <strong>${escapeHtml(item.label)}</strong>
+            ${informationButton(explanation)}
+          </div>
+          <div class="health-value">${escapeHtml(item.value)}</div>
           <span class="health-state">${escapeHtml(stateLabels[item.state] || t('status.state_unknown', 'UNKNOWN'))}</span>
-        </div>
-        <div class="health-value">${escapeHtml(item.value)}</div>
-        <p>${escapeHtml(item.detail)}</p>
-        ${item.recommendation ? `<p class="health-recommendation">${t('status.recommendation', 'Recommendation: ')}${escapeHtml(item.recommendation)}</p>` : ''}
-        <small>${t('status.measured_at', 'Measured: ')}${escapeHtml(item.measuredAt)}</small>
-      </article>`).join('');
+        </article>`;
+    }).join('');
   }
 
   if (metrics) {
@@ -182,8 +187,10 @@ function renderOptimizationTasks(tasks, unavailableReason = t('optimize.empty_ta
           ${sfSymbol('bolt')}
         </div>
         <div class="task-info">
-          <h4>${escapeHtml(task.title)}</h4>
-          <p>${escapeHtml(task.subtitle)}</p>
+          <div class="task-info-title">
+            <h4>${escapeHtml(task.title)}</h4>
+            ${informationButton(task.subtitle)}
+          </div>
         </div>
       </div>
       <div class="task-footer">

@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="system">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="dark light">
-  <meta name="theme-color" content="#070a10">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1c1c1e">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f7">
   <title>MacMaid Pro — macOS System Optimizer & Cleaner</title>
   <link rel="icon" type="image/png" href="/assets/MacMaid-Logo.png">
   <link rel="stylesheet" href="/styles.css">
@@ -27,6 +28,11 @@
               <span class="brand-name">MacMaid</span>
             </div>
           </div>
+          <label class="sidebar-search">
+            <span class="sidebar-search-icon" data-icon="magnifyingglass" aria-hidden="true"></span>
+            <input id="sidebar-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search" data-i18n-placeholder="sidebar.search_placeholder" aria-label="Search tools" data-i18n-aria="sidebar.search_aria">
+          </label>
+          <p class="sidebar-search-empty hidden" id="sidebar-search-empty" data-i18n="sidebar.search_empty">No matching tools.</p>
         </div>
 
         <nav class="nav-menu" aria-label="MacMaid tools" data-i18n-title="nav.aria_tools">
@@ -205,6 +211,17 @@
               <h1 class="pane-title" data-i18n="memory.title">Memory</h1>
             </div>
             <div class="memory-header-actions">
+              <details class="memory-help">
+                <summary title="About memory metrics" aria-label="About memory metrics" data-i18n-title="memory.metricHelp">
+                  <span data-icon="info.circle"></span>
+                </summary>
+                <div class="memory-help-popover">
+                  <p data-i18n="memory.monitoring">Monitoring continues while MacMaid runs. Growth is a signal, not a confirmed leak.</p>
+                  <p data-i18n="memory.historyNote">Growth analysis needs 10 minutes of continuous history per process.</p>
+                  <p data-i18n="memory.rssNote">RSS includes shared memory. Process totals are not an estimate of recoverable RAM.</p>
+                  <p data-i18n="memory.evidence">Growing memory means more than 256 MiB and 25% growth over ten minutes, with at least seven increasing minute-to-minute medians.</p>
+                </div>
+              </details>
               <button class="btn btn-secondary btn-sm memory-refresh-btn" id="memory-refresh-btn" title="Refresh processes" aria-label="Refresh processes" data-i18n-title="memory.refreshProcesses">
                 <span data-icon="arrow.clockwise"></span>
                 <span class="memory-refresh-text" data-i18n="memory.refreshBtn">Refresh</span>
@@ -212,10 +229,8 @@
             </div>
           </div>
           <div id="memory-error" class="memory-notice" role="status" hidden></div>
-          <section class="memory-overview">
+          <section class="memory-overview" aria-label="Memory summary" data-i18n-aria="memory.summaryLabel">
             <dl id="memory-metrics" class="memory-metrics"></dl>
-            <p class="memory-context"><span data-icon="info.circle"></span><span data-i18n="memory.monitoring">Monitoring continues while MacMaid runs. Growth is a signal, not a confirmed leak.</span></p>
-            <p class="memory-context"><span data-icon="clock"></span><span data-i18n="memory.historyNote">Growth analysis needs 10 minutes of continuous history per process.</span></p>
           </section>
           <section class="memory-workbench" aria-labelledby="memory-process-heading">
             <div class="memory-workbench-head">
@@ -293,10 +308,6 @@
                 <tbody id="memory-processes"></tbody>
               </table>
             </div>
-            <p class="memory-table-footnote">
-              <span data-icon="info.circle"></span>
-              <span data-i18n="memory.rssNote">RSS includes shared memory. Process totals are not an estimate of recoverable RAM.</span>
-            </p>
           </section>
           <div id="memory-details" class="memory-details" hidden></div>
           <div class="memory-management-grid">
@@ -1945,6 +1956,7 @@
                       <p class="text-muted" data-i18n="more.desc_ui_theme">Choose your preferred macOS color palette.</p>
                     </div>
                     <select id="theme-selector-setting" class="select-box">
+                      <option value="system" data-i18n="theme.system">System</option>
                       <option value="dark" data-i18n="theme.dark">Dark</option>
                       <option value="midnight" data-i18n="theme.midnight">Midnight</option>
                       <option value="cyber" data-i18n="theme.contrast">High Contrast</option>
@@ -2016,6 +2028,7 @@
                     <p class="text-muted" data-i18n="settings.theme_sub">Select your preferred macOS aesthetic palette.</p>
                   </div>
                   <select id="main-theme-selector" class="select-box settings-select">
+                    <option value="system" data-i18n="theme.system">System</option>
                     <option value="dark" data-i18n="theme.dark">Dark</option>
                     <option value="midnight" data-i18n="theme.midnight">Midnight</option>
                     <option value="cyber" data-i18n="theme.contrast">High Contrast</option>
@@ -2069,7 +2082,7 @@
               <div class="settings-info-grid">
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.version_label">Version</div>
-                  <div class="settings-info-value settings-info-mono">0.14.10</div>
+                  <div class="settings-info-value settings-info-mono">0.14.18</div>
                 </div>
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.safety_label">Safety Model</div>

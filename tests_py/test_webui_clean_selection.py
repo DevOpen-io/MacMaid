@@ -88,6 +88,27 @@ assert.equal(formatPurgeModified('not-a-date'), 'not-a-date');
     subprocess.run(["node", "-e", script], check=True, capture_output=True, text=True)
 
 
+def test_explanatory_copy_uses_compact_information_tooltips():
+    root = Path(__file__).parents[1]
+    ui_source = (root / "src/macmaid/WebUI/ui.js").read_text()
+    clean_source = (root / "src/macmaid/WebUI/features/clean.js").read_text()
+    styles = (root / "src/macmaid/WebUI/styles.css").read_text()
+
+    assert "function enhanceInformationCopy" in ui_source
+    assert "'.pane-header .pane-subtitle'" in ui_source
+    assert "'.memory-section-header .memory-note[data-i18n]'" in ui_source
+    assert "'#clean-profile-context'" in ui_source
+    assert "informationButton(item.reason, 'mm-table-info')" in clean_source
+    assert '<span class="table-secondary">${escapeHtml(item.reason)}</span>' not in clean_source
+    assert "'.card-desc[data-i18n]'" in ui_source
+    assert "'.setting-row .text-muted[data-i18n]'" in ui_source
+    assert "'.hero-state-desc[data-i18n]'" not in ui_source
+    assert "new MutationObserver(records =>" in ui_source
+    assert ".mm-info-tooltip" in styles
+    assert ".mm-info-source" in styles
+    assert ".mm-info-button .sf { width: 18px; height: 18px;" in styles
+
+
 def test_clean_selection_never_marks_incomplete_scan_as_selected():
     source = _webui_js(Path(__file__).parents[1])
     start = source.index("function cleanActionableItems()")

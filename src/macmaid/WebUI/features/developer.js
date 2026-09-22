@@ -35,7 +35,7 @@ async function scanDeveloperStorage() {
         <td><span class="table-secondary">${escapeHtml(item.ecosystem)}</span></td>
         <td><span class="table-label">${escapeHtml(item.label)}</span></td>
         <td><span class="table-path">${escapeHtml(item.path || '—')}</span></td>
-        <td><span class="table-secondary">${escapeHtml(item.note || '—')}</span></td>
+        <td class="table-info-cell">${item.note ? informationButton(item.note, 'mm-table-info') : '—'}</td>
         <td class="table-number">${escapeHtml(item.humanBytes || formatBytes(item.bytes || 0))}</td>
       </tr>
     `).join('');
@@ -81,7 +81,7 @@ async function scanDeveloperCaches() {
         <td><span class="table-label">${escapeHtml(item.label)}</span></td>
         <td><span class="table-path">${escapeHtml(item.path || '—')}</span></td>
         <td><span class="badge-status table-status">${escapeHtml(item.risk)}</span></td>
-        <td><span class="table-secondary">${escapeHtml(item.reason)}</span></td>
+        <td class="table-info-cell">${informationButton(item.reason, 'mm-table-info')}</td>
         <td class="table-number">${escapeHtml(item.humanBytes)}</td>
       </tr>
     `).join('');
@@ -128,46 +128,44 @@ function showDeveloperItemModal(item, onRefresh) {
 
   let statusHtml = '';
   if (item.isActive) {
-    statusHtml = `<span class="badge-status badge-green">${t('dev.badge_active', 'ACTIVE')}</span> <span style="font-size: 12px; color: var(--text-dim); margin-left: 6px;">${t('dev.desc_active', 'Currently used as default by shell or system.')}</span>`;
+    statusHtml = `<span class="badge-status badge-green">${t('dev.badge_active', 'ACTIVE')}</span>${informationButton(t('dev.desc_active', 'Currently used as default by shell or system.'))}`;
   } else if (item.removable) {
-    statusHtml = `<span class="badge-status badge-yellow">${t('dev.badge_removable', 'Removable')}</span> <span style="font-size: 12px; color: var(--text-dim); margin-left: 6px;">${t('dev.desc_removable', 'Can be safely removed via package manager.')} (${escapeHtml(item.manager)})</span>`;
+    statusHtml = `<span class="badge-status badge-yellow">${t('dev.badge_removable', 'Removable')}</span>${informationButton(`${t('dev.desc_removable', 'Can be safely removed via package manager.')} (${item.manager})`)}`;
   } else {
-    statusHtml = `<span class="badge-status">${t('dev.badge_protected', 'Protected')}</span> <span style="font-size: 12px; color: var(--text-dim); margin-left: 6px;">${escapeHtml(item.protectedReason || t('dev.desc_protected', 'Protected by system.'))}</span>`;
+    statusHtml = `<span class="badge-status">${t('dev.badge_protected', 'Protected')}</span>${informationButton(item.protectedReason || t('dev.desc_protected', 'Protected by system.'))}`;
   }
 
   const html = `
-    <div style="display: flex; flex-direction: column; gap: 14px; font-size: 13px;">
-      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-glass); padding-bottom: 10px;">
-        <strong style="font-size: 15px; color: var(--text-main);">${escapeHtml(title)}</strong>
+    <div class="component-detail">
+      <div class="component-detail-header">
+        <strong class="component-detail-title">${escapeHtml(title)}</strong>
         <span class="badge-status badge-cyan">${escapeHtml(item.manager)}</span>
       </div>
 
-      <div style="display: grid; grid-template-columns: 120px 1fr; gap: 9px 14px; align-items: baseline;">
+      <div class="component-detail-grid">
         <span class="text-muted">${t('common.category', 'Category')}:</span>
-        <span><strong>${escapeHtml((item.category || t('dev.title', 'DEVELOPER')).toUpperCase())}</strong></span>
+        <span class="component-detail-value"><strong>${escapeHtml((item.category || t('dev.title', 'DEVELOPER')).toUpperCase())}</strong></span>
 
         ${item.version ? `
           <span class="text-muted">${t('settings.version_label', 'Version')}:</span>
-          <span style="font-family: var(--font-mono); font-weight: 600;">${escapeHtml(item.version)}</span>
+          <span class="component-detail-value table-code">${escapeHtml(item.version)}</span>
         ` : ''}
 
         <span class="text-muted">${t('dev.th_manager', 'Manager')}:</span>
-        <span>${escapeHtml(item.manager)}</span>
+        <span class="component-detail-value">${escapeHtml(item.manager)}</span>
 
         <span class="text-muted">${t('dev.occupied_space', 'Occupied Space')}:</span>
-        <strong class="highlight-cyan" style="font-family: var(--font-mono);">${escapeHtml(item.humanBytes || formatBytes(item.bytes || 0))}</strong>
+        <strong class="component-detail-value table-code">${escapeHtml(item.humanBytes || formatBytes(item.bytes || 0))}</strong>
 
         <span class="text-muted">${t('dev.install_path', 'Install path')}:</span>
-        <span style="font-family: var(--font-mono); font-size: 11.5px; word-break: break-all; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 4px; border: 1px solid var(--border-glass);">
-          ${escapeHtml(item.path)}
-        </span>
+        <span class="component-detail-value component-detail-code">${escapeHtml(item.path)}</span>
 
         <span class="text-muted">${t('dev.th_status', 'Status')}:</span>
-        <div>${statusHtml}</div>
+        <div class="component-detail-value">${statusHtml}</div>
 
         ${item.note ? `
           <span class="text-muted">${t('dev.description', 'Description')}:</span>
-          <span style="color: var(--text-dim);">${escapeHtml(item.note)}</span>
+          <span class="component-detail-value">${informationButton(item.note)}</span>
         ` : ''}
       </div>
     </div>
@@ -283,7 +281,7 @@ async function scanDeveloperEnvironments() {
         <td><span class="table-label">${escapeHtml(item.title)}</span></td>
         <td><span class="table-secondary">${escapeHtml(item.manager)}</span></td>
         <td><span class="table-path">${escapeHtml(item.path)}</span></td>
-        <td><span class="table-secondary">${escapeHtml(item.note || '—')}</span></td>
+        <td class="table-info-cell">${item.note ? informationButton(item.note, 'mm-table-info') : '—'}</td>
         <td class="table-number">${escapeHtml(item.humanBytes)}</td>
       </tr>
     `).join('');
@@ -338,7 +336,7 @@ async function scanDeveloperTools() {
         <td><span class="table-label">${escapeHtml(item.title)}</span></td>
         <td><span class="table-secondary">${escapeHtml(item.manager)}</span></td>
         <td><span class="table-path">${escapeHtml(item.path)}</span></td>
-        <td><span class="table-secondary">${escapeHtml(item.note || '—')}</span></td>
+        <td class="table-info-cell">${item.note ? informationButton(item.note, 'mm-table-info') : '—'}</td>
         <td class="table-number">${escapeHtml(item.humanBytes)}</td>
       </tr>
     `).join('');
@@ -389,7 +387,7 @@ async function scanDeveloperSDKs() {
         <td><span class="table-label">${escapeHtml(item.title)}</span></td>
         <td><span class="table-secondary">${escapeHtml(item.manager)}</span></td>
         <td><span class="table-path">${escapeHtml(item.path)}</span></td>
-        <td><span class="table-secondary">${escapeHtml(item.note || '—')}</span></td>
+        <td class="table-info-cell">${item.note ? informationButton(item.note, 'mm-table-info') : '—'}</td>
         <td class="table-number">${escapeHtml(item.humanBytes)}</td>
       </tr>
     `).join('');

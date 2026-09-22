@@ -121,6 +121,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         window.title = "MacMaid Pro"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
+        window.titlebarSeparatorStyle = .none
+        window.toolbarStyle = .unifiedCompact
         window.isMovableByWindowBackground = false
         // Preserve the table-oriented minimum while adapting to smaller displays.
         window.minSize = NSSize(width: min(960, width), height: min(640, height))
@@ -128,9 +130,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         window.delegate = self
         // Follow the system appearance; WebUI themes remain user-selectable inside the app.
         window.appearance = nil
-        window.backgroundColor = .windowBackgroundColor
+        window.isOpaque = false
+        window.backgroundColor = .clear
 
         let contentView = window.contentView!
+        let materialView = NSVisualEffectView(frame: contentView.bounds)
+        materialView.autoresizingMask = [.width, .height]
+        materialView.blendingMode = .behindWindow
+        materialView.material = .underWindowBackground
+        materialView.state = .followsWindowActiveState
+        contentView.addSubview(materialView)
 
         let config = WKWebViewConfiguration()
         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
@@ -178,6 +187,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(systemColorsDidChange(_:)),
+            name: NSColor.systemColorsDidChangeNotification,
+            object: nil
+        )
+    }
+
+    @objc func systemColorsDidChange(_ notification: Notification) {
+        updateWebAccentColor()
+    }
+
+    func updateWebAccentColor() {
+        guard isConnected,
+              let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) else { return }
+        let red = Int(round(accent.redComponent * 255))
+        let green = Int(round(accent.greenComponent * 255))
+        let blue = Int(round(accent.blueComponent * 255))
+        let cssColor = String(format: "#%02X%02X%02X", red, green, blue)
+        webView.evaluateJavaScript(
+            "document.documentElement.style.setProperty('--system-accent', '\(cssColor)')"
+        )
     }
 
     func configureBackendPort() -> Bool {
@@ -273,6 +304,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         isConnected = true
+        updateWebAccentColor()
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.12
             launchOverlay?.animator().alphaValue = 0
@@ -317,6 +349,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        NotificationCenter.default.removeObserver(self)
         if let proc = serverProcess, proc.isRunning {
             proc.terminate()
         }

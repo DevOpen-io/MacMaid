@@ -150,13 +150,12 @@ function renderMemory() {
   const growing = allRows.filter(row => row.growing).length;
   const protectedCount = allRows.filter(row => row.protected).length;
 
-  // Overview metrics with modern glass cards and visual meters
   const headroom = metrics.pressureHeadroom;
   let pressureState = 'normal';
-  let pressureLabel = mt('pressureNormal');
+  let pressureAlert = '';
   if (headroom != null) {
-    if (headroom < 10) { pressureState = 'critical'; pressureLabel = mt('pressureCritical'); }
-    else if (headroom < 20) { pressureState = 'elevated'; pressureLabel = mt('pressureElevated'); }
+    if (headroom < 10) { pressureState = 'critical'; pressureAlert = mt('pressureCritical'); }
+    else if (headroom < 20) { pressureState = 'elevated'; pressureAlert = mt('pressureElevated'); }
   }
   const ramPercent = metrics.total ? Math.min(100, Math.round(((metrics.used || 0) / metrics.total) * 100)) : 0;
   const swapVal = metrics.swap || 0;
@@ -165,60 +164,20 @@ function renderMemory() {
   const metricsTarget = document.getElementById('memory-metrics');
   if (metricsTarget) {
     metricsTarget.innerHTML = `
-      <div class="memory-metric metric-pressure is-${pressureState}">
-        <div class="memory-metric-head">
-          <span class="memory-metric-icon">${sfSymbol('waveform.path.ecg')}</span>
-          <span class="memory-metric-badge is-${pressureState}">${e(pressureLabel)}</span>
-        </div>
-        <div class="memory-metric-body">
-          <dt>${e(mt('pressure'))}</dt>
-          <dd>${e(headroom == null ? mt('unknown') : `${headroom}%`)}</dd>
-          <div class="memory-meter" aria-hidden="true">
-            <div class="memory-meter-fill meter-${pressureState}" style="width: ${headroom == null ? 0 : Math.min(100, headroom)}%"></div>
-          </div>
-          <small>${e(growing ? mt('growingCount', {count: growing}) : mt('stable'))}</small>
-        </div>
-      </div>
       <div class="memory-metric metric-ram">
-        <div class="memory-metric-head">
-          <span class="memory-metric-icon">${sfSymbol('memorychip')}</span>
-          <span class="memory-metric-badge">${ramPercent}%</span>
-        </div>
-        <div class="memory-metric-body">
-          <dt>${e(mt('ram'))}</dt>
-          <dd>${e(metrics.total ? `${formatBytes(metrics.used)} / ${formatBytes(metrics.total)}` : mt('unknown'))}</dd>
-          <div class="memory-meter" aria-hidden="true">
-            <div class="memory-meter-fill meter-primary" style="width: ${ramPercent}%"></div>
-          </div>
-          <small>${e(mt('rss'))}</small>
-        </div>
+        <div class="memory-metric-line"><dt>${e(mt('ram'))}</dt><dd>${e(metrics.total ? `${formatBytes(metrics.used)} / ${formatBytes(metrics.total)}` : mt('unknown'))}</dd></div>
+        <div class="memory-meter" aria-hidden="true"><div class="memory-meter-fill meter-primary" style="width: ${ramPercent}%"></div></div>
       </div>
       <div class="memory-metric metric-swap">
-        <div class="memory-metric-head">
-          <span class="memory-metric-icon">${sfSymbol('cylinder')}</span>
-        </div>
-        <div class="memory-metric-body">
-          <dt>${e(mt('swap'))}</dt>
-          <dd>${e(metrics.swap == null ? mt('unknown') : formatBytes(metrics.swap))}</dd>
-          <div class="memory-meter" aria-hidden="true">
-            <div class="memory-meter-fill meter-swap" style="width: ${swapPercent}%"></div>
-          </div>
-          <small>${e(mt('systemWide'))}</small>
-        </div>
+        <div class="memory-metric-line"><dt>${e(mt('swap'))}</dt><dd>${e(metrics.swap == null ? mt('unknown') : formatBytes(metrics.swap))}</dd></div>
+        <div class="memory-meter" aria-hidden="true"><div class="memory-meter-fill meter-swap" style="width: ${swapPercent}%"></div></div>
       </div>
-      <div class="memory-metric metric-processes">
-        <div class="memory-metric-head">
-          <span class="memory-metric-icon">${sfSymbol('cpu')}</span>
-          ${growing ? `<span class="memory-metric-badge is-alert">${sfSymbol('chart.line.uptrend.xyaxis')} ${growing}</span>` : ''}
+      <div class="memory-metric metric-pressure is-${pressureState}">
+        <div class="memory-metric-line">
+          <dt>${e(mt('pressure'))}${pressureAlert ? `<span class="memory-pressure-alert">${e(pressureAlert)}</span>` : ''}</dt>
+          <dd>${e(headroom == null ? mt('unknown') : `${headroom}%`)}</dd>
         </div>
-        <div class="memory-metric-body">
-          <dt>${e(mt('processCount'))}</dt>
-          <dd>${e(String(allRows.length))}</dd>
-          <div class="memory-meter" aria-hidden="true">
-            <div class="memory-meter-fill meter-proc" style="width: ${allRows.length ? Math.min(100, Math.round((protectedCount / allRows.length) * 100)) : 0}%"></div>
-          </div>
-          <small>${e(mt('protectedCount', {count: protectedCount}))}</small>
-        </div>
+        <div class="memory-meter" aria-hidden="true"><div class="memory-meter-fill meter-${pressureState}" style="width: ${headroom == null ? 0 : Math.min(100, headroom)}%"></div></div>
       </div>
     `;
   }
@@ -290,7 +249,7 @@ function renderMemory() {
       const iconName = categoryIcon(row);
       const growthClass = row.growing ? 'memory-growth-positive' : '';
       const statusClass = row.protected ? 'is-protected' : row.growing ? 'is-growing' : row.historyReady ? 'is-stable' : 'is-collecting';
-      const statusText = row.protected ? mt(row.protected) : row.growing ? mt('growing') : row.historyReady ? mt('stable') : mt('collecting');
+      const statusText = row.protected ? mt(row.protected) : row.growing ? mt('growing') : '';
 
       return `<tr class="${isChecked ? 'is-selected' : ''}">
         <td class="memory-td-select">
@@ -324,10 +283,7 @@ function renderMemory() {
           </div>
         </td>
         <td>
-          <span class="memory-status ${statusClass}">
-            <span class="memory-status-dot" aria-hidden="true"></span>
-            <span class="memory-status-text">${e(statusText)}</span>
-          </span>
+          ${statusText ? `<span class="memory-status ${statusClass}"><span class="memory-status-dot" aria-hidden="true"></span><span class="memory-status-text">${e(statusText)}</span></span>` : ''}
         </td>
         <td class="memory-td-actions">
           <div class="memory-row-actions">
@@ -624,8 +580,6 @@ function renderMemoryDetails(row, result, scroll = false) {
         <dd><span class="memory-role-tag">${e(mt(row.role))}</span></dd>
       </div>
     </div>
-
-    <p class="memory-note">${e(mt('evidence'))}</p>
 
     <figure class="memory-trend-figure">
       <figcaption>${e(mt('trend'))}</figcaption>

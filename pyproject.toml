@@ -1,6 +1,6 @@
 [project]
 name = "macmaid"
-version = "0.14.10"
+version = "0.14.18"
 description = "Safe, fast macOS cleanup and system maintenance toolkit"
 authors = [
     { name = "TalhaAksoy", email = "talha-_-0@hotmail.com" }

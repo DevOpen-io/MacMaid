@@ -75,7 +75,7 @@ function renderScanResults(scanData) {
         </td>
         <td><span class="table-path">${escapeHtml(item.path || '—')}</span></td>
         <td><span class="badge-status table-status"><span class="pill-dot ${riskBadgeClass}"></span>${escapeHtml(item.risk)}</span></td>
-        <td><span class="table-secondary">${escapeHtml(item.reason)}</span></td>
+        <td class="table-info-cell">${informationButton(item.reason, 'mm-table-info')}</td>
         <td class="table-number">${escapeHtml(item.humanBytes)}</td>
       </tr>
     `;

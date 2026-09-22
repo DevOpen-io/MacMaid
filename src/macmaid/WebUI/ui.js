@@ -173,6 +173,129 @@ function setGauge(circleId, percent) {
 }
 
 // =========================================================
+// Compact information disclosures
+// =========================================================
+
+let informationSourceSequence = 0;
+
+function informationButton(text, extraClass = '') {
+  if (!text) return '';
+  const safeText = escapeHtml(text);
+  return `<button type="button" class="mm-info-button ${extraClass}" data-mm-tooltip="${safeText}" aria-label="${safeText}">${sfSymbol('info.circle')}</button>`;
+}
+
+function enhanceInformationCopy(root = document) {
+  const selector = [
+    '.pane-header .pane-subtitle',
+    '.memory-section-header .memory-note[data-i18n]',
+    '#clean-profile-context',
+    '.card-desc[data-i18n]',
+    '.setting-row .text-muted[data-i18n]',
+    '.mm-info-copy',
+  ].join(',');
+  const sources = [];
+  if (root instanceof Element && root.matches(selector)) sources.push(root);
+  sources.push(...root.querySelectorAll(selector));
+  sources.forEach(source => {
+    if (source.dataset.infoEnhanced === 'true') return;
+    source.dataset.infoEnhanced = 'true';
+    source.id ||= `mm-info-source-${informationSourceSequence++}`;
+    source.classList.add('mm-info-source');
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'mm-info-button';
+    button.dataset.mmTooltipSource = source.id;
+    button.setAttribute('aria-describedby', source.id);
+    button.setAttribute('aria-label', source.textContent.trim());
+    button.innerHTML = sfSymbol('info.circle');
+
+    const directCard = source.matches('.card-desc') && source.parentElement?.matches('.glass-card');
+    const cardHeader = directCard ? source.parentElement.querySelector(':scope > .card-header') : null;
+    if (cardHeader) {
+      cardHeader.appendChild(button);
+      cardHeader.classList.add('mm-info-heading');
+    } else {
+      const parentHasOnlyLabelAndCopy = (source.parentElement?.children.length || 0) <= 2;
+      const canAlignWithLabel = source.matches('.pane-subtitle, .memory-section-header .memory-note, .setting-row .text-muted')
+        || (source.matches('.card-desc') && parentHasOnlyLabelAndCopy);
+      const standaloneCardHeading = source.matches('.card-desc') && !parentHasOnlyLabelAndCopy
+        ? source.parentElement?.querySelector(':scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > strong')
+        : null;
+      if (standaloneCardHeading) standaloneCardHeading.appendChild(button);
+      else source.before(button);
+      if (canAlignWithLabel) source.parentElement?.classList.add('mm-info-heading');
+    }
+    new MutationObserver(() => {
+      button.setAttribute('aria-label', source.textContent.trim());
+    }).observe(source, { childList: true, characterData: true, subtree: true });
+  });
+}
+
+function tooltipText(control) {
+  const sourceId = control.dataset.mmTooltipSource;
+  if (sourceId) return document.getElementById(sourceId)?.textContent?.trim() || '';
+  return control.dataset.mmTooltip || '';
+}
+
+function positionInformationTooltip(control, tooltip) {
+  const text = tooltipText(control);
+  if (!text) return;
+  tooltip.textContent = text;
+  tooltip.hidden = false;
+  tooltip.style.left = '0px';
+  tooltip.style.top = '0px';
+  const controlRect = control.getBoundingClientRect();
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const gutter = 8;
+  const left = Math.min(
+    window.innerWidth - tooltipRect.width - gutter,
+    Math.max(gutter, controlRect.left + (controlRect.width - tooltipRect.width) / 2),
+  );
+  const below = controlRect.bottom + gutter;
+  const top = below + tooltipRect.height <= window.innerHeight - gutter
+    ? below
+    : Math.max(gutter, controlRect.top - tooltipRect.height - gutter);
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${top}px`;
+}
+
+function setupInformationTooltips() {
+  enhanceInformationCopy();
+  new MutationObserver(records => {
+    records.forEach(record => record.addedNodes.forEach(node => {
+      if (node instanceof Element) enhanceInformationCopy(node);
+    }));
+  }).observe(document.body, { childList: true, subtree: true });
+  const tooltip = document.createElement('div');
+  tooltip.className = 'mm-info-tooltip';
+  tooltip.id = 'mm-info-tooltip';
+  tooltip.setAttribute('role', 'tooltip');
+  tooltip.hidden = true;
+  document.body.appendChild(tooltip);
+
+  const findControl = target => target instanceof Element
+    ? target.closest('.mm-info-button')
+    : null;
+  const show = event => {
+    const control = findControl(event.target);
+    if (control) positionInformationTooltip(control, tooltip);
+  };
+  const hide = event => {
+    const control = findControl(event.target);
+    if (!control) return;
+    if (event.type === 'pointerout' && event.relatedTarget instanceof Node && control.contains(event.relatedTarget)) return;
+    tooltip.hidden = true;
+  };
+  document.addEventListener('pointerover', show);
+  document.addEventListener('pointerout', hide);
+  document.addEventListener('focusin', show);
+  document.addEventListener('focusout', hide);
+  window.addEventListener('scroll', () => { tooltip.hidden = true; }, true);
+  window.addEventListener('resize', () => { tooltip.hidden = true; });
+}
+
+// =========================================================
 // Modal dialog
 // =========================================================
 
@@ -208,6 +331,7 @@ function hideModal() {
 
 // Modal dismiss wiring — registered once at DOM ready.
 document.addEventListener('DOMContentLoaded', () => {
+  setupInformationTooltips();
   document.getElementById('modal-close-btn')?.addEventListener('click', hideModal);
   document.getElementById('modal-container')?.addEventListener('click', event => {
     if (event.target.id === 'modal-container') hideModal();

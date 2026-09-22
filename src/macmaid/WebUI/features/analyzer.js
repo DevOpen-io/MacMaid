@@ -277,7 +277,7 @@ function renderTreemap(data) {
       <div class="treemap-summary-row">
         <span><strong>${nodes.length}</strong> ${t('more.items_mapped', 'items mapped')}</span>
         <span>${t('more.total_visible_space', 'Total visible space: ')}<strong>${escapeHtml(data.humanTotal || formatBytes(totalBytes))}</strong></span>
-        <span class="text-muted">${t('more.treemap_hint', 'Tile size scales with disk usage. Click a box to drill into the folder.')}</span>
+        ${informationButton(t('more.treemap_hint', 'Tile size scales with disk usage. Click a box to drill into the folder.'))}
       </div>
       <div class="treemap-canvas" style="height:${height}px;">
         ${rects.map(rect => {

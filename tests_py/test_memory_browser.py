@@ -48,12 +48,35 @@ def test_memory_browser_workflow(tmp_path):
                 page = browser.new_page(viewport={'width':1440, 'height':1000})
                 errors = []
                 page.on('pageerror', lambda error: errors.append(str(error)))
+
+                def capture_surface(name, selector):
+                    """Capture the same shared surface in browser and native-shell modes."""
+                    for shell, native in [('web', False), ('desktop', True)]:
+                        page.evaluate(
+                            "native => { document.documentElement.classList.toggle('is-native-app', native); document.body.classList.toggle('is-native-app', native); }",
+                            native,
+                        )
+                        for theme in ['dark', 'light']:
+                            page.evaluate('(value) => document.documentElement.dataset.theme = value', theme)
+                            page.locator(selector).screenshot(
+                                path=str(OUTPUT / f'{shell}-{name}-{theme}.png'),
+                                animations='disabled',
+                            )
+                    page.evaluate("document.documentElement.classList.remove('is-native-app'); document.body.classList.remove('is-native-app')")
+                    page.evaluate("document.documentElement.dataset.theme = 'dark'")
+
                 # All process mutations target synthetic objects. No monitoring worker runs.
                 page.goto(url, wait_until='domcontentloaded')
                 page.locator('[data-tab="memory"]').click()
                 page.locator('#memory-processes tr').first.wait_for()
                 assert page.locator('#memory-processes tr').count() == 3
                 assert page.locator('input[data-key="1:1.0"]').is_disabled()
+                memory_help = page.locator('.memory-help summary')
+                memory_help.focus()
+                assert memory_help.evaluate('(el) => el === document.activeElement')
+                memory_help.press('Enter')
+                assert page.locator('.memory-help-popover').is_visible()
+                memory_help.press('Enter')
                 for theme in ['dark', 'light', 'midnight', 'cyber']:
                     page.evaluate('(theme) => document.documentElement.dataset.theme = theme', theme)
                     page.wait_for_timeout(500)
@@ -90,6 +113,7 @@ def test_memory_browser_workflow(tmp_path):
                 page.locator('#memory-stop-consent').wait_for()
                 page.wait_for_timeout(500)
                 page.screenshot(path=str(OUTPUT / 'review-stop.png'))
+                capture_surface('review-modal', '.glass-modal')
                 page.locator('#memory-stop-consent').check()
                 page.get_by_role('button', name='Stop selected processes', exact=True).click()
                 page.wait_for_function("document.getElementById('memory-outcome').textContent.includes('Still running')")
@@ -116,6 +140,57 @@ def test_memory_browser_workflow(tmp_path):
                 for control in ['memory-search', 'memory-filter', 'memory-sort']:
                     assert page.locator('#'+control).evaluate('(el) => el.getBoundingClientRect().right <= innerWidth && el.clientWidth >= el.scrollWidth')
                 page.set_viewport_size({'width':1440, 'height':1000})
+                page.locator('[data-tab="memory"]').click()
+                page.evaluate("document.querySelector('.content-container').scrollTop = 0")
+                capture_surface('memory-top', '.memory-overview')
+                capture_surface('memory-table', '.memory-workbench')
+                capture_surface('memory-details', '#memory-details')
+
+                for tab, name in [
+                    ('dashboard', 'system-status'),
+                    ('cleaner', 'clean'),
+                    ('apps', 'applications'),
+                    ('optimize', 'maintenance'),
+                    ('analyzer', 'storage'),
+                    ('purge', 'project-cleanup'),
+                ]:
+                    page.locator(f'[data-tab="{tab}"]').click()
+                    page.wait_for_timeout(300)
+                    capture_surface(name, f'#pane-{tab}')
+
+                page.locator('[data-tab="cleaner"]').click()
+                page.evaluate("document.getElementById('scan-results-box').classList.remove('hidden')")
+                capture_surface('clean-results', '#scan-results-box')
+                page.evaluate("document.getElementById('scan-results-box').classList.add('hidden')")
+                page.evaluate("document.getElementById('cleaner-progress-card').classList.remove('hidden')")
+                capture_surface('progress', '#cleaner-progress-card')
+                page.evaluate("document.getElementById('cleaner-progress-card').classList.add('hidden')")
+
+                page.locator('[data-tab="developer"]').click()
+                for subtab in ['storage', 'caches', 'runtimes', 'environments', 'tools', 'sdks']:
+                    page.locator(f'[data-devsubtab="{subtab}"]').click()
+                    page.wait_for_timeout(200)
+                    capture_surface(f'developer-{subtab}', f'#subpane-dev-{subtab}')
+
+                page.locator('[data-tab="more"]').click()
+                for subtab in [
+                    'leftovers', 'installers', 'treemap', 'browser-storage',
+                    'smart-downloads', 'duplicates', 'large-files', 'snapshots',
+                    'doctor', 'history', 'whitelist',
+                ]:
+                    page.locator(f'[data-subtab="{subtab}"]').click()
+                    page.wait_for_timeout(200)
+                    capture_surface(f'utility-{subtab}', f'#subpane-more-{subtab}')
+
+                page.locator('#settings-btn').click()
+                page.wait_for_timeout(300)
+                capture_surface('settings', '#pane-settings')
+                page.locator('#btn-manage-permissions').click()
+                page.locator('#permission-modal-list').wait_for()
+                capture_surface('permissions', '.glass-modal')
+                page.locator('#modal-close-btn').click()
+
+                page.locator('[data-tab="memory"]').click()
                 page.evaluate("document.getElementById('memory-rules').scrollIntoView()")
                 page.wait_for_timeout(500)
                 page.screenshot(path=str(OUTPUT / 'rules-activity.png'))
