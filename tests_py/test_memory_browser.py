@@ -20,6 +20,8 @@ from macmaid.web import MacMaidHTTPServer, WebState
 
 @pytest.mark.skipif(os.environ.get("MACMAID_BROWSER_TESTS") != "1", reason="Opt-in headless browser test")
 def test_memory_browser_workflow(tmp_path):
+    import base64
+
     from playwright.sync_api import sync_playwright
     OUTPUT = tmp_path / 'captures'
     OUTPUT.mkdir(exist_ok=True)
@@ -44,7 +46,9 @@ def test_memory_browser_workflow(tmp_path):
         url = f'http://127.0.0.1:{server.server_port}'
         try:
             with sync_playwright() as pw, patch('macmaid.memory.psutil.wait_procs', lambda procs, timeout: ([], procs)):
-                browser = pw.chromium.launch(executable_path=shutil.which('chromium'), headless=True)
+                chrome = Path('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
+                executable = shutil.which('chromium') or (str(chrome) if chrome.is_file() else None)
+                browser = pw.chromium.launch(executable_path=executable, headless=True)
                 page = browser.new_page(viewport={'width':1440, 'height':1000})
                 errors = []
                 page.on('pageerror', lambda error: errors.append(str(error)))
@@ -66,10 +70,56 @@ def test_memory_browser_workflow(tmp_path):
                     page.evaluate("document.documentElement.dataset.theme = 'dark'")
 
                 # All process mutations target synthetic objects. No monitoring worker runs.
+                pixel = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==')
+                page.route('**/api/memory/icon?**', lambda route: route.fulfill(status=200, body=pixel, content_type='image/png'))
                 page.goto(url, wait_until='domcontentloaded')
                 page.locator('[data-tab="memory"]').click()
                 page.locator('#memory-processes tr').first.wait_for()
+                page.screenshot(path=str(OUTPUT / 'workspace-dark.png'))
+                # Separate the nested table scrollbar from the page scrollbar
+                # without disabling either scroll region.
+                scroll_edges = page.evaluate('''() => {
+                  const pane = document.getElementById('pane-memory');
+                  const table = pane.querySelector('.memory-table-wrap');
+                  return {
+                    gap: pane.getBoundingClientRect().right - table.getBoundingClientRect().right,
+                    pageOverflow: getComputedStyle(pane).overflowY,
+                    tableOverflow: getComputedStyle(table).overflowY,
+                  };
+                }''')
+                assert scroll_edges['gap'] >= 20, scroll_edges
+                assert scroll_edges['pageOverflow'] == 'auto'
+                assert scroll_edges['tableOverflow'] == 'auto'
                 assert page.locator('#memory-processes tr').count() == 3
+                # The application group uses its real bundle artwork. Missing
+                # icons must reveal the existing category symbol instead.
+                app_row = page.locator('#memory-processes tr[data-group-id^="app:"]')
+                image = app_row.locator('.memory-app-icon')
+                assert image.count() == 1
+                image.evaluate('(img) => { img.loading = "eager"; }')
+                page.wait_for_function("document.querySelector('#memory-processes tr[data-group-id^=\"app:\"] .memory-app-icon').naturalWidth > 0")
+                page.unroute('**/api/memory/icon?**')
+                page.route('**/api/memory/icon?**', lambda route: route.fulfill(status=404, body=''))
+                page.evaluate('renderMemory()')
+                app_row.locator('.memory-app-icon').evaluate('(img) => { img.loading = "eager"; }')
+                page.wait_for_function("document.querySelector('#memory-processes tr[data-group-id^=\"app:\"] .memory-app-icon') === null")
+                assert app_row.locator('.memory-proc-icon .sf').count() == 1
+                icon_positions = page.evaluate('''() => {
+                  const app = document.querySelector('#memory-processes tr[data-group-id^="app:"]');
+                  const process = document.querySelector('#memory-processes tr[data-group-id^="proc:"]');
+                  const expanded = app.cloneNode(true);
+                  expanded.classList.add('memory-group-row');
+                  const disclosure = document.createElement('button');
+                  disclosure.className = 'memory-disclosure';
+                  expanded.querySelector('.memory-proc-info').prepend(disclosure);
+                  app.after(expanded);
+                  const left = row => row.querySelector('.memory-proc-icon').getBoundingClientRect().left;
+                  const positions = [left(app), left(process), left(expanded)];
+                  expanded.remove();
+                  return positions;
+                }''')
+                assert max(icon_positions) - min(icon_positions) < 1, icon_positions
+                page.unroute('**/api/memory/icon?**')
                 assert page.locator('input[data-key="1:1.0"]').is_disabled()
                 memory_help = page.locator('.memory-help summary')
                 memory_help.focus()
@@ -129,6 +179,16 @@ def test_memory_browser_workflow(tmp_path):
                 page.wait_for_timeout(500)
                 page.screenshot(path=str(OUTPUT / 'desktop-turkish.png'))
                 page.evaluate("applyLanguage('en'); renderMemory()")
+                # At compact desktop widths the source list must still expose
+                # every nested destination; a collapsed icon rail loses them.
+                page.set_viewport_size({'width':680, 'height':840})
+                page.locator('[data-tab="developer"]').click()
+                page.locator('[data-devsubtab="sdks"]').click()
+                assert page.locator('#subpane-dev-sdks').is_visible()
+                page.locator('[data-tab="more"]').click()
+                page.locator('[data-subtab="history"]').click()
+                assert page.locator('#subpane-more-history').is_visible()
+                page.locator('[data-tab="memory"]').click()
                 page.set_viewport_size({'width':390, 'height':844})
                 page.evaluate("document.querySelector('.content-container').scrollTop = 0")
                 page.wait_for_timeout(500)
@@ -138,7 +198,7 @@ def test_memory_browser_workflow(tmp_path):
                 page.screenshot(path=str(OUTPUT / 'mobile-light.png'))
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
                 for control in ['memory-search', 'memory-filter', 'memory-sort']:
-                    assert page.locator('#'+control).evaluate('(el) => el.getBoundingClientRect().right <= innerWidth && el.clientWidth >= el.scrollWidth')
+                    assert page.locator('#'+control).evaluate('(el) => el.getBoundingClientRect().right <= innerWidth && el.clientWidth >= el.scrollWidth'), page.locator('#'+control).evaluate('(el) => ({right: el.getBoundingClientRect().right, width: el.clientWidth, scroll: el.scrollWidth, viewport: innerWidth})')
                 page.set_viewport_size({'width':1440, 'height':1000})
                 page.locator('[data-tab="memory"]').click()
                 page.evaluate("document.querySelector('.content-container').scrollTop = 0")
@@ -159,7 +219,14 @@ def test_memory_browser_workflow(tmp_path):
                     capture_surface(name, f'#pane-{tab}')
 
                 page.locator('[data-tab="cleaner"]').click()
+                assert page.locator('.clean-idle-state').is_visible()
+                assert 'Nothing is removed during a scan' in page.locator('.clean-idle-state').inner_text()
+                page.evaluate("applyLanguage('tr')")
+                assert 'Tarama sırasında hiçbir şey silinmez' in page.locator('.clean-idle-state').inner_text()
+                page.evaluate("applyLanguage('en')")
+                page.screenshot(path=str(OUTPUT / 'workspace-clean-light.png'))
                 page.evaluate("document.getElementById('scan-results-box').classList.remove('hidden')")
+                assert not page.locator('.clean-idle-state').is_visible()
                 capture_surface('clean-results', '#scan-results-box')
                 page.evaluate("document.getElementById('scan-results-box').classList.add('hidden')")
                 page.evaluate("document.getElementById('cleaner-progress-card').classList.remove('hidden')")

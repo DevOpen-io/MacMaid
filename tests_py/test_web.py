@@ -150,6 +150,66 @@ def test_app_icon_failed_conversion_is_not_cached(tmp_path: Path, monkeypatch) -
         server.shutdown(); server.server_close(); thread.join()
 
 
+def test_memory_app_icon_only_serves_observed_bundle(tmp_path: Path, monkeypatch) -> None:
+    import plistlib
+
+    from macmaid import web
+    from macmaid.system import CommandResult
+
+    app_path = tmp_path / "Observed.app"
+    resources = app_path / "Contents/Resources"
+    resources.mkdir(parents=True)
+    (app_path / "Contents/MacOS").mkdir()
+    (app_path / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleIconFile": "icon"}))
+    (resources / "icon.icns").write_bytes(b"icns")
+    other_path = tmp_path / "Unobserved.app"
+    other_path.mkdir()
+
+    state = WebState(Config(home=tmp_path))
+    process_key = "123:1.0"
+    state.memory.rows[process_key] = {"exe": str(app_path / "Contents/MacOS/Observed")}
+    server = MacMaidHTTPServer(("127.0.0.1", 0), state)
+    worker = threading.Thread(target=server.serve_forever, daemon=True)
+    worker.start()
+    conversions = []
+
+    def fake_sips(executable, arguments, **kwargs):
+        conversions.append(arguments)
+        Path(arguments[-1]).write_bytes(b"icon-png")
+        return CommandResult(0)
+
+    monkeypatch.setattr(web, "run_command", fake_sips)
+    host = f"127.0.0.1:{server.server_port}"
+    connection = HTTPConnection("127.0.0.1", server.server_port)
+    try:
+        for path, status in ((other_path, 404), (app_path, 200)):
+            connection.request("GET", f"/api/memory/icon?path={quote(str(path))}", headers={"Host": host})
+            response = connection.getresponse()
+            assert response.status == status
+            data = response.read()
+            if status == 200:
+                assert data == b"icon-png"
+        assert len(conversions) == 1
+        # An observed process must not make a malicious bundle plist safe.
+        (app_path / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleIconFile": "../../../secret.icns"}))
+        connection.request("GET", f"/api/memory/icon?path={quote(str(app_path))}", headers={"Host": host})
+        response = connection.getresponse()
+        assert response.status == 404
+        response.read()
+        assert len(conversions) == 1
+        # A stale process must not keep granting access to its bundle icon.
+        with state.memory.lock:
+            state.memory.rows.clear()
+        connection.request("GET", f"/api/memory/icon?path={quote(str(app_path))}", headers={"Host": host})
+        response = connection.getresponse()
+        assert response.status == 404
+        response.read()
+        assert len(conversions) == 1
+    finally:
+        connection.close()
+        server.shutdown(); server.server_close(); worker.join()
+
+
 def test_app_icon_rejects_bundle_controlled_path_escape(tmp_path: Path, monkeypatch) -> None:
     import plistlib
 

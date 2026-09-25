@@ -85,7 +85,9 @@ def test_devcaches_webui_scan_clean_rescan_isolated(monkeypatch, tmp_path):
     url = f"http://127.0.0.1:{server.server_port}"
     try:
         with sync_playwright() as pw:
-            kwargs = {"executable_path": shutil.which("chromium")} if shutil.which("chromium") else {}
+            chrome = Path('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
+            executable = shutil.which('chromium') or (str(chrome) if chrome.is_file() else None)
+            kwargs = {'executable_path': executable} if executable else {}
             browser = pw.chromium.launch(headless=True, **kwargs)
             page = browser.new_page(viewport={"width": 1500, "height": 1000})
             errors = []

@@ -40,6 +40,13 @@ function groupIcon(group) {
   return 'memorychip';
 }
 
+function memoryGroupIcon(group, fallback = groupIcon(group)) {
+  const symbol = sfSymbol(fallback);
+  if (group.kind !== 'application' || !group.bundlePath) return symbol;
+  const url = `/api/memory/icon?path=${encodeURIComponent(group.bundlePath)}`;
+  return `${symbol}<img class="memory-app-icon" src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async">`;
+}
+
 function memoryDuration(seconds) {
   const total = Math.max(0, Math.round(seconds));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
@@ -320,7 +327,7 @@ function renderMemory() {
           </td>
           <td class="memory-td-name">
             <div class="memory-proc-info" title="${e(row.exe || row.name)}">
-              <span class="memory-proc-icon">${sfSymbol(group.kind === 'application' ? 'app' : categoryIcon(row))}</span>
+              <span class="memory-proc-icon">${memoryGroupIcon(group, categoryIcon(row))}</span>
               <div class="memory-proc-text">
                 <strong class="memory-proc-title">${e(group.name !== row.name && group.kind === 'application' ? group.name : row.name)}</strong>
                 <small class="memory-proc-role">${e(mt(row.role))}</small>
@@ -370,7 +377,7 @@ function renderMemory() {
             <button type="button" class="memory-disclosure" data-memory-action="toggle" data-group="${e(group.id)}" aria-expanded="${expanded}" aria-label="${e(mt(expanded ? 'collapseGroup' : 'expandGroup', { count: group.processCount }))}">
               ${sfSymbol('chevron.right')}
             </button>
-            <span class="memory-proc-icon">${sfSymbol(groupIcon(group))}</span>
+            <span class="memory-proc-icon">${memoryGroupIcon(group)}</span>
             <div class="memory-proc-text">
               <strong class="memory-proc-title">${e(group.name)}</strong>
               <small class="memory-proc-role">${e(subtitleBits.join(' · '))}</small>
@@ -415,7 +422,7 @@ function renderMemory() {
           </td>
           <td class="memory-td-name">
             <div class="memory-proc-info memory-child-info" title="${e(row.exe || row.name)}">
-              <span class="memory-proc-icon">${sfSymbol(categoryIcon(row))}</span>
+              <span class="memory-proc-icon">${memoryGroupIcon(group, categoryIcon(row))}</span>
               <div class="memory-proc-text">
                 <span class="memory-proc-title memory-child-title">${e(row.name)}</span>
                 <small class="memory-proc-role">${e(mt(row.role))}</small>
@@ -665,7 +672,7 @@ function renderMemoryGroupDetails(group, scroll = false) {
   target.innerHTML = `
     <div class="memory-details-header">
       <div class="memory-details-title-wrap">
-        <span class="memory-details-icon">${sfSymbol(groupIcon(group))}</span>
+        <span class="memory-details-icon">${memoryGroupIcon(group)}</span>
         <div>
           <h2>${e(group.name)} <span class="memory-pid-pill memory-count-pill">${e(mt('procCount', { count: group.processCount }))}</span></h2>
           <div class="memory-details-path-row">
@@ -866,6 +873,13 @@ document.addEventListener('macmaid-language-change', () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Failed/missing bundle icons reveal the existing SF Symbol. Capture phase
+  // handles image errors without inline handlers or listeners per process row.
+  document.addEventListener('error', event => {
+    if (event.target instanceof HTMLImageElement && event.target.classList.contains('memory-app-icon')) {
+      event.target.remove();
+    }
+  }, true);
   document.querySelector('[data-tab="memory"]')?.addEventListener('click', refreshMemory);
 
   document.getElementById('memory-refresh-btn')?.addEventListener('click', async () => {

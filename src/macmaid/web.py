@@ -23,7 +23,7 @@ from .features import (
     InstalledApplication,
     ProjectArtifact,
 )
-from .memory import MemoryService
+from .memory import MemoryService, bundle_root
 from .models import ScanResult
 from .system import run_command
 
@@ -199,6 +199,8 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             self._static(static_files[parsed.path], head); return
         if parsed.path == "/api/apps/icon":
             self._app_icon(query.get("path", ""), head); return
+        if parsed.path == "/api/memory/icon":
+            self._app_icon(query.get("path", ""), head, memory=True); return
         try:
             response = self._route_get(parsed.path, query)
             self._json(response)
@@ -265,13 +267,24 @@ class MacMaidHandler(BaseHTTPRequestHandler):
         if not head:
             self.wfile.write(data)
 
-    def _app_icon(self, raw_path: str, head: bool) -> None:
+    def _app_icon(self, raw_path: str, head: bool, *, memory: bool = False) -> None:
         requested = self._request_path_key(unquote(raw_path))
-        app = next((item for item in self.server.state.apps if str(item.path) == requested), None)
-        if app is None:
-            self._json({"error": "Application icon not approved"}, 404); return
+        if memory:
+            # A displayed process must currently own the bundle. Never allow
+            # an arbitrary request path to make the server read a local icon.
+            service = self.server.state.memory
+            with service.lock:
+                approved = any(bundle_root(row.get("exe") or "") == requested for row in service.rows.values())
+            if not approved:
+                self._json({"error": "Application icon not approved"}, 404); return
+            app_path = Path(requested)
+        else:
+            app = next((item for item in self.server.state.apps if str(item.path) == requested), None)
+            if app is None:
+                self._json({"error": "Application icon not approved"}, 404); return
+            app_path = app.path
         try:
-            with (app.path / "Contents/Info.plist").open("rb") as handle:
+            with (app_path / "Contents/Info.plist").open("rb") as handle:
                 info = plistlib.load(handle)
             icon_name = str(info.get("CFBundleIconFile") or "")
             if not icon_name:
@@ -283,7 +296,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
             # hostile plist cannot point the icon endpoint outside the app.
             if Path(icon_name).name != icon_name:
                 raise FileNotFoundError
-            resources = app.path / "Contents/Resources"
+            resources = app_path / "Contents/Resources"
             source = resources / icon_name
             if not source.is_file():
                 raise FileNotFoundError
@@ -291,7 +304,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                 raise FileNotFoundError
             signature = source.stat()
             state = self.server.state
-            cached = state.icon_cache.get(str(app.path))
+            cached = state.icon_cache.get(str(app_path))
             if cached is not None and cached[0] == signature.st_mtime_ns and cached[1] == signature.st_size:
                 data = cached[2]
             else:
@@ -301,7 +314,7 @@ class MacMaidHandler(BaseHTTPRequestHandler):
                     if not conversion.succeeded or not output.is_file():
                         raise FileNotFoundError
                     data = output.read_bytes()
-                state.icon_cache[str(app.path)] = (signature.st_mtime_ns, signature.st_size, data)
+                state.icon_cache[str(app_path)] = (signature.st_mtime_ns, signature.st_size, data)
         except (OSError, ValueError, plistlib.InvalidFileException, FileNotFoundError):
             self._json({"error": "Application icon not available"}, 404); return
         self.send_response(200)

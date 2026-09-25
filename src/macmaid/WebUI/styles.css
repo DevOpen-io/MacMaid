@@ -5549,3 +5549,475 @@ body,
 #table-clean-items th:nth-child(3) { width: auto; }
 .memory-section-header .mm-info-heading h2,
 .pane-header .mm-info-heading .pane-title { margin: 0; }
+
+/* Native workspace system: shared by all feature panes and the WKWebView shell.
+   These semantic values intentionally inherit the user's theme and system accent. */
+:root {
+  --space-0: 0;
+  --space-1-5: 6px;
+  --space-3-5: 20px;
+  --space-6: 32px;
+  --radius-row: var(--radius-control);
+  --radius-sheet: 12px;
+  --motion-fast: 120ms;
+  --motion-standard: 180ms;
+  --focus-halo: color-mix(in srgb, var(--accent) 23%, transparent);
+}
+
+.main-body, .content-container, .tab-pane, .sub-pane { min-width: 0; }
+.content-container { padding: var(--space-5) var(--space-6); }
+.is-native-app .content-container { padding-top: var(--space-6) !important; }
+.tab-pane.active, .sub-pane.active { width: 100%; max-width: 1220px; margin-inline: auto; }
+.pane-header, .sub-pane > .pane-header {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-5) !important;
+}
+.pane-header > :first-child { min-width: 0; }
+.pane-title, .sub-pane > .pane-header h3 { font-size: 22px !important; letter-spacing: -.4px; }
+.card-header, .memory-section-header { gap: var(--space-2); }
+.card-header h3, .table-toolbar h3, .memory-section-header h2 { letter-spacing: -.1px; }
+
+/* Keep the full source list usable even in a narrow desktop window. */
+.sidebar { width: 238px; padding: var(--space-2); }
+.sidebar-header { padding: var(--space-2) var(--space-2) var(--space-3); }
+.nav-menu { gap: 2px; scrollbar-gutter: stable; }
+.nav-item { min-height: 34px; height: auto; padding: var(--space-2); }
+.nav-text-group, .nav-main-title { min-width: 0; }
+.nav-main-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.3; }
+.nav-symbol { flex: 0 0 18px; }
+.nav-item.active, .nav-submenu-item.active { color: var(--text-primary); background: var(--surface-selected); }
+.nav-item:hover:not(.active), .nav-submenu-item:hover:not(.active) { background: var(--surface-hover); }
+.nav-submenu-item { min-height: 30px; height: auto; line-height: 1.3; text-align: left; }
+.nav-submenu-item .nav-submenu-symbol { flex: 0 0 14px; }
+.sidebar-footer { margin-top: var(--space-2); padding: var(--space-2); }
+.btn-icon, .btn-icon-xs, .btn-icon-action { min-width: 32px; min-height: 32px; }
+
+/* Compact but comfortable controls, including destructive actions before review. */
+.btn, .mini-btn, .profile-pill, .btn-icon, .nav-item, .nav-submenu-item {
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease, opacity var(--motion-fast) ease;
+}
+.btn:disabled, .mini-btn:disabled, .btn-icon:disabled { pointer-events: none; opacity: .48; }
+.btn-danger, .mini-btn[class*="trash"] { color: var(--danger); }
+.modal-footer .btn-danger { color: #fff; }
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--focus-halo);
+}
+.switch-item:focus-within .switch-toggle,
+.settings-switch:focus-within .switch-toggle { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* A single data density and selected-row treatment across scans and monitoring. */
+.table-container, .memory-table-wrap, .apps-scroll-list { min-width: 0; overflow-x: auto; }
+.data-table, .memory-table { font-variant-numeric: tabular-nums; }
+.data-table th, .memory-table th { white-space: nowrap; }
+.data-table td, .memory-table td { border-bottom: 1px solid var(--separator-subtle); }
+.data-table tbody tr:last-child td, .memory-table tbody tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:has(input:checked), .memory-table tbody tr:has(input:checked) { background: var(--surface-selected); }
+.table-path, .memory-details-path, .operation-current-path { overflow-wrap: anywhere; }
+.table-path { max-width: min(36vw, 520px); }
+.table-number, .memory-number { white-space: nowrap; }
+.empty-state { padding: var(--space-6) var(--space-4); line-height: 1.5; text-align: center; }
+
+/* Scan configuration and settings are grouped rows, not a stack of dashboard tiles. */
+.scan-config-card, .task-card, .memory-overview, .memory-workbench, .memory-panel,
+.settings-card, .doctor-grid > .glass-card { border-radius: var(--radius-grouped); }
+.config-row, .config-switches, .table-toolbar, .memory-actions, .analyzer-bar,
+.analyzer-quick-paths, .settings-card-topline { flex-wrap: wrap; }
+.settings-options .setting-row, .permission-row, .key-val-row { min-height: 42px; }
+.analyzer-input-group, .analyzer-path-input, #treemap-path { min-width: 0; }
+#treemap-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-bar-item { min-width: 0; }
+
+/* Real progress uses either the measured percentage or an indeterminate animation.
+   Never display a static '35%' fill as if it were a measurement. */
+.operation-phase-badge, .inpage-phase-badge { display: inline-flex; align-items: center; }
+.operation-hud-activity { display: flex; gap: var(--space-2); min-width: 0; }
+.operation-current-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inpage-progress-card { gap: var(--space-2); }
+.inpage-progress-track, .operation-hud-track, .progress-bar-track { overflow: hidden; border-radius: var(--radius-full); background: var(--surface-2); }
+.inpage-progress-fill, .operation-hud-track span, .progress-bar-fill { border-radius: inherit; transition: width var(--motion-standard) ease; }
+.inpage-progress-fill.indeterminate, .operation-hud-track span.indeterminate {
+  width: 35% !important;
+  animation: macmaid-indeterminate 1.5s ease-in-out infinite alternate;
+}
+@keyframes macmaid-indeterminate { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+.modal-backdrop { padding: var(--space-4); }
+.glass-modal { max-height: min(85vh, 820px); overflow: auto; border-radius: var(--radius-sheet); }
+.modal-body { overflow-wrap: anywhere; }
+.modal-footer { flex-wrap: wrap; }
+
+@media (max-width: 1040px) {
+  .content-container { padding: var(--space-4) var(--space-5); }
+}
+@media (max-width: 760px) {
+  .sidebar { width: 186px; padding: var(--space-1); }
+  .brand-text-wrap { display: block !important; }
+  .nav-submenu:not([hidden]) { display: none !important; }
+  .nav-item.expanded + .nav-submenu:not([hidden]),
+  .sidebar-filtering .nav-submenu:not([hidden]) { display: flex !important; }
+  .nav-item { justify-content: flex-start; padding: var(--space-2); }
+  .nav-submenu-toggle { display: grid; }
+  .sidebar-search { width: 100%; margin-inline: 0; }
+  .sidebar-search input[type="search"], .sidebar-search input[type="search"]:focus {
+    position: static; width: 100%; padding: 0 8px 0 28px; color: var(--text-primary); cursor: text;
+  }
+  .sidebar-search input[type="search"]::placeholder { color: var(--text-tertiary); }
+  .sidebar-search-empty { display: block !important; }
+  .sidebar-search-empty.hidden { display: none !important; }
+  .content-container { padding: var(--space-3); }
+  .is-native-app .content-container { padding-top: var(--space-5) !important; }
+  .pane-header { align-items: flex-start; }
+  .memory-table, .data-table { min-width: max-content; }
+  .apps-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .sidebar { width: 152px; }
+  .content-container { padding: var(--space-2); }
+  .pane-title, .sub-pane > .pane-header h3 { font-size: 19px !important; }
+  .sidebar-header { padding-inline: var(--space-1); }
+  .nav-submenu { padding-left: var(--space-2); margin-left: var(--space-2); }
+  .nav-submenu-item { font-size: 11px; }
+  .btn, .table-toolbar, .modal-footer { max-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inpage-progress-fill.indeterminate, .operation-hud-track span.indeterminate { animation: none; }
+  .btn, .mini-btn, .profile-pill, .btn-icon, .nav-item, .nav-submenu-item,
+  .inpage-progress-fill, .operation-hud-track span, .progress-bar-fill { transition: none; }
+}
+
+/* MacMaid desktop identity. Theme variants retain their system accent and
+   semantic status colors; only the neutral surfaces and hierarchy change. */
+:root, [data-theme="dark"], [data-theme="midnight"], [data-theme="cyber"] {
+  --bg-app: #1b1b1f;
+  --bg-sidebar: #25252b;
+  --bg-card: #2c2c32;
+  --input-bg: #222227;
+  --surface-window: var(--bg-app);
+  --surface-content: var(--bg-app);
+  --surface-sidebar: var(--bg-sidebar);
+  --surface-grouped: var(--bg-card);
+  --surface-control: var(--input-bg);
+  --surface-0: var(--bg-app);
+  --surface-1: var(--bg-card);
+  --surface-2: #36363e;
+  --surface-hover: #3a3a43;
+  --separator-subtle: rgba(255, 255, 255, .09);
+  --separator-strong: rgba(255, 255, 255, .19);
+  --text-main: #f4f3f7;
+  --text-muted: #bab8c1;
+  --text-dim: #95939f;
+}
+[data-theme="light"] {
+  --bg-app: #f6f5f8;
+  --bg-sidebar: #eae9ef;
+  --bg-card: #fff;
+  --input-bg: #fff;
+  --surface-window: var(--bg-app);
+  --surface-content: var(--bg-app);
+  --surface-sidebar: var(--bg-sidebar);
+  --surface-grouped: var(--bg-card);
+  --surface-control: var(--input-bg);
+  --surface-0: var(--bg-app);
+  --surface-1: var(--bg-card);
+  --surface-2: #f0eef4;
+  --surface-hover: #e5e3ec;
+  --separator-subtle: rgba(36, 31, 55, .085);
+  --separator-strong: rgba(36, 31, 55, .17);
+  --text-main: #24222b;
+  --text-muted: #5b5865;
+  --text-dim: #716e7d;
+}
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    --bg-app: #f6f5f8;
+    --bg-sidebar: #eae9ef;
+    --bg-card: #fff;
+    --input-bg: #fff;
+    --surface-window: var(--bg-app);
+    --surface-content: var(--bg-app);
+    --surface-sidebar: var(--bg-sidebar);
+    --surface-grouped: var(--bg-card);
+    --surface-control: var(--input-bg);
+    --surface-0: var(--bg-app);
+    --surface-1: var(--bg-card);
+    --surface-2: #f0eef4;
+    --surface-hover: #e5e3ec;
+    --separator-subtle: rgba(36, 31, 55, .085);
+    --separator-strong: rgba(36, 31, 55, .17);
+    --text-main: #24222b;
+    --text-muted: #5b5865;
+    --text-dim: #716e7d;
+  }
+}
+
+/* Window + source list: integrated traffic-light reserve in the native shell. */
+html, body, .app-layout, .content-container { background: var(--surface-content); }
+.sidebar {
+  width: 254px;
+  padding: var(--space-3) var(--space-2);
+  background: var(--surface-sidebar);
+  border-right: 1px solid var(--separator-subtle);
+}
+.sidebar-header { gap: var(--space-3); padding: var(--space-2) var(--space-2) var(--space-4); }
+.window-controls-spacer { height: 23px; }
+.brand-block { gap: var(--space-3); padding: var(--space-1) var(--space-2); }
+.brand-logo { width: 36px; height: 36px; border-radius: var(--radius-grouped); }
+.brand-name { font-size: 15px; font-weight: 650; letter-spacing: -.25px; }
+.sidebar-search { height: 32px; }
+.sidebar-search input[type="search"] {
+  height: 32px;
+  min-height: 32px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--surface-content) 65%, var(--surface-sidebar));
+}
+.sidebar-search-icon { top: 9px; }
+.nav-menu { gap: 3px; padding-inline: var(--space-1); }
+.nav-item { min-height: 38px; padding: var(--space-2) var(--space-3); gap: var(--space-3); border-radius: var(--radius-row); }
+.nav-symbol, .nav-item.active .nav-symbol { color: var(--accent); }
+.nav-symbol .sf { width: 17px; height: 17px; }
+.nav-main-title { font-size: 13px; font-weight: 500; }
+.nav-item.active, .nav-submenu-item.active {
+  color: var(--text-primary);
+  background: var(--surface-selected);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.nav-item.active .nav-main-title { font-weight: 600; }
+.nav-item:active, .nav-submenu-item:active { background: var(--surface-selected); }
+.nav-submenu { margin: var(--space-1) 0 var(--space-2) var(--space-4); padding: var(--space-1) 0 var(--space-1) var(--space-3); }
+.nav-submenu-category {
+  display: block !important;
+  margin: var(--space-3) 0 var(--space-1) var(--space-2);
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+.nav-submenu-item { min-height: 32px; padding: var(--space-1) var(--space-2); font-size: 12px; border-radius: var(--radius-row); }
+.nav-submenu-symbol .sf { width: 13px; height: 13px; }
+.sidebar-footer { padding: var(--space-2); }
+.sidebar-tools-row { gap: var(--space-1); }
+.sidebar-footer .btn-icon { width: 34px; height: 34px; }
+
+/* Every destination uses the same page masthead and section cadence. */
+.content-container { padding: var(--space-6) clamp(20px, 3.5vw, 48px); }
+.is-native-app .content-container { padding-top: 42px !important; }
+.tab-pane.active, .sub-pane.active { max-width: 1120px; }
+.pane-header, .sub-pane > .pane-header {
+  min-height: 64px;
+  align-items: center;
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-5) !important;
+  border-bottom: 1px solid var(--separator-subtle);
+}
+.pane-title, .sub-pane > .pane-header h3 {
+  font-size: 27px !important;
+  font-weight: 650 !important;
+  letter-spacing: -.7px;
+}
+.pane-header .pane-subtitle.mm-info-source,
+.pane-header .pane-subtitle.essential-copy.mm-info-source {
+  display: block !important;
+  margin-top: var(--space-1);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.pane-header .mm-info-button { display: none; }
+.card-header h3, .table-toolbar h3, .memory-section-header h2 { font-size: 14px; font-weight: 600; }
+.glass-card { margin-bottom: var(--space-4); }
+
+/* Strong scan actions, quiet tools, and explicit destructive review actions. */
+.btn, .mini-btn { border-radius: var(--radius-control); }
+.btn-primary, .pane-header > .btn-primary, .sub-pane > .pane-header .btn-primary,
+.btn-hero-scan {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.btn-primary:hover, .pane-header > .btn-primary:hover,
+.sub-pane > .pane-header .btn-primary:hover, .btn-hero-scan:hover {
+  color: #fff;
+  background: color-mix(in srgb, var(--accent) 85%, white);
+  border-color: transparent;
+}
+.btn-primary:active, .btn-hero-scan:active { background: color-mix(in srgb, var(--accent) 80%, black); }
+.btn-secondary, .mini-btn { background: var(--surface-grouped); }
+.btn-secondary:hover, .mini-btn:hover { background: var(--surface-hover); }
+.btn-danger { color: var(--danger); background: color-mix(in srgb, var(--danger) 7%, transparent); }
+.btn-danger:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.modal-footer .btn-danger { color: #fff; background: var(--danger); }
+.btn:disabled, .btn-primary:disabled { color: var(--text-tertiary); background: var(--surface-2); border-color: var(--separator-subtle); }
+.profile-pills { background: var(--surface-2); }
+.profile-pill.active { background: var(--surface-grouped); box-shadow: 0 1px 3px color-mix(in srgb, #000 12%, transparent); }
+input[type="checkbox"] { width: 16px; height: 16px; }
+
+/* Grouped settings, configuration, health, and permission surfaces. */
+.scan-config-card, .task-card, .memory-overview, .memory-workbench, .memory-panel,
+#pane-settings .settings-card, .doctor-grid > .glass-card, .gauges-grid,
+.health-indicators-grid, .dash-widgets-grid > .glass-card {
+  border: 1px solid var(--separator-subtle);
+  border-radius: 11px;
+  background: var(--surface-grouped);
+  box-shadow: 0 1px 2px color-mix(in srgb, #000 5%, transparent);
+}
+.scan-config-card { padding: var(--space-5); }
+.config-row { gap: var(--space-4); }
+.config-switches { gap: var(--space-4); border-top: 1px solid var(--separator-subtle); padding-top: var(--space-4); }
+.task-card { padding: var(--space-4); }
+.task-card:hover { background: var(--surface-grouped); border-color: var(--separator-strong); }
+#pane-settings .settings-card { overflow: hidden; margin-bottom: var(--space-4); }
+.settings-card-topline { padding: var(--space-3) var(--space-4); }
+.settings-options .setting-row, .settings-options-surface .setting-row-premium { padding: var(--space-3) var(--space-4); }
+.permissions-card { padding: var(--space-4) !important; }
+.memory-overview { max-width: none; padding: var(--space-3) var(--space-4); }
+.memory-metric + .memory-metric { border-left: 1px solid var(--separator-subtle); padding-left: var(--space-4); }
+.memory-workbench-head, .memory-toolbar { padding-inline: var(--space-4); }
+.memory-actions { padding-inline: var(--space-4); }
+.memory-table-footnote { display: block; padding: var(--space-2) var(--space-4); color: var(--text-secondary); }
+.memory-proc-icon { display: grid; place-items: center; margin-right: var(--space-2); color: var(--accent); }
+.memory-rss-cell .memory-bar-track, .memory-cpu-cell .memory-bar-track { display: block; }
+.memory-table tbody tr:nth-child(even) { background: transparent; }
+.memory-table tbody tr:hover { background: var(--surface-hover); }
+.memory-table tbody tr:has(input:checked) { background: var(--surface-selected); }
+
+/* Filesystem and inventory rows: a clear location, compact metadata. */
+.analyzer-bar { padding: var(--space-3); }
+.analyzer-input-group { flex: 1 1 230px; }
+.analyzer-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-grouped);
+  background: var(--surface-grouped);
+}
+#analyzer-current-path { min-width: 0; overflow-wrap: anywhere; }
+.folder-bar-item { padding: var(--space-3) var(--space-2); }
+.folder-bar-item:hover { background: var(--surface-hover); }
+#pane-analyzer .tab-hero-state, .tab-hero-state {
+  padding: var(--space-6) var(--space-4);
+  border-radius: var(--radius-grouped);
+  background: var(--surface-grouped);
+}
+.hero-state-symbol { display: grid; place-items: center; color: var(--accent); }
+.tab-hero-state .hero-state-title { display: block; }
+.apps-layout { border: 1px solid var(--separator-subtle); border-radius: 11px; }
+.app-item-card.selected { box-shadow: inset 3px 0 0 var(--accent); }
+.results-summary-card { padding: var(--space-4); border-radius: 11px; background: var(--surface-grouped); }
+#pane-developer .data-table th, #pane-more .data-table th,
+#pane-purge .data-table th, .data-table th, .memory-table th { background: var(--surface-2); }
+.data-table td, .memory-table td { height: 38px; }
+.data-table tbody tr:hover, .memory-table tbody tr:hover { background: var(--surface-hover); }
+.table-path { max-width: min(36vw, 480px); }
+.treemap-canvas { border: 1px solid var(--separator-subtle); background: var(--surface-grouped); }
+.inpage-progress-card { padding: var(--space-4); border: 1px solid var(--separator-subtle); }
+.glass-modal { border: 1px solid var(--separator-strong); }
+
+@media (max-width: 1040px) {
+  .content-container { padding: var(--space-5); }
+  .pane-title, .sub-pane > .pane-header h3 { font-size: 24px !important; }
+}
+@media (max-width: 760px) {
+  .sidebar { width: 186px; padding: var(--space-1); }
+  .content-container { padding: var(--space-3); }
+  .brand-logo { width: 28px; height: 28px; }
+  .brand-name { font-size: 13px; }
+  .nav-item { padding-inline: var(--space-2); }
+  .pane-header { min-height: 0; }
+  .scan-config-card { padding: var(--space-3); }
+  .memory-metric + .memory-metric { padding-left: var(--space-2); }
+  .memory-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .memory-search-field { grid-column: 1 / -1; }
+  .gauges-grid { grid-template-columns: 1fr; }
+  .gauges-grid .gauge-card { border-right: 0; border-bottom: 1px solid var(--separator-subtle); }
+}
+/* The first Clean visit is a deliberate state, not an empty page. CSS ties its
+   visibility to existing scan/progress surfaces, without changing scan state. */
+.clean-idle-state {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 240px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-secondary);
+}
+.clean-idle-icon {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  margin-bottom: var(--space-4);
+  border-radius: 14px;
+  color: var(--accent);
+  background: var(--surface-selected);
+}
+.clean-idle-icon .sf { width: 24px; height: 24px; }
+.clean-idle-state h2 { margin-bottom: var(--space-2); color: var(--text-primary); font-size: 16px; font-weight: 600; }
+.clean-idle-state p { max-width: 370px; line-height: 1.55; }
+#pane-cleaner:has(#scan-results-box:not(.hidden)) .clean-idle-state,
+#pane-cleaner:has(#cleaner-progress-card:not(.hidden)) .clean-idle-state { display: none; }
+#btn-start-scan, #btn-run-analyzer { color: #fff; background: var(--accent); border-color: var(--accent); }
+#btn-start-scan:hover, #btn-run-analyzer:hover {
+  color: #fff;
+  background: color-mix(in srgb, var(--accent) 85%, white);
+  border-color: transparent;
+}
+#btn-start-scan:disabled, #btn-run-analyzer:disabled {
+  color: var(--text-tertiary);
+  background: var(--surface-2);
+  border-color: var(--separator-subtle);
+}
+#pane-settings .permissions-card {
+  padding: var(--space-4) !important;
+  border: 1px solid var(--separator-subtle);
+  border-radius: 11px;
+  background: var(--surface-grouped);
+}
+@media (max-width: 520px) {
+  .sidebar { width: 152px; }
+  .content-container { padding: var(--space-2); }
+  .pane-title, .sub-pane > .pane-header h3 { font-size: 20px !important; }
+  .scan-config-card { padding: var(--space-2); }
+  .memory-metrics { grid-template-columns: 1fr; }
+  .memory-metric + .memory-metric { border-left: 0; border-top: 1px solid var(--separator-subtle); padding: var(--space-2) 0 0; }
+  .memory-toolbar { grid-template-columns: 1fr; }
+  .clean-idle-state { min-height: 190px; padding: var(--space-4); }
+}
+
+/* Give nested scroll regions distinct edges. The page still reaches rules
+   and activity below the table; the table still handles long process lists. */
+#pane-memory.active { padding-right: var(--space-5); scrollbar-gutter: stable; }
+#pane-memory .memory-table-wrap { scrollbar-gutter: stable; }
+@media (max-width: 760px) {
+  #pane-memory.active { padding-right: var(--space-3); }
+}
+
+/* Reserve the same disclosure gutter in every top-level process row.
+   Multi-process app arrows sit in that gutter; single processes leave it empty. */
+.memory-proc-info:not(.memory-child-info) { position: relative; padding-left: 20px; }
+.memory-proc-info:not(.memory-child-info) > .memory-disclosure {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Genuine macOS app artwork is layered over the SF Symbol fallback. Non-app
+   processes and bundles without an accessible icon keep their category symbol. */
+.memory-proc-icon, .memory-details-icon { position: relative; overflow: hidden; }
+.memory-app-icon {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: inherit;
+  background: var(--surface-grouped);
+}
