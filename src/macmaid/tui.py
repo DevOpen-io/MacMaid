@@ -29,7 +29,7 @@ from .config import Config
 from .developer import DeveloperInventory, DeveloperItem, DeveloperStorageCenter, DeveloperStorageSection
 from .duplicates import DuplicateFinder
 from .large_files import LargeOldFileScanner
-from .memory import MemoryService
+from .memory import MemoryService, MAX_MEMORY_ACTIONS
 from .i18n import DEFAULT_LANGUAGE, translate
 from .smart_downloads import SmartDownloadsScanner
 from .features import (
@@ -307,6 +307,7 @@ class MacMaidTUI(App[None]):
         self._status_running = threading.Event()
         self.memory = MemoryService(self.config, threading.Lock())
         self.memory_rows: list[dict[str, Any]] = []
+        self.memory_expanded: set[str] = set()
         self._memory_running = threading.Event()
         self.operation_done = False
         self.operation_lines: list[str] = []
@@ -474,7 +475,7 @@ class MacMaidTUI(App[None]):
             "memory", "Memory", "Process memory evidence. Growth is not a confirmed leak and RSS is not a reclaim estimate.",
             Static("Collecting process memory…", id="memory-state", classes="state busy"),
             DataTable(id="memory-table", zebra_stripes=True),
-            Static("Protected processes cannot be selected. Enter reviews SIGTERM; D reviews SIGKILL only after a normal stop attempt.", id="memory-detail", classes="detail", markup=False),
+            Static("Protected processes cannot be stopped. Enter expands a group or reviews a process; Space reviews a group's eligible processes.", id="memory-detail", classes="detail", markup=False),
             Static("↑↓ Navigate · Enter Review & Stop · D Review Force Stop · R Refresh · Esc Back", classes="hint"),
         )
 
@@ -568,7 +569,7 @@ class MacMaidTUI(App[None]):
             "more-table": ("Seç", "Risk", "Boyut", "Öğe", "Konum"),
             "whitelist-table": ("Korunan yol veya glob",),
             "whitelist-suggestions": ("Eşleşen konumlar",),
-            "memory-table": ("RSS", "Growth", "CPU", "Status", "PID", "Process"),
+            "memory-table": ("Memory", "Growth", "CPU", "Status", "PID", "Application / Process"),
         }
         for table_id, labels in columns.items():
             table = self.query_one(f"#{table_id}", DataTable)
@@ -1231,6 +1232,9 @@ class MacMaidTUI(App[None]):
         table = self.focused
         if not isinstance(table, DataTable) or not table.row_count: return
         mapping = {"clean-table": (self.clean_selected, self._render_clean), "components-table": (self.component_selected, self._render_components), "purge-table": (self.purge_selected, self._render_projects), "developer-table": (self.dev_selected, self._render_developer), "optimize-table": (self.optimize_selected, self._render_optimize), "more-table": (self.more_selected, self._render_more_scan)}
+        if table.id == "memory-table":
+            self._confirm_memory_stop(expand_groups=False)
+            return
         if table.id not in mapping: return
         if table.id == "developer-table" and not self.dev_cache_result: self._warn("Çoklu seçim yalnız cache görünümünde"); return
         self.pending_confirmation = None
@@ -1276,20 +1280,39 @@ class MacMaidTUI(App[None]):
         elif table_id == "more-table" and self.more_result and 0 <= row < len(self.more_result.items):
             item = self.more_result.items[row]; text = f"{item.reason}\n{item.path or item.action.kind.value}"
         elif table_id == "memory-table" and 0 <= row < len(self.memory_rows):
-            p = self.memory_rows[row]
-            rss = human_bytes(p.get("rssBytes", 0)) if p.get("rssBytes") is not None else "?"
-            delta = p.get("growthBytes")
-            if delta is not None:
-                growth_str = ("+" if delta >= 0 else "-") + human_bytes(abs(delta))
+            entry = self.memory_rows[row]
+            group = entry.get("group") or {}
+            if entry["kind"] == "group":
+                metric = "physical footprint" if group.get("memoryMetric") == "physical_footprint" else "RSS total" if group.get("memoryMetric") == "rss" else "unavailable"
+                mem = human_bytes(group["memoryBytes"]) if group.get("memoryBytes") is not None else "?"
+                rss_total = human_bytes(group["rssBytes"]) if group.get("rssBytes") is not None else "?"
+                delta = group.get("growthBytes")
+                if delta is not None:
+                    tag = " fp" if group.get("growthMetric") == "physical_footprint" else ""
+                    growth_str = ("+" if delta >= 0 else "-") + human_bytes(abs(delta)) + tag
+                    if group.get("growing"):
+                        growth_str += " (growing)"
+                else:
+                    growth_str = "stable" if group.get("allHistoryReady") else "collecting"
+                bundle = group.get("bundlePath") or ""
+                text = (f"{group.get('name')} · {group.get('processCount')} processes · Memory: {mem} ({metric}) · RSS total: {rss_total} · Growth: {growth_str}\n"
+                        f"Eligible to stop: {group.get('eligibleCount', 0)}/{group.get('processCount', 0)}"
+                        + (f"\n{bundle}" if bundle else ""))
             else:
-                progress = _memory_growth_progress(p, 0)
-                growth_str = f"collecting {progress}" if progress is not None else "unavailable"
-            cpu = f"{p.get('cpuPercent', 0.0):.1f}%" if p.get("cpuPercent") is not None else "?"
-            status = p.get("protected") or ("growing" if p.get("growing") else "stable" if p.get("historyReady") else "collecting")
-            role = f" · Role: {p['role']}" if p.get("role") else ""
-            entry = f" [{p['entrypoint']}]" if p.get("entrypoint") else ""
-            exe_path = p.get("exe") or "unknown path"
-            text = f"{p['name']}{entry} (PID {p['pid']}) · RSS: {rss} · Growth: {growth_str} · CPU: {cpu} · Status: {status}{role}\nPath: {exe_path}"
+                p = entry.get("row") or {}
+                rss = human_bytes(p.get("rssBytes", 0)) if p.get("rssBytes") is not None else "?"
+                delta = p.get("growthBytes")
+                if delta is not None:
+                    growth_str = ("+" if delta >= 0 else "-") + human_bytes(abs(delta))
+                else:
+                    progress = _memory_growth_progress(p, 0)
+                    growth_str = f"collecting {progress}" if progress is not None else "unavailable"
+                cpu = f"{p.get('cpuPercent', 0.0):.1f}%" if p.get("cpuPercent") is not None else "?"
+                status = p.get("protected") or ("growing" if p.get("growing") else "stable" if p.get("historyReady") else "collecting")
+                role = f" · Role: {p['role']}" if p.get("role") else ""
+                entrypoint = f" [{p['entrypoint']}]" if p.get("entrypoint") else ""
+                exe_path = p.get("exe") or "unknown path"
+                text = f"{p['name']}{entrypoint} (PID {p['pid']}) · RSS: {rss} · Growth: {growth_str} · CPU: {cpu} · Status: {status}{role}\nPath: {exe_path}"
         if text:
             detail.update(text)
 
@@ -1827,63 +1850,123 @@ class MacMaidTUI(App[None]):
         self._memory_running.set()
         try:
             self.memory.sample()
+            self.memory.refresh_footprints()
             self.call_from_thread(self._finish_memory, self.memory.snapshot(), None)
         except Exception as exc:
             self.call_from_thread(self._memory_failed, str(exc))
         finally:
             self._memory_running.clear()
 
+    def _memory_entry_row(self, row: dict[str, Any]) -> tuple[Text, Text, Text, Text, Text, Text]:
+        rss_val = row.get("rssBytes")
+        rss_text = "?" if rss_val is None else human_bytes(rss_val)
+        rss_cell = Text(rss_text, style="bold #d2a8ff" if (rss_val or 0) > 1024**3 else "#c9d1d9")
+
+        delta = row.get("growthBytes")
+        if delta is None:
+            progress = _memory_growth_progress(row, self.size.width)
+            growth_cell = Text(progress if progress is not None else "unavailable", style="dim")
+        elif row.get("growing"):
+            growth_cell = Text(f"+{human_bytes(abs(delta))} ^", style="bold #e3b341")
+        elif delta < 0:
+            growth_cell = Text(f"-{human_bytes(abs(delta))}", style="#57ab5a")
+        else:
+            growth_cell = Text(f"+{human_bytes(abs(delta))}", style="dim")
+
+        cpu_val = row.get("cpuPercent")
+        if cpu_val is None:
+            cpu_cell = Text("?", style="dim")
+        elif cpu_val >= 20.0:
+            cpu_cell = Text(f"{cpu_val:.1f}%", style="bold #f85149")
+        elif cpu_val >= 5.0:
+            cpu_cell = Text(f"{cpu_val:.1f}%", style="#e3b341")
+        else:
+            cpu_cell = Text(f"{cpu_val:.1f}%", style="#56d364")
+
+        prot = row.get("protected")
+        if prot:
+            status_cell = Text(f"* {prot}", style="dim")
+        elif row.get("growing"):
+            status_cell = Text("! growing", style="bold #e3b341")
+        elif row.get("historyReady"):
+            status_cell = Text("+ stable", style="#57ab5a")
+        else:
+            status_cell = Text("~ collecting", style="dim")
+
+        pid_cell = Text(str(row["pid"]), style="#79c0ff")
+        return rss_cell, growth_cell, cpu_cell, status_cell, pid_cell, Text(row["name"], style="bold" if row.get("growing") else "")
+
     def _finish_memory(self, snapshot: dict[str, Any], outcome: str | None) -> None:
         cursor = self.query_one("#memory-table", DataTable).cursor_row
-        self.memory_rows = sorted(snapshot.get("processes", []), key=lambda row: row.get("rssBytes") or -1, reverse=True)
+        groups = snapshot.get("groups") or self.memory.groups_for(snapshot.get("processes", []))
+        groups = sorted(groups, key=lambda group: group.get("memoryBytes") or -1, reverse=True)
         table = self.query_one("#memory-table", DataTable)
         table.clear()
-        growing_count = sum(1 for row in self.memory_rows if row.get("growing"))
-        for row in self.memory_rows:
-            rss_val = row.get("rssBytes")
-            rss_text = "?" if rss_val is None else human_bytes(rss_val)
-            rss_cell = Text(rss_text, style="bold #d2a8ff" if (rss_val or 0) > 1024**3 else "#c9d1d9")
-
-            delta = row.get("growthBytes")
+        self.memory_rows = []
+        for group in groups:
+            children = group.get("children", [])
+            if not children:
+                continue
+            if len(children) == 1:
+                row = children[0]
+                if group.get("growthMetric") == "physical_footprint":
+                    # The group's measured footprint growth is more accurate
+                    # than the child's RSS history (compressed pages stay
+                    # invisible to RSS); show it on the single row.
+                    row = {**row, "growthBytes": group.get("growthBytes"), "growing": group.get("growing"),
+                           "historyReady": group.get("allHistoryReady"),
+                           "growthWindowElapsedSeconds": group.get("growthWindowElapsedSeconds"),
+                           "growthWindowRemainingSeconds": group.get("growthWindowRemainingSeconds"),
+                           "growthWindowProgress": group.get("growthWindowProgress")}
+                rss_cell, growth_cell, cpu_cell, status_cell, pid_cell, name_cell = self._memory_entry_row(row)
+                if group.get("memoryMetric") == "physical_footprint" and group.get("memoryBytes") is not None:
+                    rss_cell = Text(human_bytes(group["memoryBytes"]), style="bold #d2a8ff" if group["memoryBytes"] > 1024**3 else "#c9d1d9")
+                table.add_row(rss_cell, growth_cell, cpu_cell, status_cell, pid_cell, name_cell)
+                self.memory_rows.append({"kind": "process", "row": row, "group": group})
+                continue
+            mem = group.get("memoryBytes")
+            metric = group.get("memoryMetric")
+            if mem is None:
+                mem_text = "?"
+            else:
+                tag = " fp" if metric == "physical_footprint" else " rss"
+                mem_text = f"{human_bytes(mem)}{tag}"
+            mem_cell = Text(mem_text, style="bold #d2a8ff" if (mem or 0) > 1024**3 else "#c9d1d9")
+            delta = group.get("growthBytes")
             if delta is None:
-                progress = _memory_growth_progress(row, self.size.width)
-                growth_cell = Text(progress if progress is not None else "unavailable", style="dim")
-            elif row.get("growing"):
+                progress = _memory_growth_progress(group, self.size.width)
+                growth_cell = Text(progress or ("~ collecting" if not group.get("allHistoryReady") else ""), style="dim")
+            elif group.get("growing") or group.get("growingCount"):
                 growth_cell = Text(f"+{human_bytes(abs(delta))} ^", style="bold #e3b341")
-            elif delta < 0:
-                growth_cell = Text(f"-{human_bytes(abs(delta))}", style="#57ab5a")
             else:
-                growth_cell = Text(f"+{human_bytes(abs(delta))}", style="dim")
-
-            cpu_val = row.get("cpuPercent")
-            if cpu_val is None:
-                cpu_cell = Text("?", style="dim")
-            elif cpu_val >= 20.0:
-                cpu_cell = Text(f"{cpu_val:.1f}%", style="bold #f85149")
-            elif cpu_val >= 5.0:
-                cpu_cell = Text(f"{cpu_val:.1f}%", style="#e3b341")
+                growth_cell = Text(f"{'+' if delta >= 0 else '-'}{human_bytes(abs(delta))}", style="dim")
+            cpu_val = group.get("cpuPercent")
+            cpu_cell = Text("?", style="dim") if cpu_val is None else Text(f"{cpu_val:.1f}%", style="#c9d1d9")
+            if group.get("protectedCount") == group.get("processCount"):
+                status_cell = Text("* protected", style="dim")
+            elif group.get("growing") or group.get("growingCount"):
+                status_cell = Text(f"! {max(1, group.get('growingCount', 0))} growing", style="bold #e3b341")
             else:
-                cpu_cell = Text(f"{cpu_val:.1f}%", style="#56d364")
-
-            prot = row.get("protected")
-            if prot:
-                status_cell = Text(f"* {prot}", style="dim")
-            elif row.get("growing"):
-                status_cell = Text("! growing", style="bold #e3b341")
-            elif row.get("historyReady"):
-                status_cell = Text("+ stable", style="#57ab5a")
-            else:
-                status_cell = Text("~ collecting", style="dim")
-
-            pid_cell = Text(str(row["pid"]), style="#79c0ff")
-            name_cell = Text(row["name"], style="bold" if row.get("growing") else "")
-            table.add_row(rss_cell, growth_cell, cpu_cell, status_cell, pid_cell, name_cell)
+                status_cell = Text("", style="dim")
+            count_cell = Text(f"{group['processCount']} proc", style="#79c0ff")
+            expanded = group["id"] in self.memory_expanded
+            name_cell = Text(f"{'v' if expanded else '>'} {group['name']}", style="bold")
+            table.add_row(mem_cell, growth_cell, cpu_cell, status_cell, count_cell, name_cell)
+            self.memory_rows.append({"kind": "group", "row": None, "group": group})
+            if expanded:
+                for row in children:
+                    rss_cell, growth_cell, cpu_cell, status_cell, pid_cell, name_cell = self._memory_entry_row(row)
+                    name_cell = Text(f"  - {row['name']}", style="#c9d1d9")
+                    table.add_row(rss_cell, growth_cell, cpu_cell, status_cell, pid_cell, name_cell)
+                    self.memory_rows.append({"kind": "child", "row": row, "group": group})
         self._restore_cursor(table, cursor)
         if table.row_count:
             active_row = min(cursor or 0, table.row_count - 1)
             self._update_row_detail("memory-table", active_row)
         metrics = snapshot.get("metrics", {})
-        summary = f"{len(self.memory_rows)} processes"
+        proc_total = sum(group.get("processCount", 0) for group in groups)
+        summary = f"{len(groups)} groups · {proc_total} processes"
+        growing_count = sum(max(1, group.get("growingCount", 0)) for group in groups if group.get("growing") or group.get("growingCount"))
         if growing_count:
             summary += f" · {growing_count} growing"
         if metrics.get("total"):
@@ -1905,41 +1988,70 @@ class MacMaidTUI(App[None]):
         table = self.query_one("#memory-table", DataTable)
         return self.memory_rows[table.cursor_row] if table.row_count and 0 <= table.cursor_row < len(self.memory_rows) else None
 
-    def _confirm_memory_stop(self, force: bool = False) -> None:
-        row = self._memory_row()
-        if row is None:
+    def _toggle_memory_group(self) -> bool:
+        entry = self._memory_row()
+        if entry is None or entry["kind"] != "group":
+            return False
+        group_id = entry["group"]["id"]
+        if group_id in self.memory_expanded:
+            self.memory_expanded.discard(group_id)
+        else:
+            self.memory_expanded.add(group_id)
+        self._load_memory()
+        return True
+
+    def _memory_review_keys(self, entry: dict[str, Any]) -> list[str]:
+        if entry["kind"] == "group":
+            return [row["key"] for row in entry["group"].get("children", []) if not row.get("protected")][:MAX_MEMORY_ACTIONS]
+        row = entry.get("row")
+        return [row["key"]] if row is not None and not row.get("protected") else []
+
+    def _confirm_memory_stop(self, force: bool = False, expand_groups: bool = True) -> None:
+        entry = self._memory_row()
+        if entry is None:
             self._warn("Choose a process first")
             return
-        if row.get("protected"):
-            self._warn(f"Protected process: {row['protected']}")
+        if expand_groups and entry["kind"] == "group" and not force:
+            if self._toggle_memory_group():
+                return
+        if force and entry["kind"] == "group":
+            self._warn("Expand the group and force-stop a specific process")
             return
-        key = row["key"]
+        keys = self._memory_review_keys(entry)
+        if not keys:
+            row = entry.get("row")
+            if row is not None and row.get("protected"):
+                self._warn(f"Protected process: {row['protected']}")
+            else:
+                self._warn("No eligible processes in this group")
+            return
         try:
-            plan = self.memory.review([key], force=force)
+            plan = self.memory.review(keys, force=force)
         except (OSError, ValueError, PermissionError) as exc:
             self._warn(str(exc))
             return
-        self._confirm(plan, lambda: self._start_memory_stop(key, force), lambda: self._current_memory_plan(key, force))
+        self._confirm(plan, lambda: self._start_memory_stop(keys, force), lambda: self._current_memory_plan(keys, force))
 
-    def _current_memory_plan(self, key: str, force: bool) -> ReviewPlan:
+    def _current_memory_plan(self, keys: list[str], force: bool) -> ReviewPlan:
         try:
-            return self.memory.review([key], force=force)
+            return self.memory.review(keys, force=force)
         except (OSError, PermissionError) as exc:
             raise ValueError("process identity or protection changed") from exc
 
-    def _start_memory_stop(self, key: str, force: bool) -> None:
+    def _start_memory_stop(self, keys: list[str], force: bool) -> None:
         self.current_page = "memory"
         self.query_one("#pages", ContentSwitcher).current = "page-memory"
-        self._set_state("memory", "Waiting for the reviewed process to stop…")
-        self._memory_stop_worker(key, force)
+        self._set_state("memory", "Waiting for the reviewed processes to stop…")
+        self._memory_stop_worker(keys, force)
 
     @work(thread=True, exclusive=True, group="memory-stop")
-    def _memory_stop_worker(self, key: str, force: bool) -> None:
+    def _memory_stop_worker(self, keys: list[str], force: bool) -> None:
         try:
-            result = self.memory.stop([key], force=force)
+            result = self.memory.stop(keys, force=force)
             self.memory.sample()
-            item = result["outcomes"][0]
-            message = f"{item.get('name', item['key'])}: {item['outcome']}"
+            message = " · ".join(f"{item.get('name', item['key'])}: {item['outcome']}" for item in result["outcomes"][:6])
+            if len(result["outcomes"]) > 6:
+                message += f" · +{len(result['outcomes']) - 6} more"
             self.call_from_thread(self._finish_memory_stop, self.memory.snapshot(), message)
         except Exception as exc:
             self.call_from_thread(self._memory_failed, str(exc))

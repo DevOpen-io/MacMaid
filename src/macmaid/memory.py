@@ -5,6 +5,7 @@ import copy
 import json
 import math
 import os
+import plistlib
 import re
 import secrets
 import statistics
@@ -13,7 +14,7 @@ import time
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import psutil
 
@@ -54,7 +55,147 @@ STALE_SAMPLE_SECONDS = 3 * SAMPLE_INTERVAL_SECONDS
 STOP_WAIT_SECONDS = 5
 
 _PROCESS_ATTRS = ("pid", "create_time", "uids", "exe", "name", "cmdline", "memory_info", "cpu_times")
+_SAMPLE_ATTRS = (*_PROCESS_ATTRS, "ppid")
 AUTOMATION_COOLDOWN_SECONDS = 30 * SECONDS_PER_MINUTE
+
+# Group memory measurement. /usr/bin/footprint is Apple's entitled diagnostic
+# tool: it reports the kernel's physical footprint per process and, when given
+# a set of PIDs, de-duplicates shared pages across the whole set. It works
+# without root for processes owned by the current user; other users' processes
+# fail cleanly and stay on the RSS fallback.
+FOOTPRINT_PATH = "/usr/bin/footprint"
+FOOTPRINT_INTERVAL_SECONDS = 20
+FOOTPRINT_BUDGET_SECONDS = 12
+FOOTPRINT_BASE_TIMEOUT_SECONDS = 8.0
+FOOTPRINT_PER_PID_TIMEOUT_SECONDS = 0.05
+FOOTPRINT_CACHE_MAX_AGE_SECONDS = 3 * FOOTPRINT_INTERVAL_SECONDS
+FOOTPRINT_MAX_PIDS = 2000
+GROUP_HISTORY_MAX_SAMPLES = 48
+MAX_BUNDLE_METADATA = 500
+HIGH_MEMORY_GROUP_BYTES = 512 * BYTES_PER_MEBIBYTE
+
+_FOOTPRINT_PROC_RE = re.compile(r"^(?P<name>.*?) \[(?P<pid>\d+)\]:.*?Footprint:\s*(?P<bytes>\d+)\s*B\b", re.MULTILINE)
+_FOOTPRINT_SUMMARY_RE = re.compile(r"^Summary Footprint:\s*(?P<bytes>\d+)\s*B\b", re.MULTILINE)
+
+
+class _FootprintAborted(Exception):
+    """Raised inside the subprocess wait callback to cancel a footprint pass."""
+
+
+def bundle_root(executable: str) -> str | None:
+    """Outermost ``*.app`` bundle containing the executable, if any.
+
+    Helper frameworks and nested ``*.app`` helpers still live inside the outer
+    application bundle, so the first boundary wins: a Chrome Helper under
+    ``Google Chrome.app/Contents/Frameworks/...`` resolves to Google Chrome.
+    """
+    end = executable.find(".app/")
+    if end < 0:
+        return None
+    return executable[: end + len(".app")]
+
+
+def parse_footprint_output(text: str) -> tuple[dict[int, int], int | None]:
+    """Parse ``footprint -f bytes --noCategories`` stdout.
+
+    Returns ``(per_pid_footprints, deduplicated_total)``. The summary is the
+    shared-page-de-duplicated total across every measured PID; per-PID values
+    are each process's own physical footprint.
+    """
+    per_pid = {int(match.group("pid")): int(match.group("bytes")) for match in _FOOTPRINT_PROC_RE.finditer(text)}
+    summary = _FOOTPRINT_SUMMARY_RE.search(text)
+    return per_pid, (int(summary.group("bytes")) if summary else None)
+
+
+def _tree_root(row: dict, by_pid: dict[int, dict], bundled_pids: set[int]) -> dict:
+    """Nearest same-executable ancestor of a non-bundled process, or itself.
+
+    Tree grouping is deliberately narrow: a child only joins an ancestor when
+    the ancestor runs the same executable image. Shells, terminals and
+    unrelated parents never absorb their children.
+    """
+    current = row
+    seen = {row["key"]}
+    while row.get("exe"):
+        parent = by_pid.get(current.get("ppid") or -1)
+        if (
+            parent is None
+            or parent["key"] in seen
+            or parent["pid"] in bundled_pids
+            or parent.get("exe") != row.get("exe")
+        ):
+            return current
+        seen.add(parent["key"])
+        current = parent
+    return current
+
+
+def build_groups(rows: Iterable[dict]) -> list[dict]:
+    """Group process rows into logical application/process families.
+
+    Bundle membership is decided only by the executable's own outermost
+    ``.app`` path, never by name matching. Group identity stays immutable per
+    membership set; stop/review authorization still binds to each member's
+    ``pid:create_time`` key.
+    """
+    members = [row for row in rows if row.get("pid") is not None]
+    by_pid: dict[int, dict] = {}
+    for row in members:  # first wins on the (rare) reused-pid collision
+        by_pid.setdefault(row["pid"], row)
+    bundles = {row["key"]: bundle_root(row.get("exe") or "") for row in members}
+    bundled_pids = {row["pid"] for row in members if bundles[row["key"]]}
+
+    grouped: dict[str, dict] = {}
+    order: list[str] = []
+    for row in members:
+        bundle = bundles[row["key"]]
+        if bundle:
+            group_id = f"app:{bundle}"
+            root_key = row["key"]
+        else:
+            root = _tree_root(row, by_pid, bundled_pids)
+            group_id = f"proc:{root['key']}"
+            root_key = root["key"]
+        group = grouped.get(group_id)
+        if group is None:
+            group = {
+                "id": group_id,
+                "kind": "application" if bundle else "process",
+                "name": Path(bundle).stem if bundle else "",
+                "bundlePath": bundle or "",
+                "bundleId": "",
+                "rootKey": root_key,
+                "children": [],
+            }
+            grouped[group_id] = group
+            order.append(group_id)
+        group["children"].append(row)
+        if not bundle and row["key"] == root_key:
+            group["name"] = row.get("name") or str(row["pid"])
+    groups = [grouped[group_id] for group_id in order]
+    for group in groups:
+        children = sorted(group["children"], key=lambda r: (r.get("rssBytes") is None, -(r.get("rssBytes") or 0)))
+        group["children"] = children
+        group["memberKeys"] = [row["key"] for row in children]
+        group["signature"] = frozenset(group["memberKeys"])
+        group["processCount"] = len(children)
+        group["protectedCount"] = sum(1 for row in children if row.get("protected"))
+        group["eligibleCount"] = group["processCount"] - group["protectedCount"]
+        group["growingCount"] = sum(1 for row in children if row.get("growing"))
+        deltas = [row["growthBytes"] for row in children if isinstance(row.get("growthBytes"), (int, float))]
+        group["growthBytes"] = max(deltas) if deltas else None
+        group["allHistoryReady"] = all(row.get("historyReady") for row in children)
+        for field in ("growthWindowElapsedSeconds", "growthWindowRemainingSeconds", "growthWindowProgress"):
+            values = [row[field] for row in children if isinstance(row.get(field), (int, float))]
+            group[field] = sum(values) / len(values) if values else None
+        rss_values = [row["rssBytes"] for row in children if isinstance(row.get("rssBytes"), (int, float))]
+        group["rssBytes"] = sum(rss_values) if rss_values else None
+        cpu_values = [row["cpuPercent"] for row in children if isinstance(row.get("cpuPercent"), (int, float))]
+        group["cpuPercent"] = sum(cpu_values) if cpu_values else None
+        group["developer"] = any(row.get("category") in ("developer", "flutter") for row in children)
+        if not group["name"]:
+            group["name"] = group["children"][0].get("name") or group["id"]
+    return groups
 
 
 def classify(executable: str, arguments: list[str]) -> tuple[str, str, str]:
@@ -112,7 +253,7 @@ def growth_window_progress(window: list[tuple[float, int]], now: float) -> dict[
     }
 
 
-def growth(samples: list[tuple[float, int]], now: float) -> dict:
+def growth(samples: list[tuple[float, int]], now: float, *, min_buckets: int = GROWTH_BUCKET_COUNT) -> dict:
     window = [(stamp, rss) for stamp, rss in samples if stamp >= now - GROWTH_WINDOW_SECONDS]
     progress = growth_window_progress(window, now)
     if not window or window[0][0] > now - (GROWTH_WINDOW_SECONDS - GROWTH_WINDOW_TOLERANCE_SECONDS):
@@ -122,8 +263,10 @@ def growth(samples: list[tuple[float, int]], now: float) -> dict:
         start = now - GROWTH_WINDOW_SECONDS + minute * SECONDS_PER_MINUTE
         values = [rss for stamp, rss in window if start <= stamp < start + SECONDS_PER_MINUTE]
         if not values:
-            return {"growthBytes": None, "growing": False, "historyReady": False, **progress}
+            continue
         medians.append(statistics.median(values))
+    if len(medians) < min_buckets:
+        return {"growthBytes": None, "growing": False, "historyReady": False, **progress}
     delta = window[-1][1] - window[0][1]
     increasing = sum(b > a for a, b in zip(medians, medians[1:]))
     return {"growthBytes": delta, "growing": delta > GROWTH_MINIMUM_BYTES and delta > window[0][1] * GROWTH_MINIMUM_RATIO and increasing >= GROWTH_REQUIRED_INCREASING_BUCKETS,
@@ -152,6 +295,17 @@ class MemoryService:
         self.pressure_headroom: float | None = None
         self.settings: dict = {"paused": True, "rules": [], "exclusions": []}
         self._settings_signature: tuple[int, int, int, int] | None = None
+        # Group memory measurement state. Keyed by member-key signatures so a
+        # changed membership can never inherit a stale footprint.
+        self.pid_footprints: dict[str, tuple[int, float]] = {}
+        self.group_footprints: dict[str, dict] = {}
+        # (stamp, bytes, signature) samples — group growth is computed from
+        # measured footprint so compressed-memory growth stays visible.
+        self.group_histories: dict[str, deque] = {}
+        self.footprint_available: bool | None = None
+        self.footprint_ran_at = 0.0
+        self.footprint_thread: threading.Thread | None = None
+        self._bundle_meta: dict[str, tuple[str, str]] = {}
         self.settings = self._read_settings()
 
     def _read_settings(self) -> dict:
@@ -231,11 +385,16 @@ class MemoryService:
         if self.thread is None:
             self.thread = threading.Thread(target=self._run, name="macmaid-memory", daemon=True)
             self.thread.start()
+        if self.footprint_thread is None:
+            self.footprint_thread = threading.Thread(target=self._footprint_loop, name="macmaid-footprint", daemon=True)
+            self.footprint_thread.start()
 
     def shutdown(self) -> None:
         self.stop_event.set()
         if self.thread:
             self.thread.join(timeout=12)
+        if self.footprint_thread:
+            self.footprint_thread.join(timeout=12)
 
     def _run(self) -> None:
         while not self.stop_event.is_set():
@@ -257,7 +416,7 @@ class MemoryService:
         # process_iter(attrs=...) pre-populates proc.info in one pass; a bare
         # psutil.Process has no .info attribute at all (AttributeError), so the
         # fallback must use getattr rather than `proc.info or ...`.
-        info = getattr(proc, "info", None) or proc.as_dict(attrs=list(_PROCESS_ATTRS), ad_value=None)
+        info = getattr(proc, "info", None) or proc.as_dict(attrs=list(_SAMPLE_ATTRS), ad_value=None)
         if any(info.get(key) is None for key in _PROCESS_ATTRS):
             raise psutil.AccessDenied(proc.pid)
         pid, created = proc.pid, info["create_time"]
@@ -278,7 +437,7 @@ class MemoryService:
         elif exe in self.settings["exclusions"]:
             reason = "excluded"
         return {"key": f"{pid}:{created}", "pid": pid, "created": created, "name": name,
-                "exe": exe, "category": category, "role": role, "entrypoint": entry,
+                "exe": exe, "ppid": info.get("ppid"), "category": category, "role": role, "entrypoint": entry,
                 "rssBytes": rss, "cpuTime": cpu.user + cpu.system, "protected": reason,
                 "helper": role in HELPERS and not reason}
 
@@ -305,7 +464,7 @@ class MemoryService:
                 self.histories.clear()
                 self.cpu_previous.clear()
                 self.above_since.clear()
-            for proc in psutil.process_iter(attrs=list(_PROCESS_ATTRS), ad_value=None):
+            for proc in psutil.process_iter(attrs=list(_SAMPLE_ATTRS), ad_value=None):
                 try:
                     row = self._describe(proc, protected)
                 except psutil.NoSuchProcess:
@@ -318,7 +477,7 @@ class MemoryService:
                     except (OSError, psutil.Error):
                         name = str(proc.pid)
                     rows[key] = {"key": key, "pid": proc.pid, "created": None, "name": name,
-                                 "exe": "", "category": "all", "role": "application", "entrypoint": "",
+                                 "exe": "", "ppid": None, "category": "all", "role": "application", "entrypoint": "",
                                  "rssBytes": None, "cpuPercent": None, "protected": "unverified-identity",
                                  "helper": False, "growthBytes": None, "growing": False,
                                  "historyReady": False, "forceEligible": False,
@@ -350,11 +509,232 @@ class MemoryService:
                             "swap": swap.used, "pressureHeadroom": pressure, "measuredAt": time.time()}
             self.error = ""
 
+    def _bundle_metadata(self, bundle_path: str) -> tuple[str, str]:
+        """Cached (display name, bundle id) for an .app path; never raises."""
+        cached = self._bundle_meta.get(bundle_path)
+        if cached is not None:
+            return cached
+        name, bundle_id = Path(bundle_path).stem, ""
+        try:
+            with (Path(bundle_path) / "Contents/Info.plist").open("rb") as handle:
+                info = plistlib.load(handle)
+            bundle_id = str(info.get("CFBundleIdentifier", ""))
+            name = str(info.get("CFBundleDisplayName") or info.get("CFBundleName") or name)
+        except (OSError, ValueError, TypeError):
+            pass
+        if len(self._bundle_meta) < MAX_BUNDLE_METADATA:
+            self._bundle_meta[bundle_path] = (name, bundle_id)
+        return name, bundle_id
+
+    def _measure_pids(self, pids: list[int]) -> tuple[dict[int, int], int | None]:
+        """One footprint invocation for a PID set; returns per-PID bytes + deduped total.
+
+        Never raises: missing binary, vanished PIDs, denied targets and
+        timeouts all collapse to empty results.
+        """
+        if not pids:
+            return {}, None
+        timeout = min(60.0, FOOTPRINT_BASE_TIMEOUT_SECONDS + len(pids) * FOOTPRINT_PER_PID_TIMEOUT_SECONDS)
+
+        def still_running() -> None:
+            if self.stop_event.is_set():
+                raise _FootprintAborted()
+
+        try:
+            result = run_command(
+                FOOTPRINT_PATH,
+                ["-f", "bytes", "--noCategories", *(str(pid) for pid in pids[:FOOTPRINT_MAX_PIDS])],
+                timeout=timeout, on_wait=still_running,
+            )
+        except _FootprintAborted:
+            return {}, None
+        if not result.succeeded:
+            return {}, None
+        return parse_footprint_output(result.stdout)
+
+    def _footprint_loop(self) -> None:
+        """Slow-cadence group measurement; never blocks the 5s sampler."""
+        while not self.stop_event.is_set():
+            try:
+                self.refresh_footprints()
+            except Exception:  # measurement is best-effort; sampling must continue
+                pass
+            self.stop_event.wait(FOOTPRINT_INTERVAL_SECONDS)
+
+    def _measurable(self, row: dict) -> bool:
+        """footprint(1) can only inspect same-UID, identified processes."""
+        return row.get("pid") is not None and row.get("rssBytes") is not None and row.get("protected") != "other-user"
+
+    def refresh_footprints(self, *, force: bool = False) -> None:
+        """Measure group physical footprints via footprint(1), time-boxed.
+
+        Multi-process groups get their own invocation so the shared pages
+        between members are de-duplicated. Single-process groups share one
+        batched call — their per-PID footprint is already the exact group
+        footprint. Stalest groups are measured first and the pass stops at
+        FOOTPRINT_BUDGET_SECONDS; leftovers keep their previous values.
+        """
+        now = time.monotonic()
+        if not force and self.footprint_ran_at and now - self.footprint_ran_at < FOOTPRINT_INTERVAL_SECONDS:
+            return
+        if self.footprint_available is None:
+            self.footprint_available = Path(FOOTPRINT_PATH).is_file()
+        if not self.footprint_available:
+            self.footprint_ran_at = now
+            return
+        with self.lock:
+            groups = build_groups(self.rows.values())
+        if not groups:
+            return
+        deadline = now + FOOTPRINT_BUDGET_SECONDS
+        multi = sorted((g for g in groups if g["processCount"] > 1),
+                       key=lambda g: self.group_footprints.get(g["id"], {}).get("at", 0.0))
+        singles = [g["children"][0] for g in groups if g["processCount"] == 1 and self._measurable(g["children"][0])]
+        single_group_ids = {g["children"][0]["key"]: g["id"] for g in groups if g["processCount"] == 1}
+        sampled_at = time.monotonic()
+        # One batched call measures every single-process group. It competes in
+        # the same stalest-first queue as multi groups — otherwise a crowded
+        # system starves it of the per-minute samples growth detection needs.
+        singles_stale = min((self.pid_footprints.get(row["key"], (0, 0.0))[1] for row in singles), default=0.0)
+        singles_pending = bool(singles)
+        for group in multi:
+            if self.stop_event.is_set() or time.monotonic() >= deadline:
+                break
+            group_stale = self.group_footprints.get(group["id"], {}).get("at", 0.0)
+            if singles_pending and singles_stale <= group_stale:
+                self._measure_singles(singles, single_group_ids, sampled_at)
+                singles_pending = False
+            pids = [row["pid"] for row in group["children"] if self._measurable(row)]
+            if not pids:
+                continue
+            per_pid, summary = self._measure_pids(pids)
+            if summary is None:
+                continue
+            stamp = time.monotonic()
+            covered = frozenset(row["key"] for row in group["children"] if self._measurable(row))
+            with self.lock:
+                self.group_footprints[group["id"]] = {
+                    "signature": group["signature"], "bytes": summary, "at": stamp,
+                    "covered": covered,
+                }
+                for row in group["children"]:
+                    if row["pid"] in per_pid:
+                        self.pid_footprints[row["key"]] = (per_pid[row["pid"]], stamp)
+                # History only tracks fully-covered measurements — a partial
+                # footprint would fake a memory drop for missing members.
+                if covered == group["signature"]:
+                    self.group_histories.setdefault(
+                        group["id"], deque(maxlen=GROUP_HISTORY_MAX_SAMPLES)
+                    ).append((sampled_at, summary, group["signature"]))
+        if singles_pending and not self.stop_event.is_set() and time.monotonic() < deadline:
+            self._measure_singles(singles, single_group_ids, sampled_at)
+        with self.lock:
+            live = {group["id"] for group in groups}
+            self.group_histories = {gid: hist for gid, hist in self.group_histories.items() if gid in live}
+        self.footprint_ran_at = time.monotonic()
+
+    def _measure_singles(self, singles: list[dict], single_group_ids: dict[str, str], sampled_at: float) -> None:
+        """One batched footprint call for every single-process group."""
+        per_pid, _ = self._measure_pids([row["pid"] for row in singles])
+        stamp = time.monotonic()
+        with self.lock:
+            for row in singles:
+                if row["pid"] in per_pid:
+                    self.pid_footprints[row["key"]] = (per_pid[row["pid"]], stamp)
+                    group_id = single_group_ids.get(row["key"])
+                    if group_id is not None:
+                        self.group_histories.setdefault(
+                            group_id, deque(maxlen=GROUP_HISTORY_MAX_SAMPLES)
+                        ).append((sampled_at, per_pid[row["pid"]], frozenset({row["key"]})))
+
+    def groups_for(self, rows: Iterable[dict]) -> list[dict]:
+        """Build groups and overlay the latest honest memory metric per group.
+
+        ``memoryMetric`` is ``physical_footprint`` only when footprint(1)
+        actually measured this exact membership; otherwise the group reports
+        combined RSS. A membership change invalidates the cached footprint via
+        the signature check — a stale value is never carried to a new family.
+        """
+        now = time.monotonic()
+        groups = build_groups(rows)
+        for group in groups:
+            entry = self.group_footprints.get(group["id"])
+            if (
+                entry is not None
+                and entry["signature"] == group["signature"]
+                and now - entry["at"] < FOOTPRINT_CACHE_MAX_AGE_SECONDS
+            ):
+                group["memoryBytes"] = entry["bytes"]
+                group["memoryMetric"] = "physical_footprint"
+                group["memoryDeduplicated"] = group["processCount"] > 1
+                group["memoryPartial"] = entry.get("covered", group["signature"]) != group["signature"]
+                group["memoryMeasuredAt"] = entry["at"]
+            elif (
+                group["processCount"] == 1
+                and (pid_entry := self.pid_footprints.get(group["memberKeys"][0])) is not None
+                and now - pid_entry[1] < FOOTPRINT_CACHE_MAX_AGE_SECONDS
+            ):
+                group["memoryBytes"] = pid_entry[0]
+                group["memoryMetric"] = "physical_footprint"
+                group["memoryDeduplicated"] = False
+                group["memoryPartial"] = False
+                group["memoryMeasuredAt"] = pid_entry[1]
+            else:
+                group["memoryBytes"] = group["rssBytes"]
+                group["memoryMetric"] = "rss" if group["rssBytes"] is not None else "unavailable"
+                group["memoryDeduplicated"] = False
+                group["memoryPartial"] = False
+                group["memoryMeasuredAt"] = None
+            group["highMemory"] = bool(group["memoryBytes"] and group["memoryBytes"] >= HIGH_MEMORY_GROUP_BYTES)
+            fp_growth = self._group_footprint_growth(group)
+            if fp_growth is not None:
+                group["growthBytes"] = fp_growth["growthBytes"]
+                group["growing"] = fp_growth["growing"]
+                group["growthMetric"] = "physical_footprint"
+                group["allHistoryReady"] = True
+                for field in ("growthWindowElapsedSeconds", "growthWindowRemainingSeconds", "growthWindowProgress"):
+                    group[field] = fp_growth[field]
+            else:
+                group["growing"] = group["growingCount"] > 0
+                group["growthMetric"] = "rss" if group["growthBytes"] is not None else None
+            group["historyReady"] = group["allHistoryReady"]
+            if group["kind"] == "application":
+                name, bundle_id = self._bundle_metadata(group["bundlePath"])
+                group["name"], group["bundleId"] = name, bundle_id
+            group["signature"] = sorted(group["memberKeys"])
+        return groups
+
+    def _group_footprint_growth(self, group: dict) -> dict | None:
+        """Growth verdict from measured footprint history, if the window is covered.
+
+        Only the contiguous trailing run of samples matching the *current*
+        membership signature is comparable — a member join/leave changes what
+        the total means, so older samples can never count toward the trend.
+        """
+        with self.lock:
+            history = list(self.group_histories.get(group["id"]) or ())
+        run: list[tuple[float, int]] = []
+        for stamp, value, signature in reversed(history):
+            if signature != group["signature"]:
+                break
+            run.append((stamp, value))
+        if len(run) < 2:
+            return None
+        # Footprint cadence (~20 s plus rotation) is coarser than the 5 s RSS
+        # sampler; an occasional empty minute bucket must not stall readiness.
+        result = growth(list(reversed(run)), time.monotonic(), min_buckets=8)
+        return result if result["historyReady"] else None
+
     def snapshot(self) -> dict:
         with self.lock:
-            rows = [dict(row, forceEligible=key in self.survivors and not row["protected"])
+            now = time.monotonic()
+            footprints = {key: value for key, (value, stamp) in self.pid_footprints.items()
+                          if now - stamp < FOOTPRINT_CACHE_MAX_AGE_SECONDS}
+            rows = [dict(row, forceEligible=key in self.survivors and not row["protected"],
+                         footprintBytes=footprints.get(key))
                     for key, row in self.rows.items()]
-            return copy.deepcopy({"processes": rows, "metrics": self.metrics,
+            groups = self.groups_for(rows)
+            return copy.deepcopy({"processes": rows, "groups": groups, "metrics": self.metrics,
                                   "settings": self.settings, "events": list(self.events),
                                   "error": self.error or self.settings_error})
 

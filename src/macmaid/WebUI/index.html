@@ -218,6 +218,7 @@
                 <div class="memory-help-popover">
                   <p data-i18n="memory.monitoring">Monitoring continues while MacMaid runs. Growth is a signal, not a confirmed leak.</p>
                   <p data-i18n="memory.historyNote">Growth analysis needs 10 minutes of continuous history per process.</p>
+                  <p data-i18n="memory.groupingNote">Applications are grouped into process families. A group’s memory is the macOS physical footprint measured across its processes; shared pages are counted once. Child rows show per-process RSS.</p>
                   <p data-i18n="memory.rssNote">RSS includes shared memory. Process totals are not an estimate of recoverable RAM.</p>
                   <p data-i18n="memory.evidence">Growing memory means more than 256 MiB and 25% growth over ten minutes, with at least seven increasing minute-to-minute medians.</p>
                 </div>
@@ -241,7 +242,7 @@
             </div>
             <div class="memory-toolbar">
               <label class="memory-search-field">
-                <span data-i18n="memory.search">Search processes</span>
+                <span data-i18n="memory.search">Search applications and processes</span>
                 <span class="memory-input-wrap">
                   <span data-icon="magnifyingglass"></span>
                   <input id="memory-search" type="search" autocomplete="off" placeholder="Name, PID, or path" data-i18n-placeholder="memory.searchPlaceholder">
@@ -251,19 +252,21 @@
                 <span data-i18n="memory.filter">Show</span>
                 <select id="memory-filter">
                   <option value="all" data-i18n="memory.all">All processes</option>
-                  <option value="growing" data-i18n="memory.filterGrowing">Growing</option>
+                  <option value="applications" data-i18n="memory.filterApplications">Applications</option>
                   <option value="developer" data-i18n="memory.developer">Developer tools</option>
-                  <option value="flutter" data-i18n="memory.flutter">Flutter / Dart</option>
+                  <option value="growing" data-i18n="memory.filterGrowing">Growing</option>
+                  <option value="high" data-i18n="memory.filterHigh">High memory</option>
                   <option value="protected" data-i18n="memory.filterProtected">Protected</option>
                 </select>
               </label>
               <label class="memory-sort-label">
                 <span data-i18n="memory.sort">Sort by</span>
                 <select id="memory-sort">
-                  <option value="rssBytes" data-i18n="memory.rss">Resident memory (RSS)</option>
+                  <option value="memoryBytes" data-i18n="memory.memory">Memory</option>
                   <option value="growthBytes" data-i18n="memory.growth">10-minute growth</option>
                   <option value="cpuPercent" data-i18n="memory.cpu">CPU</option>
                   <option value="name" data-i18n="memory.name">Process</option>
+                  <option value="processCount" data-i18n="memory.procCountSort">Process count</option>
                 </select>
               </label>
             </div>
@@ -287,13 +290,13 @@
                       <span class="sr-only" data-i18n="memory.selection">Select</span>
                     </th>
                     <th class="sortable" data-sort="name">
-                      <div class="th-content"><span data-i18n="memory.name">Process</span><span class="sort-indicator" data-icon="arrow.up.arrow.down"></span></div>
+                      <div class="th-content"><span data-i18n="memory.name">Application / Process</span><span class="sort-indicator" data-icon="arrow.up.arrow.down"></span></div>
                     </th>
-                    <th class="sortable memory-pid-col" data-sort="pid">
-                      <div class="th-content"><span>PID</span><span class="sort-indicator" data-icon="arrow.up.arrow.down"></span></div>
+                    <th class="sortable memory-pid-col" data-sort="processCount">
+                      <div class="th-content"><span data-i18n="memory.pidOrCount">PID</span><span class="sort-indicator" data-icon="arrow.up.arrow.down"></span></div>
                     </th>
-                    <th class="sortable memory-num-col" data-sort="rssBytes">
-                      <div class="th-content"><span data-i18n="memory.rss">Resident memory (RSS)</span><span class="sort-indicator" data-icon="arrow.up.arrow.down"></span></div>
+                    <th class="sortable memory-num-col" data-sort="memoryBytes">
+                      <div class="th-content"><span data-i18n="memory.memory">Memory</span><span class="sort-indicator" data-icon="arrow.up.arrow.down"></span></div>
                     </th>
                     <th class="sortable memory-num-col" data-sort="growthBytes">
                       <div class="th-content"><span data-i18n="memory.growth">10-minute growth</span><span class="sort-indicator" data-icon="arrow.up.arrow.down"></span></div>
@@ -2082,7 +2085,7 @@
               <div class="settings-info-grid">
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.version_label">Version</div>
-                  <div class="settings-info-value settings-info-mono">0.14.18</div>
+                  <div class="settings-info-value settings-info-mono">0.15.0</div>
                 </div>
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.safety_label">Safety Model</div>

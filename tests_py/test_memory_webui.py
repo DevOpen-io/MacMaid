@@ -27,22 +27,52 @@ const I18N = {en:{},tr:{}};
 const state = {lang:'en'};
 const t = key => I18N[state.lang][key];
 ''' + catalog + source + '''
-controls['memory-filter'].value='all'; controls['memory-sort'].value='rssBytes';
-memoryState.snapshot={processes:[
- {key:'7:100',pid:7,name:'dart',exe:'/sdk/dart',category:'flutter',role:'dart-analysis',rssBytes:300,protected:'',forceEligible:true},
- {key:'8:100',pid:8,name:'node',exe:'/sdk/node',category:'developer',role:'development-tool',rssBytes:200,protected:'',forceEligible:false},
- {key:'1:100',pid:1,name:'launchd',exe:'/sbin/launchd',category:'all',role:'application',rssBytes:100,protected:'system-process'}
-]};
-assert.equal(memoryVisibleRows().length,3);
-controls['memory-filter'].value='developer'; assert.equal(memoryVisibleRows().length,2);
-controls['memory-filter'].value='flutter'; assert.equal(memoryVisibleRows().length,1);
+controls['memory-filter'].value='all'; controls['memory-sort'].value='memoryBytes';
+const chromeMain={key:'10:100',pid:10,name:'Google Chrome',exe:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',category:'all',role:'application',rssBytes:500,protected:'',forceEligible:true};
+const chromeHelper={key:'11:100',pid:11,name:'Google Chrome Helper (Renderer)',exe:'/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper',category:'all',role:'application',rssBytes:400,protected:'system-process',forceEligible:false};
+const dart={key:'7:100',pid:7,name:'dart',exe:'/sdk/dart',category:'flutter',role:'dart-analysis',rssBytes:300,protected:'',forceEligible:true};
+const node={key:'8:100',pid:8,name:'node',exe:'/sdk/node',category:'developer',role:'development-tool',rssBytes:200,protected:'',forceEligible:false};
+const launchd={key:'1:100',pid:1,name:'launchd',exe:'/sbin/launchd',category:'all',role:'application',rssBytes:100,protected:'system-process',forceEligible:false};
+const chrome={id:'app:/Applications/Google Chrome.app',kind:'application',name:'Google Chrome',bundleId:'com.google.Chrome',bundlePath:'/Applications/Google Chrome.app',children:[chromeMain,chromeHelper],memberKeys:['10:100','11:100'],processCount:2,protectedCount:1,eligibleCount:1,growingCount:0,growthBytes:null,allHistoryReady:true,rssBytes:900,cpuPercent:5,developer:false,memoryBytes:700,memoryMetric:'physical_footprint',memoryDeduplicated:true,memoryPartial:false,highMemory:false};
+const dartGroup={id:'proc:7:100',kind:'process',name:'dart',bundleId:'',bundlePath:'',children:[dart],memberKeys:['7:100'],processCount:1,protectedCount:0,eligibleCount:1,growingCount:0,growthBytes:null,allHistoryReady:true,rssBytes:300,cpuPercent:2,developer:true,memoryBytes:300,memoryMetric:'rss',memoryDeduplicated:false,memoryPartial:false,highMemory:false};
+const nodeGroup={id:'proc:8:100',kind:'process',name:'node',bundleId:'',bundlePath:'',children:[node],memberKeys:['8:100'],processCount:1,protectedCount:0,eligibleCount:1,growingCount:0,growthBytes:null,allHistoryReady:true,rssBytes:200,cpuPercent:1,developer:true,memoryBytes:200,memoryMetric:'rss',memoryDeduplicated:false,memoryPartial:false,highMemory:false};
+const launchdGroup={id:'proc:1:100',kind:'process',name:'launchd',bundleId:'',bundlePath:'',children:[launchd],memberKeys:['1:100'],processCount:1,protectedCount:1,eligibleCount:0,growingCount:0,growthBytes:null,allHistoryReady:true,rssBytes:100,cpuPercent:0,developer:false,memoryBytes:100,memoryMetric:'rss',memoryDeduplicated:false,memoryPartial:false,highMemory:false};
+memoryState.snapshot={processes:[chromeMain,chromeHelper,dart,node,launchd],groups:[chrome,dartGroup,nodeGroup,launchdGroup]};
+
+// Collapsed view: one row per group, not per PID.
+assert.equal(memoryVisibleGroups().length,4);
+controls['memory-filter'].value='developer'; assert.equal(memoryVisibleGroups().length,2);
+controls['memory-filter'].value='applications'; assert.equal(memoryVisibleGroups().length,1);
+controls['memory-filter'].value='protected'; assert.equal(memoryVisibleGroups().length,2);
+controls['memory-filter'].value='all';
+
+// Search: child-process name or PID match keeps the parent group visible.
+controls['memory-search'].value='helper';
+assert.deepEqual(memoryVisibleGroups().map(g=>g.id),['app:/Applications/Google Chrome.app']);
+assert.ok(memoryState.searchMatched.has('app:/Applications/Google Chrome.app'));
+controls['memory-search'].value='11';
+assert.deepEqual(memoryVisibleGroups().map(g=>g.id),['app:/Applications/Google Chrome.app']);
+controls['memory-search'].value='com.google';
+assert.deepEqual(memoryVisibleGroups().map(g=>g.id),['app:/Applications/Google Chrome.app']);
+controls['memory-search'].value='';
+
+// Sort by group memory metric (descending by default).
+assert.deepEqual(memoryVisibleGroups().map(g=>g.id),['app:/Applications/Google Chrome.app','proc:7:100','proc:8:100','proc:1:100']);
+
+// Group selection only picks eligible children — protected members excluded.
+assert.deepEqual(memoryGroupEligible(chrome).map(r=>r.key),['10:100']);
+addMemorySelection(memoryGroupEligible(chrome));
+assert.deepEqual([...memoryState.selected],['10:100']);
+memoryState.selected.clear();
+
 memoryState.selected=new Set(['7:100','8:100','1:100']); memorySelection();
 assert.deepEqual([...memoryState.selected],['7:100','8:100']);
 assert.equal(controls['memory-force'].disabled,true);
 memoryState.selected=new Set(['7:100']); memorySelection();
 assert.equal(controls['memory-force'].disabled,false);
-memoryState.snapshot.processes[0].key='7:200'; memorySelection();
+memoryState.snapshot.processes[2].key='7:200'; memorySelection();
 assert.equal(memoryState.selected.size,0); assert.equal(controls['memory-stop'].disabled,true);
+memoryState.snapshot.processes[2].key='7:100';
 memoryState.selected=new Set();
 addMemorySelection([{key:'safe:100',protected:''},{key:'protected:100',protected:'system-process'}]);
 assert.deepEqual([...memoryState.selected],['safe:100']);
@@ -51,6 +81,7 @@ memoryState.selected=new Set(memoryState.snapshot.processes.map(row=>row.key)); 
 assert.equal(memoryState.selected.size,100);
 addMemorySelection(memoryState.snapshot.processes); assert.equal(memoryState.selected.size,100);
 state.lang='tr'; assert.equal(mt('title'),'Bellek'); assert.equal(mt('ruleHeadroom',{pressure:15}),'Baskı payı %15 altında');
+assert.equal(mt('groupMemory'),'Bellek ayak izi'); assert.equal(mt('filterApplications'),'Uygulamalar');
 for(const [key,translations] of Object.entries(MEMORY_COPY)) assert.equal(translations.length,2,key);
 '''
     subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)
@@ -178,6 +209,26 @@ const unavailable = {growthBytes:null, growthWindowElapsedSeconds:null, growthWi
 const unCell = memoryGrowthCell(unavailable, 'is-collecting');
 assert.match(unCell, /Unavailable/);
 assert.ok(!unCell.includes('growth-progress-fill'), 'unavailable rows must not fake progress');
+
+// Multi-process groups show the same simple bar with the averaged remaining time.
+const groupCollecting = {growthBytes:null, allHistoryReady:false, growingCount:0,
+  growthWindowElapsedSeconds:300, growthWindowRemainingSeconds:300, growthWindowProgress:0.5};
+const gCell = memoryGroupGrowthCell(groupCollecting);
+assert.match(gCell, /Collecting history/);
+assert.match(gCell, /growth-progress-fill/);
+assert.match(gCell, /width: 50%/);
+assert.match(gCell, /avg 5:00 \/ 10:00 · ~5:00 left/);
+
+const groupNoProgress = {growthBytes:null, allHistoryReady:false, growingCount:0,
+  growthWindowElapsedSeconds:null, growthWindowRemainingSeconds:null, growthWindowProgress:null};
+const gNoCell = memoryGroupGrowthCell(groupNoProgress);
+assert.match(gNoCell, /Collecting history/);
+assert.ok(!gNoCell.includes('growth-progress-fill'), 'groups without progress data must not fake a bar');
+
+const groupReady = {growthBytes:12*1024*1024, growingCount:2};
+const gReady = memoryGroupGrowthCell(groupReady);
+assert.match(gReady, /\+12582912B/);
+assert.ok(!gReady.includes('growth-progress-fill'), 'ready groups must not render the progress bar');
 
 state.lang='tr';
 assert.equal(memoryGrowthLabel(collecting), 'Geçmiş toplanıyor · 6:42 / 10:00 · 3:18 kaldı');

@@ -82,7 +82,7 @@ def test_memory_browser_workflow(tmp_path):
                     page.wait_for_timeout(500)
                     page.screenshot(path=str(OUTPUT / f'desktop-{theme}.png'))
                 page.evaluate("document.documentElement.dataset.theme = 'dark'")
-                page.select_option('#memory-filter', 'flutter')
+                page.select_option('#memory-filter', 'developer')
                 assert page.locator('#memory-processes tr').count() == 1
                 page.locator('input[data-key="54321:100.0"]').check()
                 page.evaluate('refreshMemory()')

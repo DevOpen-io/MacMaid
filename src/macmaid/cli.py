@@ -61,8 +61,8 @@ def _parser() -> argparse.ArgumentParser:
     memory.add_argument("--limit", type=int, default=30, help="Maximum processes to display (default: 30)")
     memory.add_argument("--growing", action="store_true", help=f"Only show processes showing sustained memory growth (requires --watch {GROWTH_WINDOW_SECONDS} or longer)")
     memory.add_argument("--watch", type=int, metavar="SECONDS", help="Sample processes for SECONDS before displaying results")
-    memory.add_argument("--sort", choices=("rss", "growth", "cpu", "name", "pid"), default="rss", help="Sort order (default: rss)")
-    memory.add_argument("--filter", choices=("all", "developer", "flutter", "growing", "protected"), default="all", help="Filter by category")
+    memory.add_argument("--sort", choices=("memory", "rss", "growth", "cpu", "name", "pid"), default="memory", help="Sort order (default: memory)")
+    memory.add_argument("--filter", choices=("all", "applications", "developer", "flutter", "growing", "high", "protected"), default="all", help="Filter by category")
     memory.add_argument("--apply", action="store_true", help="Apply authorized stop after review")
     memory.add_argument("--yes", action="store_true", help="Authorize without interactive confirmation")
     completion = commands.add_parser("completion"); completion.add_argument("shell", choices=("zsh", "bash", "fish"), nargs="?", default="zsh"); completion.add_argument("--print", action="store_true", dest="print_only"); completion.add_argument("--install", action="store_true")
@@ -153,42 +153,62 @@ def _print_history_record(record: dict) -> None:
         print(f"{prefix} {record.get('label', record.get('path', ''))} · hedef tahmini {human_bytes(record.get('bytes', 0))} · {record.get('reclaimStatus', 'legacy record')} · {restore}")
 
 
+def _group_children(group: dict, filter_by: str) -> list[dict]:
+    children = group.get("children", [])
+    if filter_by == "growing":
+        flagged = [r for r in children if r.get("growing")]
+        # Group-level footprint growth can flag a family whose children show no
+        # individual RSS growth (compressed pages); show its members anyway.
+        return flagged or (children if group.get("growing") else [])
+    if filter_by == "developer":
+        return [r for r in children if r.get("category") in ("developer", "flutter")]
+    if filter_by == "flutter":
+        return [r for r in children if r.get("category") == "flutter"]
+    if filter_by == "protected":
+        return [r for r in children if r.get("protected")]
+    return children
+
+
 def _print_memory_snapshot(
     snapshot: dict,
     limit: int = 30,
     growing_only: bool = False,
-    sort_by: str = "rss",
+    sort_by: str = "memory",
     filter_by: str = "all",
 ) -> None:
     metrics = snapshot.get("metrics", {})
     all_rows = snapshot.get("processes", [])
+    all_groups = snapshot.get("groups", [])
     growing_count = sum(1 for r in all_rows if r.get("growing"))
     protected_count = sum(1 for r in all_rows if r.get("protected"))
 
-    # Apply filtering
-    filtered_rows = all_rows
-    if growing_only or filter_by == "growing":
-        filtered_rows = [r for r in filtered_rows if r.get("growing")]
-    elif filter_by == "developer":
-        filtered_rows = [r for r in filtered_rows if r.get("category") in ("developer", "flutter")]
-    elif filter_by == "flutter":
-        filtered_rows = [r for r in filtered_rows if r.get("category") == "flutter"]
-    elif filter_by == "protected":
-        filtered_rows = [r for r in filtered_rows if r.get("protected")]
+    effective_filter = "growing" if growing_only else filter_by
+    filtered_groups = []
+    for group in all_groups:
+        if effective_filter == "all":
+            filtered_groups.append(group)
+        elif effective_filter == "applications" and group.get("kind") == "application":
+            filtered_groups.append(group)
+        elif effective_filter == "high" and group.get("highMemory"):
+            filtered_groups.append(group)
+        elif effective_filter in ("growing", "developer", "flutter", "protected") and _group_children(group, effective_filter):
+            filtered_groups.append(group)
 
     # Apply sorting
     if sort_by == "growth":
-        rows = sorted(filtered_rows, key=lambda row: row.get("growthBytes") or -1, reverse=True)
+        groups = sorted(filtered_groups, key=lambda group: group.get("growthBytes") or -1, reverse=True)
     elif sort_by == "cpu":
-        rows = sorted(filtered_rows, key=lambda row: row.get("cpuPercent") or -1, reverse=True)
+        groups = sorted(filtered_groups, key=lambda group: group.get("cpuPercent") or -1, reverse=True)
     elif sort_by == "name":
-        rows = sorted(filtered_rows, key=lambda row: (row.get("name") or "").lower())
+        groups = sorted(filtered_groups, key=lambda group: (group.get("name") or "").lower())
     elif sort_by == "pid":
-        rows = sorted(filtered_rows, key=lambda row: row.get("pid") or 0)
-    else:  # rss
-        rows = sorted(filtered_rows, key=lambda row: row.get("rssBytes") or -1, reverse=True)
+        groups = sorted(filtered_groups, key=lambda group: group.get("children", [{}])[0].get("pid") or 0)
+    elif sort_by == "rss":
+        groups = sorted(filtered_groups, key=lambda group: group.get("rssBytes") or -1, reverse=True)
+    else:  # memory: group physical footprint, RSS total when unmeasured
+        groups = sorted(filtered_groups, key=lambda group: group.get("memoryBytes") or -1, reverse=True)
 
-    rows = rows[:max(1, min(limit, 200))]
+    groups = groups[:max(1, min(limit, 200))]
 
     if _HAS_RICH:
         console = Console()
@@ -217,7 +237,7 @@ def _print_memory_snapshot(
 
             summary_lines = [
                 f"  RAM: [bold]{human_bytes(used)}[/bold] / {human_bytes(total)}  {meter}  [bold]{pct}%[/bold]   Available: [cyan]{human_bytes(avail)}[/cyan]   Swap: [magenta]{human_bytes(swap)}[/magenta]",
-                f"  Pressure Headroom: {p_text}   Processes: [bold]{len(all_rows)}[/bold] ({grow_highlight}, [dim]{protected_count} protected[/dim])",
+                f"  Pressure Headroom: {p_text}   Groups: [bold]{len(all_groups)}[/bold] · Processes: [bold]{len(all_rows)}[/bold] ({grow_highlight}, [dim]{protected_count} protected[/dim])",
             ]
             console.print(Panel("\n".join(summary_lines), title="[bold]MacMaid Memory Monitor[/bold]", title_align="left", border_style="cyan", box=box.ROUNDED))
 
@@ -226,14 +246,14 @@ def _print_memory_snapshot(
 
         table = Table(box=box.ROUNDED, header_style="bold cyan", border_style="dim")
         table.add_column("PID", justify="right", style="cyan", no_wrap=True)
-        table.add_column("PROCESS", style="bold")
-        table.add_column("RSS", justify="right", style="bold magenta")
+        table.add_column("APPLICATION / PROCESS", style="bold")
+        table.add_column("MEMORY", justify="right", style="bold magenta")
         table.add_column("10-MIN GROWTH", justify="right")
         table.add_column("CPU", justify="right")
         table.add_column("STATUS")
         table.add_column("ROLE", style="dim")
 
-        for row in rows:
+        def child_row(row: dict, indent: bool) -> None:
             rss = "unknown" if row.get("rssBytes") is None else human_bytes(row["rssBytes"])
             growth_value = row.get("growthBytes")
             if growth_value is None:
@@ -264,10 +284,76 @@ def _print_memory_snapshot(
                 status = "[dim]~ collecting[/dim]"
 
             role = row.get("role") or ""
-            table.add_row(str(row["pid"]), row["name"], rss, growth_text, cpu, status, role)
+            name = f"  - {row['name']}" if indent else row["name"]
+            table.add_row(str(row["pid"]), name, rss, growth_text, cpu, status, role)
+
+        for group in groups:
+            children = group.get("children", [])
+            if not children:
+                continue
+            if len(children) == 1:
+                row = children[0]
+                if group.get("memoryMetric") == "physical_footprint" and group.get("memoryBytes") is not None:
+                    rss = f"{human_bytes(group['memoryBytes'])} fp"
+                else:
+                    rss = "unknown" if row.get("rssBytes") is None else human_bytes(row["rssBytes"])
+                if group.get("growthMetric") == "physical_footprint":
+                    row = {**row, "growthBytes": group.get("growthBytes"), "growing": group.get("growing"),
+                           "historyReady": group.get("allHistoryReady")}
+                growth_value = row.get("growthBytes")
+                if growth_value is None:
+                    growth_text = "[dim italic]collecting[/dim italic]"
+                elif row.get("growing"):
+                    growth_text = f"[bold yellow]+{human_bytes(growth_value)} ^[/bold yellow]"
+                elif growth_value > 0:
+                    growth_text = f"[yellow]+{human_bytes(growth_value)}[/yellow]"
+                elif growth_value < 0:
+                    growth_text = f"[dim]-{human_bytes(abs(growth_value))}[/dim]"
+                else:
+                    growth_text = "[dim green]+0 B[/dim green]"
+                cpu_num = row.get("cpuPercent")
+                cpu = "[dim]?[/dim]" if cpu_num is None else f"{cpu_num:.1f}%"
+                if cpu_num and cpu_num > 10.0:
+                    cpu = f"[bold red]{cpu}[/bold red]"
+                elif cpu_num and cpu_num > 2.0:
+                    cpu = f"[yellow]{cpu}[/yellow]"
+                if row.get("protected"):
+                    status = f"[dim]* {row['protected']}[/dim]"
+                elif row.get("growing"):
+                    status = "[bold yellow]! growing[/bold yellow]"
+                elif row.get("historyReady"):
+                    status = "[green]+ stable[/green]"
+                else:
+                    status = "[dim]~ collecting[/dim]"
+                table.add_row(str(row["pid"]), row["name"], rss, growth_text, cpu, status, row.get("role") or "")
+                continue
+            mem = group.get("memoryBytes")
+            if mem is None:
+                mem_text = "[dim]unavailable[/dim]"
+            else:
+                metric_tag = "fp" if group.get("memoryMetric") == "physical_footprint" else "rss"
+                mem_text = f"{human_bytes(mem)} {metric_tag}"
+            delta = group.get("growthBytes")
+            if delta is None:
+                growth_text = "[dim italic]collecting[/dim italic]" if not group.get("allHistoryReady") else ""
+            elif group.get("growing") or group.get("growingCount"):
+                growth_text = f"[bold yellow]+{human_bytes(abs(delta))} ^[/bold yellow]"
+            else:
+                growth_text = f"[dim]{('+' if delta >= 0 else '-')}{human_bytes(abs(delta))}[/dim]"
+            cpu_num = group.get("cpuPercent")
+            cpu = "[dim]?[/dim]" if cpu_num is None else f"{cpu_num:.1f}%"
+            if group.get("protectedCount") == group.get("processCount"):
+                status = "[dim]* protected[/dim]"
+            elif group.get("growing") or group.get("growingCount"):
+                status = f"[bold yellow]! {max(1, group.get('growingCount', 0))} growing[/bold yellow]"
+            else:
+                status = ""
+            table.add_row(f"x{group['processCount']}", f"[bold]{group['name']}[/bold]", mem_text, growth_text, cpu, status, "")
+            for row in _group_children(group, effective_filter):
+                child_row(row, indent=True)
 
         console.print(table)
-        console.print("[dim]Growth is evidence, not a confirmed leak. RSS is not a reclaim estimate.[/dim]\n")
+        console.print("[dim]Group memory is the macOS physical footprint (fp) when measured, otherwise combined RSS (rss). Child rows show per-process RSS. Growth is evidence, not a confirmed leak.[/dim]\n")
 
     else:
         if metrics.get("total"):
@@ -281,15 +367,35 @@ def _print_memory_snapshot(
             )
         if snapshot.get("error"):
             print(f"Warning: {snapshot['error']}")
-        print("\n     PID         RSS      GROWTH    CPU  STATUS                 PROCESS")
-        for row in rows:
-            rss = "unknown" if row.get("rssBytes") is None else human_bytes(row["rssBytes"])
-            growth_value = row.get("growthBytes")
-            growth_text = "collecting" if growth_value is None else ("+" if growth_value >= 0 else "-") + human_bytes(abs(growth_value))
-            cpu = "?" if row.get("cpuPercent") is None else f"{row['cpuPercent']:.1f}%"
-            status = row.get("protected") or ("growing" if row.get("growing") else "stable" if row.get("historyReady") else "collecting")
-            print(f"{row['pid']:>8}  {rss:>10}  {growth_text:>10}  {cpu:>6}  {status:<21}  {row['name']}")
-        print("\nGrowth is evidence, not a confirmed leak. RSS is not a reclaim estimate.")
+        print("\n     PID         MEM      GROWTH    CPU  STATUS                 APPLICATION / PROCESS")
+        for group in groups:
+            children = group.get("children", [])
+            if not children:
+                continue
+            if len(children) > 1:
+                mem = group.get("memoryBytes")
+                if mem is None:
+                    mem_text = "unavailable"
+                else:
+                    tag = "fp" if group.get("memoryMetric") == "physical_footprint" else "rss"
+                    mem_text = f"{human_bytes(mem)} {tag}"
+                delta = group.get("growthBytes")
+                growth_text = "" if delta is None else ("+" if delta >= 0 else "-") + human_bytes(abs(delta))
+                cpu = "?" if group.get("cpuPercent") is None else f"{group['cpuPercent']:.1f}%"
+                status = "protected" if group.get("protectedCount") == group.get("processCount") else (f"{max(1, group.get('growingCount', 0))} growing" if group.get("growing") or group.get("growingCount") else "")
+                print(f"{('x' + str(group['processCount'])):>8}  {mem_text:>10}  {growth_text:>10}  {cpu:>6}  {status:<21}  {group['name']}")
+            for row in _group_children(group, effective_filter):
+                if len(children) == 1 and group.get("growthMetric") == "physical_footprint":
+                    row = {**row, "growthBytes": group.get("growthBytes"), "growing": group.get("growing"),
+                           "historyReady": group.get("allHistoryReady")}
+                rss = "unknown" if row.get("rssBytes") is None else human_bytes(row["rssBytes"])
+                growth_value = row.get("growthBytes")
+                growth_text = "collecting" if growth_value is None else ("+" if growth_value >= 0 else "-") + human_bytes(abs(growth_value))
+                cpu = "?" if row.get("cpuPercent") is None else f"{row['cpuPercent']:.1f}%"
+                status = row.get("protected") or ("growing" if row.get("growing") else "stable" if row.get("historyReady") else "collecting")
+                indent = "  - " if len(children) > 1 else ""
+                print(f"{row['pid']:>8}  {rss:>10}  {growth_text:>10}  {cpu:>6}  {status:<21}  {indent}{row['name']}")
+        print("\nGroup memory: fp = physical footprint (shared pages counted once), rss = combined RSS fallback. Child rows show per-process RSS.")
 
 
 def _run_memory_command(config: Config, args: argparse.Namespace) -> None:
@@ -308,6 +414,7 @@ def _run_memory_command(config: Config, args: argparse.Namespace) -> None:
             time.sleep(interval)
             service.sample()
             remaining -= interval
+    service.refresh_footprints(force=True)
     snapshot = service.snapshot()
     _print_memory_snapshot(
         snapshot,

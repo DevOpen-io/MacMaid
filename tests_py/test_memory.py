@@ -18,7 +18,7 @@ from macmaid.web import MacMaidHandler, WebState
 
 
 class FakeProcess:
-    def __init__(self, pid=321, created=123.0, exe="/opt/flutter/bin/cache/dart-sdk/bin/dart", args=None, bare=False):
+    def __init__(self, pid=321, created=123.0, exe="/opt/flutter/bin/cache/dart-sdk/bin/dart", args=None, bare=False, ppid=1):
         self.pid = pid
         self.created = created
         self.executable = exe
@@ -28,6 +28,7 @@ class FakeProcess:
         self.signals = []
         self.denied = False
         self.bare = bare
+        self.parent = ppid
 
     def oneshot(self): return nullcontext()
     @property
@@ -41,7 +42,8 @@ class FakeProcess:
                 "exe": self.executable, "name": Path(self.executable).name,
                 "cmdline": self.args,
                 "memory_info": None if self.denied else SimpleNamespace(rss=self.rss),
-                "cpu_times": SimpleNamespace(user=1.0, system=0.5)}
+                "cpu_times": SimpleNamespace(user=1.0, system=0.5),
+                "ppid": self.parent}
     def as_dict(self, attrs=None, ad_value=None):
         # Real psutil as_dict() swallows NoSuchProcess/AccessDenied per
         # attribute and substitutes ad_value; it does not propagate them.
@@ -53,6 +55,7 @@ class FakeProcess:
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 result[name] = ad_value
         return result
+    def ppid(self): return self.parent
     def create_time(self): return self.created
     def uids(self): return SimpleNamespace(real=self.uid, effective=self.uid)
     def exe(self): return self.executable

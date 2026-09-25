@@ -752,3 +752,111 @@ def test_tui_memory_growth_progress_narrow_terminal(monkeypatch) -> None:
             assert "[" not in growth_cell  # compact fallback drops the bar
 
     asyncio.run(exercise())
+
+
+def _memory_group_snapshot() -> dict:
+    eligible = {
+        "key": "10:1.0", "pid": 10, "name": "Chrome", "exe": "/Applications/Chrome.app/Contents/MacOS/Chrome",
+        "ppid": 1, "rssBytes": 500 * 1024**2, "growthBytes": None, "growing": False,
+        "cpuPercent": 3.0, "role": "application", "protected": None, "historyReady": True,
+        "entrypoint": "", "category": "all", "helper": False,
+    }
+    protected = {
+        "key": "11:1.0", "pid": 11, "name": "Chrome Helper", "exe": "/Applications/Chrome.app/Contents/Helper",
+        "ppid": 10, "rssBytes": 400 * 1024**2, "growthBytes": None, "growing": False,
+        "cpuPercent": 2.0, "role": "application", "protected": "other-user", "historyReady": True,
+        "entrypoint": "", "category": "all", "helper": False,
+    }
+    single = {
+        "key": "30:1.0", "pid": 30, "name": "solo", "exe": "/usr/bin/solo",
+        "ppid": 1, "rssBytes": 50 * 1024**2, "growthBytes": None, "growing": False,
+        "cpuPercent": 0.5, "role": "application", "protected": None, "historyReady": True,
+        "entrypoint": "", "category": "all", "helper": False,
+    }
+    group = {
+        "id": "app:/Applications/Chrome.app", "kind": "application", "name": "Chrome",
+        "bundlePath": "/Applications/Chrome.app", "bundleId": "dev.test.Chrome",
+        "children": [eligible, protected], "memberKeys": ["10:1.0", "11:1.0"],
+        "signature": ["10:1.0", "11:1.0"], "processCount": 2, "protectedCount": 1,
+        "eligibleCount": 1, "growingCount": 0, "growthBytes": None, "allHistoryReady": True,
+        "rssBytes": 900 * 1024**2, "cpuPercent": 5.0, "developer": False,
+        "memoryBytes": 700 * 1024**2, "memoryMetric": "physical_footprint",
+        "memoryDeduplicated": True, "memoryPartial": False, "highMemory": False,
+    }
+    single_group = {
+        "id": "proc:30:1.0", "kind": "process", "name": "solo",
+        "bundlePath": "", "bundleId": "", "children": [single], "memberKeys": ["30:1.0"],
+        "signature": ["30:1.0"], "processCount": 1, "protectedCount": 0,
+        "eligibleCount": 1, "growingCount": 0, "growthBytes": None, "allHistoryReady": True,
+        "rssBytes": 50 * 1024**2, "cpuPercent": 0.5, "developer": False,
+        "memoryBytes": 50 * 1024**2, "memoryMetric": "rss",
+        "memoryDeduplicated": False, "memoryPartial": False, "highMemory": False,
+    }
+    return {
+        "metrics": {"used": 8 * 1024**3, "total": 16 * 1024**3, "swap": 1024**3},
+        "processes": [eligible, protected, single],
+        "groups": [group, single_group],
+    }
+
+
+def test_tui_memory_groups_collapse_expand_and_review(monkeypatch) -> None:
+    """A collapsed family is one row; Enter expands; Space reviews only eligible children."""
+    monkeypatch.setattr(tui, "system_status", _metrics)
+
+    async def exercise() -> None:
+        app = tui.MacMaidTUI()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.open_page("memory")
+            snapshot = _memory_group_snapshot()
+            app._load_memory = lambda: app._finish_memory(snapshot, None)
+            app._finish_memory(snapshot, None)
+            table = app.query_one("#memory-table", DataTable)
+
+            # Collapsed: the family is a single row plus the standalone process.
+            assert table.row_count == 2
+            state_text = str(app.query_one("#memory-state", Static).content)
+            assert "2 groups" in state_text and "3 processes" in state_text
+            group_cells = [str(cell) for cell in table.get_row_at(0)]
+            assert "700" in group_cells[0] and "fp" in group_cells[0]
+            assert "2 proc" in group_cells[4]
+            assert "> Chrome" in group_cells[5]
+
+            detail = str(app.query_one("#memory-detail", Static).content)
+            assert "physical footprint" in detail
+            assert "Eligible to stop: 1/2" in detail
+
+            # Enter expands to reveal real children with per-process RSS.
+            table.move_cursor(row=0)
+            app._confirm_memory_stop()  # Enter semantics: toggle first
+            assert table.row_count == 4
+            child_cells = [str(cell) for cell in table.get_row_at(1)]
+            assert "500" in child_cells[0]  # RSS, not the group footprint
+            assert child_cells[4] == "10"
+            assert "- Chrome" in child_cells[5]
+
+            # Space on the group reviews only eligible children — PID 11 is protected.
+            captured: list[list[str]] = []
+            from macmaid.review import ReviewItem, ReviewPlan
+            monkeypatch.setattr(app.memory, "review", lambda keys, force=False: (
+                captured.append(list(keys)),
+                ReviewPlan("Stop processes", tuple(ReviewItem(k, k, k, "Stop", "MANUAL", "") for k in keys), "", ""),
+            )[1])
+            table.move_cursor(row=0)
+            app._confirm_memory_stop(expand_groups=False)
+            assert captured == [["10:1.0"]]
+            assert app.review_plan is not None and len(app.review_plan.items) == 1
+            app._clear_review(); app.open_page("memory")
+
+            # A protected child row can never be a stop target.
+            captured.clear()
+            table.move_cursor(row=2)
+            app._confirm_memory_stop()
+            assert captured == []
+
+            # Enter on the single-process group reviews that process directly.
+            table.move_cursor(row=3)
+            app._confirm_memory_stop()
+            assert captured == [["30:1.0"]]
+
+    asyncio.run(exercise())
