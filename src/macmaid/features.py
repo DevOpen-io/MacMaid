@@ -860,14 +860,6 @@ class RecoveryCenter:
         return {"success": True, "operation_id": operation_id, "original_path": str(original),
                 "trash_path": str(source), "restored_path": str(destination), "copied": copy}
 
-    def conflict(self, operation_id: str, trash_path: str) -> dict[str, Any]:
-        record = self._find_record(operation_id, trash_path)
-        source = self._validate_trash_path(Path(str(record["trash_path"])))
-        original = self._validate_original_path(Path(str(record["original_path"])))
-        return {"operation_id": operation_id, "trash_path": str(source), "original_path": str(original),
-                "trashExists": source.exists(), "originalExists": original.exists() or original.is_symlink(),
-                "restorable": bool(record.get("restorable")) and source.exists()}
-
     def _find_record(self, operation_id: str, trash_path: str) -> dict[str, Any]:
         if not operation_id or not trash_path:
             raise ValueError("operation_id and trash_path are required")

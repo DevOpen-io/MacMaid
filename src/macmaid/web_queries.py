@@ -303,8 +303,6 @@ def route_get(handler: MacMaidHandler, path: str, query: dict[str, str]) -> dict
                 "lastOperationDate": entries[0].get("timestamp") if entries else None,
                 "measurementCaveat": "Historical values are estimates; Trash moves and unknown manager effects are excluded.",
                 "entries": [dict(e, date=e.get("timestamp")) for e in displayed]}
-    if path == "/api/recovery/conflict":
-        return RecoveryCenter(state.config).conflict(str(query.get("operationId", [""])[0]), str(query.get("trashPath", [""])[0]))
     if path == "/api/whitelist":
         try: lines = state.config.whitelist_file.read_text().splitlines()
         except OSError: lines = []

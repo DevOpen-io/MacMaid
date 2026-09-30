@@ -81,3 +81,13 @@ def test_restore_rejects_trash_symlink(config):
 
     with pytest.raises(PathSafetyError):
         RecoveryCenter(config).restore(record["operation_id"], record["trash_path"])
+
+
+def test_recovery_conflict_endpoint_is_removed(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from macmaid import web
+    monkeypatch.setattr(web, "Config", lambda: Config(home=tmp_path))
+    handler = object.__new__(web.MacMaidHandler)
+    handler.server = SimpleNamespace(state=SimpleNamespace(config=Config(home=tmp_path)))
+    with pytest.raises(FileNotFoundError):
+        handler._route_get("/api/recovery/conflict", {"operationId": "x", "trashPath": "y"})
