@@ -261,6 +261,23 @@ def test_finished_scans_collapse_their_progress_bar(monkeypatch) -> None:
     asyncio.run(exercise())
 
 
+def test_nav_shows_a_visible_scrollbar_on_small_terminals(monkeypatch) -> None:
+    monkeypatch.setattr(tui, "system_status", _metrics)
+
+    async def exercise() -> None:
+        app = tui.MacMaidTUI()
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.pause()
+            nav = app.query_one("#nav", ListView)
+            assert nav.virtual_size.height > nav.scrollable_content_region.height
+            assert nav.styles.scrollbar_size_vertical == 1
+            await pilot.press("j")
+            await pilot.pause()
+            assert nav.index == 1
+
+    asyncio.run(exercise())
+
+
 def test_every_tool_section_has_a_separate_results_screen(monkeypatch) -> None:
     monkeypatch.setattr(tui, "system_status", _metrics)
 

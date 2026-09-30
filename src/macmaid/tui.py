@@ -207,7 +207,7 @@ class MacMaidTUI(App[None]):
     #system-strip { height: 2; color: #d5d7da; }
     #menu-title { display: none; }
     #menu-help { height: 2; color: #6f737b; }
-    #nav { height: 1fr; min-height: 10; background: transparent; }
+    #nav { height: 1fr; min-height: 10; background: transparent; scrollbar-size-vertical: 1; scrollbar-color: #4a5560; scrollbar-background: #26282e; scrollbar-color-hover: #73d9cf; scrollbar-color-active: #5ee7e7; }
     #nav ListItem, .action-menu ListItem { height: 2; padding: 0; background: transparent; }
     .menu-line { height: 1; }
     #nav ListItem:hover, .action-menu ListItem:hover { background: transparent; }
