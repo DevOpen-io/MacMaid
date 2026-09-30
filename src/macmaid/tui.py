@@ -33,15 +33,15 @@ from .memory import MemoryService, MAX_MEMORY_ACTIONS
 from .i18n import DEFAULT_LANGUAGE, translate
 from .smart_downloads import SmartDownloadsScanner
 from .features import (
-    OPTIMIZATIONS, OPTIMIZATION_UNAVAILABLE_REASON, AppComponent, ApplicationManager, InstalledApplication,
+    AppComponent, ApplicationManager, InstalledApplication,
     ProjectArtifact, ProjectPurgeManager, RecoveryCenter, apply_macmaid_brew_update,
-    doctor, list_snapshots, macmaid_brew_update_status, run_optimization, system_status,
+    doctor, list_snapshots, macmaid_brew_update_status, system_status,
     thin_snapshots,
 )
 from .models import CleanupItem, CleanupProfile, RiskLevel, ScanResult
 from .review import (
     ReviewPlan, analyzer_trash_plan, application_plan, cleanup_plan, developer_plan,
-    macmaid_update_plan, optimization_plan, purge_plan, snapshot_plan,
+    macmaid_update_plan, purge_plan, snapshot_plan,
 )
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
 from .system import human_bytes, macos_permission_report, run_command
@@ -50,7 +50,6 @@ from .system import human_bytes, macos_permission_report, run_command
 NAVIGATION = [
     ("clean", "Clean", "Scan safely, choose a profile, then reclaim space"),
     ("apps", "Uninstall Apps", "Remove applications plus exact, reviewable leftovers"),
-    ("optimize", "Optimize", "Refresh safe macOS caches and services"),
     ("analyzer", "Analyze", "Browse disk usage, search, multi-select and move items to Trash"),
     ("purge", "Project Purge", "Find old rebuildable project artifacts and dependency folders"),
     ("developer", "Developer Tools", "Inspect runtimes, SDKs, global tools and package caches"),
@@ -60,16 +59,6 @@ NAVIGATION = [
     ("memory", "Memory", "Inspect process memory growth and review exact processes before stopping"),
     ("update", "Check for Updates", "Check Homebrew for a newer MacMaid release"),
 ]
-
-OPTIMIZATION_HELP = {
-    "dns": "DNS çözümleyici önbelleğini yeniler; ağ ayarlarını değiştirmez.",
-    "quicklook": "Quick Look küçük resim önbelleğini yeniden oluşturur.",
-    "finder": "Finder sürecini yeniden başlatır; açık pencereler kısa süreli yenilenir.",
-    "dock": "Dock sürecini yeniden başlatır; görünüm kısa süreli kaybolabilir.",
-    "launchservices": "Uygulama açma eşleştirmelerini yeniden kaydeder; işlem biraz sürebilir.",
-    "spotlight-health": "Spotlight indeks durumunu salt-okunur olarak kontrol eder.",
-    "spotlight-rebuild": "Tüm Spotlight indeksini yeniden kurar; uzun sürebilir ve yönetici onayı ister.",
-}
 
 WORDMARK = r""" __  __            __  __       _     _ 
 |  \/  | __ _  ___|  \/  | __ _(_) __| |
@@ -300,7 +289,6 @@ class MacMaidTUI(App[None]):
         self.whitelist_suggestion_generation = 0
         self.whitelist_suggestion_index = -1
         self._suppress_whitelist_suggestions = False
-        self.optimize_selected = {i for i, task in enumerate(OPTIMIZATIONS) if task["recommended"]}
         self.analyzer = IncrementalAnalyzer(); self.analyzer_path = Path.home(); self.analyzer_focus = 0
         self.scan_cancellations: dict[str, CancellationToken] = {}
         self.analyzer_snapshot: dict[str, Any] | None = None; self.analyzer_views: dict[str, dict[str, Any]] = {}
@@ -327,7 +315,6 @@ class MacMaidTUI(App[None]):
             yield self._analyzer_page(); yield self._analyzer_results_page()
             yield self._purge_page(); yield self._purge_results_page()
             yield self._developer_page(); yield self._developer_results_page()
-            yield self._optimize_page(); yield self._optimize_results_page()
             yield self._status_page(); yield self._status_results_page()
             yield self._memory_page()
             yield self._files_page(); yield self._more_page(); yield self._more_results_page(); yield self._whitelist_editor_page(); yield self._settings_page()
@@ -454,14 +441,6 @@ class MacMaidTUI(App[None]):
     def _developer_results_page(self) -> Vertical:
         return self._page("developer-results", "Developer Inventory", "Only manager-owned items are removable. Active and protected items remain view-only.", ProgressBar(total=None, show_eta=False, id="developer-progress"), Static("Scanning developer inventory…", id="developer-state", classes="state"), DataTable(id="developer-table", zebra_stripes=True), Static("Active, base and manager-protected items cannot be removed.", id="developer-detail", classes="detail", markup=False), Static("↑↓ Navigate · Enter/D Remove · R Rescan · C Stop scan · Esc Back", classes="hint"))
 
-    def _optimize_page(self) -> Vertical:
-        return self._page("optimize", "macOS Optimize", OPTIMIZATION_UNAVAILABLE_REASON, self._action_menu("optimize-actions", [
-            ("optimize-open", "Bakım görevleri devre dışı", "Kararlılık incelemesi tamamlanana kadar komut çalıştırılmaz"),
-        ]), Static("Enter ile görev ekranını aç · Esc ile ana menü", classes="hint"))
-
-    def _optimize_results_page(self) -> Vertical:
-        return self._page("optimize-results", "Optimize", "Refresh bounded macOS caches/services without deleting documents or resetting preferences.", ProgressBar(total=100, show_eta=False, id="optimize-progress"), Static("Recommended tasks are preselected.", id="optimize-state", classes="state warning"), DataTable(id="optimize-table", zebra_stripes=True), Static("The selected task's effect and possible interruption appear here.", id="optimize-detail", classes="detail", markup=False), Static("↑↓  Navigate     Space  Include/exclude     Enter  Run     Esc  Back", classes="hint"))
-
     def _status_page(self) -> Vertical:
         return self._page("status", "Mac Sağlığı", "Somut, salt-okunur macOS ölçümlerini ayrı görünümde aç.", self._action_menu("status-actions", [
             ("status-open", "Mac sağlık ekranını aç", "Disk, bellek baskısı, pil ve termal durumunu gerekçeleriyle göster"),
@@ -565,7 +544,6 @@ class MacMaidTUI(App[None]):
             "clean-table": ("Select", "Risk", "Size", "Item", "Attention"), "apps-table": ("Size", "Application", "Version", "Location"),
             "components-table": ("Seç", "Risk", "Boyut", "Bileşen", "Konum"), "analyzer-table": ("Durum", "Boyut", "%", "Tür", "Ad", "Konum"),
             "purge-table": ("Seç", "Boyut", "Sınıf", "Proje", "Artefakt", "Konum"), "developer-table": ("Seç", "Boyut", "Durum", "Manager", "Öğe", "Sürüm / Konum"),
-            "optimize-table": ("Seç", "Risk", "Görev", "Açıklama"),
             "more-table": ("Seç", "Risk", "Boyut", "Öğe", "Konum"),
             "whitelist-table": ("Korunan yol veya glob",),
             "whitelist-suggestions": ("Eşleşen konumlar",),
@@ -577,7 +555,7 @@ class MacMaidTUI(App[None]):
             table.show_header = False
             table.zebra_stripes = False
             table.add_columns(*labels)
-        self._render_optimize(); self.query_one("#nav", ListView).index = 0
+        self.query_one("#nav", ListView).index = 0
         self.set_interval(2.0, self._periodic_status); self.set_interval(0.4, self._periodic_analyzer); self._load_status()
 
     def on_unmount(self) -> None:
@@ -984,9 +962,6 @@ class MacMaidTUI(App[None]):
             "purge-apply": self._confirm_purge,
             "developer-rescan": self._scan_developer,
             "developer-remove": self._confirm_developer_remove,
-            "optimize-open": lambda: self._show_results("optimize", "#optimize-table"),
-            "optimize-recommended": self._select_recommended,
-            "optimize-run": self._confirm_optimize,
             "status-open": lambda: self._open_and_run("status", self._load_status),
             "status-refresh": self._load_status,
             "more-reload": lambda: self._load_more(self.more_kind) if self.more_kind else None,
@@ -1231,7 +1206,7 @@ class MacMaidTUI(App[None]):
     def action_toggle_selected(self) -> None:
         table = self.focused
         if not isinstance(table, DataTable) or not table.row_count: return
-        mapping = {"clean-table": (self.clean_selected, self._render_clean), "components-table": (self.component_selected, self._render_components), "purge-table": (self.purge_selected, self._render_projects), "developer-table": (self.dev_selected, self._render_developer), "optimize-table": (self.optimize_selected, self._render_optimize), "more-table": (self.more_selected, self._render_more_scan)}
+        mapping = {"clean-table": (self.clean_selected, self._render_clean), "components-table": (self.component_selected, self._render_components), "purge-table": (self.purge_selected, self._render_projects), "developer-table": (self.dev_selected, self._render_developer), "more-table": (self.more_selected, self._render_more_scan)}
         if table.id == "memory-table":
             self._confirm_memory_stop(expand_groups=False)
             return
@@ -1275,8 +1250,6 @@ class MacMaidTUI(App[None]):
                 text = "\n".join(line for line in lines if line)
             elif 0 <= row < len(self.developer_items):
                 dev_item = self.developer_items[row]; text = f"{dev_item.protected_reason or dev_item.note or 'Owning manager üzerinden kaldırılır.'}\n{dev_item.path}"
-        elif table_id == "optimize-table" and 0 <= row < len(OPTIMIZATIONS):
-            task = OPTIMIZATIONS[row]; text = f"{OPTIMIZATION_HELP.get(task['id'], task['title'])}\nRisk: {task['risk']} · {'Önerilen' if task['recommended'] else 'Varsayılan olarak seçilmez'}"
         elif table_id == "more-table" and self.more_result and 0 <= row < len(self.more_result.items):
             item = self.more_result.items[row]; text = f"{item.reason}\n{item.path or item.action.kind.value}"
         elif table_id == "memory-table" and 0 <= row < len(self.memory_rows):
@@ -1326,7 +1299,6 @@ class MacMaidTUI(App[None]):
         elif table_id == "components-table": self._confirm_app_remove()
         elif table_id == "purge-table": self._confirm_purge()
         elif table_id == "developer-table": self._confirm_developer_remove()
-        elif table_id == "optimize-table": self._confirm_optimize()
         elif table_id == "more-table": self._confirm_more_apply()
         elif table_id == "analyzer-table" and self.analyzer_snapshot:
             entries = self.analyzer_snapshot.get("entries", [])
@@ -1797,46 +1769,7 @@ class MacMaidTUI(App[None]):
             after = self._system_snapshot()
             self.call_from_thread(self._complete_operation, "Developer cache temizliği başarısız", str(exc), before, after, failed=True)
 
-    # Optimize, status, more
-    def _render_optimize(self, cursor: int | None = None) -> None:
-        table = self.query_one("#optimize-table", DataTable); table.clear()
-        if not OPTIMIZATIONS:
-            self._set_state("optimize", OPTIMIZATION_UNAVAILABLE_REASON)
-            return
-        for i, task in enumerate(OPTIMIZATIONS):
-            table.add_row(self._selection_cell(i in self.optimize_selected), self._risk_cell(task["risk"]), task["title"], OPTIMIZATION_HELP.get(task["id"], ""))
-        self._restore_cursor(table, cursor)
-        if table.row_count: self._update_row_detail("optimize-table", table.cursor_row)
-    def _select_recommended(self) -> None: self.optimize_selected = {i for i, x in enumerate(OPTIMIZATIONS) if x["recommended"]}; self._render_optimize(); self._set_state("optimize", f"{len(self.optimize_selected)} önerilen görev seçildi")
-    def _confirm_optimize(self) -> None:
-        tasks = [OPTIMIZATIONS[i] for i in sorted(self.optimize_selected)]
-        if not tasks: self._warn("Görev seç"); return
-        self._confirm(optimization_plan(tasks), lambda: self._optimize_worker(tasks), self._current_optimize_plan)
-    def _current_optimize_plan(self) -> ReviewPlan:
-        tasks = [OPTIMIZATIONS[i] for i in sorted(self.optimize_selected)]
-        if not tasks:
-            raise ValueError("optimization selection changed")
-        return optimization_plan(tasks)
-
-    @work(thread=True, exclusive=True, group="optimize")
-    def _optimize_worker(self, tasks: list[dict[str, Any]]) -> None:
-        success = 0
-        before = self._system_snapshot()
-        self.call_from_thread(self._begin_operation, "macOS bakım görevleri", len(tasks), before)
-        try:
-            for index, task in enumerate(tasks, 1):
-                self.call_from_thread(self._operation_item, index, len(tasks), task["title"], "running")
-                result = run_optimization(task["id"])
-                success += int(result["success"])
-                self.call_from_thread(self._operation_item, index, len(tasks), task["title"], "success" if result["success"] else "failed")
-            failed = len(tasks) - success
-            after = self._system_snapshot()
-            summary = f"{success}/{len(tasks)} başarılı" + (f" · {failed} başarısız" if failed else "")
-            self.call_from_thread(self._complete_operation, "macOS bakım görevleri tamamlandı", summary, before, after, failed=bool(failed))
-        except Exception as exc:
-            after = self._system_snapshot()
-            self.call_from_thread(self._complete_operation, "Optimize başarısız", str(exc), before, after, failed=True)
-
+    # Status, memory, more
     def _periodic_status(self) -> None:
         if self.current_page in {"dashboard", "status-results"}: self._load_status()
         elif self.current_page == "memory": self._load_memory()
@@ -2266,7 +2199,6 @@ class MacMaidTUI(App[None]):
             relocalize = getattr(widget, "relocalize", None)
             if relocalize:
                 relocalize()
-        self._render_optimize()
         self._render_settings()
         language_name = "Türkçe" if language == "tr" else "English"
         self._set_activity(f"Ayar kaydedildi · arayüz dili: {language_name}")

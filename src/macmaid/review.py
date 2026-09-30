@@ -166,12 +166,6 @@ def macmaid_update_plan(status: Mapping[str, object]) -> ReviewPlan:
     return ReviewPlan("Update MacMaid", (item,), "Homebrew will replace the MacMaid application bundle. Restart MacMaid after the update completes.")
 
 
-def optimization_plan(tasks: Sequence[dict]) -> ReviewPlan:
-    items = tuple(ReviewItem(str(task["id"]), str(task["title"]), str(task["id"]), "macOS maintenance command",
-                             str(task["risk"]), "May refresh a visible macOS service", 0) for task in tasks)
-    return ReviewPlan("Run macOS maintenance", items, "Selected services may briefly restart or rebuild state.")
-
-
 def issue_review_token(secret: str, scope: str, generation: int, plan: ReviewPlan, *, now: float | None = None) -> str:
     timestamp = int(now if now is not None else time.time())
     payload = f"{timestamp}:{generation}:{plan.fingerprint}:{secrets.token_hex(8)}"

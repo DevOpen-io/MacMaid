@@ -174,9 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       activateTopLevelTab(tab, item);
-
-      // Only lazy load static settings / metadata; DO NOT auto-run scans without user action
-      if (tab === 'optimize' && (!state.optimizeTasks || state.optimizeTasks.length === 0)) fetchOptimizationTasks();
     });
   });
 

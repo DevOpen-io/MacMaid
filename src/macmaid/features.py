@@ -690,12 +690,6 @@ def system_status(*, force_health_refresh: bool = False) -> dict[str, Any]:
     return status
 
 
-# Disabled pending a safe redesign.  The previous commands could restart user-facing
-# services, interrupt networking, or trigger expensive system-wide reindexing.
-OPTIMIZATION_UNAVAILABLE_REASON = "macOS bakım görevleri kararlılık incelemesi tamamlanana kadar geçici olarak devre dışı."
-OPTIMIZATIONS: list[dict[str, Any]] = []
-
-
 def macmaid_brew_update_status(*, refresh: bool = False) -> dict[str, Any]:
     """Return the Homebrew Cask update state without guessing installation paths."""
     brew = which("brew")
@@ -738,9 +732,7 @@ def apply_macmaid_brew_update() -> dict[str, Any]:
     return dict(status, updated=True)
 
 
-def run_optimization(task_id: str) -> dict[str, Any]:
-    """Fail closed: no maintenance subprocess may run while this feature is disabled."""
-    return {"success": False, "error": OPTIMIZATION_UNAVAILABLE_REASON}
+
 
 
 def compatibility_checks() -> list[dict[str, Any]]:
@@ -946,13 +938,12 @@ def developer_inventory(kind: str) -> list[dict[str, Any]]:
 
 
 def completion_script(shell: str) -> str:
-    commands = "doctor scan clean leftovers installers smart-downloads browser-storage analyze duplicates large-files apps purge status memory completion developer-caches developer optimize snapshots history restore whitelist uninstall ui web gui dashboard"
+    commands = "doctor scan clean leftovers installers smart-downloads browser-storage analyze duplicates large-files apps purge status memory completion developer-caches developer snapshots history restore whitelist uninstall ui web gui dashboard"
     if shell == "fish":
         return f"complete -c macmaid -f -a '{commands}'"
     if shell == "bash":
         return f"_macmaid() {{ COMPREPLY=( $(compgen -W \"{commands}\" -- \"${{COMP_WORDS[1]}}\") ); }}\ncomplete -F _macmaid macmaid"
-    optimization_ids = " ".join(task["id"] for task in OPTIMIZATIONS)
-    return f'''#compdef macmaid
+    return '''#compdef macmaid
 
 _macmaid() {{
   local context state state_descr line
@@ -976,7 +967,6 @@ _macmaid() {{
     'completion:Print or install shell completion'
     'developer-caches:Scan package-manager caches'
     'developer:List managed runtimes environments tools or SDKs'
-    'optimize:Review macOS maintenance tasks'
     'snapshots:List or thin local snapshots'
     'history:Show operation history'
     'restore:Restore a restorable Trash history item'
@@ -1040,9 +1030,6 @@ _macmaid() {{
             '--filter[filter process rows]:filter:(all developer flutter growing protected)' \
             '--apply[request process stopping after review]' \
             '--yes[acknowledge reviewed process signals]'
-          ;;
-        optimize)
-          _arguments '--task[select one maintenance task]:task:({optimization_ids})' '--all[select every task including advanced tasks]' '--apply[request execution after review]' '--yes[acknowledge a reviewed non-interactive operation]'
           ;;
         snapshots)
           _arguments '--thin[request reclaim target]:gigabytes:' '--apply[request execution after review]' '--yes[acknowledge a reviewed non-interactive operation]'

@@ -1,20 +1,29 @@
 from __future__ import annotations
 
-from macmaid import features
+from types import SimpleNamespace
+
+import pytest
+
+from macmaid import cli, features, web
+from macmaid.config import Config
 
 
-def test_maintenance_commands_are_disabled_without_spawning_subprocesses(monkeypatch) -> None:
-    command_called = False
+def test_optimize_command_is_removed() -> None:
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["optimize"])
+    assert exc.value.code == 2  # argparse rejects unknown commands
 
-    def unexpected_command(*_args, **_kwargs):
-        nonlocal command_called
-        command_called = True
-        raise AssertionError("a disabled optimization must not launch a command")
 
-    monkeypatch.setattr(features, "run_command", unexpected_command)
+def test_optimize_symbols_and_completion_are_removed() -> None:
+    assert not hasattr(features, "OPTIMIZATIONS")
+    assert not hasattr(features, "run_optimization")
+    for shell in ("zsh", "bash", "fish"):
+        assert "optimize" not in features.completion_script(shell)
 
-    assert features.OPTIMIZATIONS == []
-    result = features.run_optimization("launchservices")
 
-    assert result == {"success": False, "error": features.OPTIMIZATION_UNAVAILABLE_REASON}
-    assert not command_called
+def test_optimize_api_endpoints_are_removed(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(web, "Config", lambda: Config(home=tmp_path))
+    handler = object.__new__(web.MacMaidHandler)
+    handler.server = SimpleNamespace(state=SimpleNamespace(config=Config(home=tmp_path)))
+    with pytest.raises(FileNotFoundError):
+        handler._route_get("/api/optimize", {})

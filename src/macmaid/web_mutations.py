@@ -12,15 +12,15 @@ from typing import TYPE_CHECKING
 from .cleaner import Cleaner
 from .developer import DeveloperInventory
 from .features import (
-    OPTIMIZATION_UNAVAILABLE_REASON, OPTIMIZATIONS, ApplicationManager, ProjectPurgeManager,
-    RecoveryCenter, apply_macmaid_brew_update, macmaid_brew_update_status, run_optimization,
+    ApplicationManager, ProjectPurgeManager,
+    RecoveryCenter, apply_macmaid_brew_update, macmaid_brew_update_status,
     thin_snapshots,
 )
 from .models import ActionType, RiskLevel, ScanResult
 from .reporting import FreeSpaceProbe
 from .review import (
     analyzer_trash_plan, application_plan, cleanup_plan, developer_plan, issue_review_token,
-    macmaid_update_plan, optimization_plan, purge_plan, snapshot_plan, validate_review_token,
+    macmaid_update_plan, purge_plan, snapshot_plan, validate_review_token,
 )
 from .system import human_bytes, run_command, size_of
 from .web import ProgressState
@@ -356,18 +356,6 @@ def route_post(handler: MacMaidHandler, path: str, body: dict) -> dict:
         if target <= 0: raise ValueError("A positive snapshot target is required")
         if review := _review_gate(handler, "snapshots", body, snapshot_plan(target)): return review
         return thin_snapshots(target * 1024**3, state.config)
-    if path == "/api/optimize/run":
-        if not OPTIMIZATIONS: raise RuntimeError(OPTIMIZATION_UNAVAILABLE_REASON)
-        tasks = [task for task in OPTIMIZATIONS if task["id"] == str(body.get("taskId", ""))]
-        if not tasks: raise ValueError("Unknown optimization task")
-        if review := _review_gate(handler, "optimize", body, optimization_plan(tasks)): return review
-        return run_optimization(tasks[0]["id"])
-    if path == "/api/optimize/run-all":
-        if not OPTIMIZATIONS: raise RuntimeError(OPTIMIZATION_UNAVAILABLE_REASON)
-        tasks = [task for task in OPTIMIZATIONS if task["recommended"]]
-        if review := _review_gate(handler, "optimize", body, optimization_plan(tasks)): return review
-        results = [run_optimization(task["id"]) for task in tasks]
-        return {"success": all(r["success"] for r in results), "executed": sum(r["success"] for r in results), "failed": sum(not r["success"] for r in results), "skipped": 0, "total": len(results)}
     if path == "/api/whitelist":
         lines = body.get("lines")
         if not isinstance(lines, list) or not all(isinstance(line, str) for line in lines): raise ValueError("Invalid lines array")

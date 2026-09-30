@@ -17,7 +17,7 @@ from .cancellation import CancellationToken
 from .developer import DeveloperInventory, DeveloperStorageCenter
 from .duplicates import DuplicateFinder
 from .features import (
-    OPTIMIZATION_UNAVAILABLE_REASON, OPTIMIZATIONS, ApplicationManager, ProjectPurgeManager,
+    ApplicationManager, ProjectPurgeManager,
     RecoveryCenter, doctor, history, list_snapshots, system_status,
 )
 from .large_files import SIZE_FILTERS, LargeOldFileScanner
@@ -276,9 +276,6 @@ def route_get(handler: MacMaidHandler, path: str, query: dict[str, str]) -> dict
         snapshots = list_snapshots()
         return {"snapshots": [{"id": item, "date": _snapshot_date(item)} for item in snapshots],
                 "raw": "\n".join(snapshots)}
-    if path == "/api/optimize":
-        return {"tasks": [dict(item, subtitle="", requiresSudo=False) for item in OPTIMIZATIONS],
-                "available": bool(OPTIMIZATIONS), "reason": OPTIMIZATION_UNAVAILABLE_REASON}
     if path == "/api/doctor":
         checks = doctor(); by_name = {c["name"]: c["value"] for c in checks}
         return {"macosVersion": by_name.get("macOS", ""), "buildVersion": "", "architecture": by_name.get("Architecture", ""), "sipStatus": by_name.get("System Integrity Protection", ""), "diskRoot": "/", "snapshots": "", "probes": [{"path": c["name"], "ok": c.get("ok") is True} for c in checks]}

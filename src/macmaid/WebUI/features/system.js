@@ -159,64 +159,6 @@ async function executeSnapshotThin() {
 }
 
 // =========================================================
-// Tab 10: Mac Optimization (optimize)
-// =========================================================
-
-async function fetchOptimizationTasks() {
-  const container = document.getElementById('optimize-tasks-grid');
-  try {
-    const res = await fetch('/api/optimize');
-    const data = await readAPIResponse(res);
-    renderOptimizationTasks(data.tasks || [], data.reason || t('optimize.empty_tasks', 'No available optimization tasks found.'));
-  } catch (err) {
-    container.innerHTML = `<div class="empty-state">${t('optimize.load_failed', 'Failed to load tasks: ')}${escapeHtml(err.message)}</div>`;
-  }
-}
-
-function renderOptimizationTasks(tasks, unavailableReason = t('optimize.empty_tasks', 'No available optimization tasks found.')) {
-  const container = document.getElementById('optimize-tasks-grid');
-  if (tasks.length === 0) {
-    container.innerHTML = `<div class="empty-state">${escapeHtml(unavailableReason)}</div>`;
-    return;
-  }
-
-  container.innerHTML = tasks.map(task => `
-    <div class="task-card" data-task-id="${task.id}">
-      <div class="task-head">
-        <div class="task-icon">
-          ${sfSymbol('bolt')}
-        </div>
-        <div class="task-info">
-          <div class="task-info-title">
-            <h4>${escapeHtml(task.title)}</h4>
-            ${informationButton(task.subtitle)}
-          </div>
-        </div>
-      </div>
-      <div class="task-footer">
-        <span class="badge-status ${task.risk === 'SAFE' ? 'live-status' : ''}">${escapeHtml(task.risk)}</span>
-        <button class="btn btn-secondary btn-sm btn-run-task" data-id="${task.id}">${t('optimize.btn_run', 'Run')}</button>
-      </div>
-    </div>
-  `).join('');
-
-  container.querySelectorAll('.btn-run-task').forEach(btn => {
-    btn.addEventListener('click', () => runSingleOptimizeTask(btn.dataset.id));
-  });
-}
-
-async function runSingleOptimizeTask(taskId) {
-  SoundEffects.playClick();
-  const payload = { taskId };
-  await reviewedMutation('/api/optimize/run', payload, {
-    confirmText: t('optimize.btn_run_task', 'Run Task'),
-    onSuccess: data => {
-      SoundEffects.playSuccess(); showToast(`${t('toast.task_completed', 'Task completed: ')}${data.message || t('hud.ok', 'Successful')}`, 'success');
-    },
-  });
-}
-
-// =========================================================
 // Tab 11: Doctor (doctor)
 // =========================================================
 
@@ -322,17 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
       pill.classList.add('active');
     });
   });
-  // Optimization events
-  document.getElementById('btn-run-all-optimize')?.addEventListener('click', async () => {
-    SoundEffects.playClick();
-    const payload = {};
-    await reviewedMutation('/api/optimize/run-all', payload, {
-      confirmText: t('optimize.btn_run_all', 'Run All'),
-      onSuccess: result => {
-        SoundEffects.playSuccess(); showToast(`${result.executed}/${result.total} ${t('toast.tasks_completed_count', 'maintenance tasks completed.')}`, 'success');
-      },
-    });
-  });
+
   // Doctor & Settings
   document.getElementById('btn-refresh-doctor')?.addEventListener('click', fetchDoctorReport);
 });

@@ -54,15 +54,6 @@
             <span class="nav-task-dot hidden" id="dot-apps"></span>
           </button>
 
-          <!-- 3. Optimize -->
-          <button class="nav-item" data-tab="optimize">
-            <span class="nav-symbol" data-icon="gearshape"></span>
-            <div class="nav-text-group">
-              <span class="nav-main-title" data-i18n="nav.optimize">Maintenance</span>
-            </div>
-            <span class="nav-task-dot hidden" id="dot-optimize"></span>
-          </button>
-
           <!-- 4. Analyze -->
           <button class="nav-item" data-tab="analyzer">
             <span class="nav-symbol" data-icon="internaldrive"></span>
@@ -804,49 +795,6 @@
             </div>
           </div>
         </section>
-
-        <!-- ================= TAB 3: OPTIMIZE (CLI MENU ITEM 2) ================= -->
-        <section class="tab-pane" id="pane-optimize">
-          <div class="pane-header">
-            <div>
-              <h1 class="pane-title" data-i18n="optimize.title">Maintenance</h1>
-              <p class="pane-subtitle essential-copy" data-i18n="optimize.subtitle">Maintenance tasks are temporarily unavailable.</p>
-            </div>
-          </div>
-
-          <!-- In-Page Live Progress Card for Optimize -->
-          <div class="inpage-progress-card hidden" id="optimize-progress-card">
-            <div class="inpage-progress-header">
-              <div class="inpage-title-group">
-                <span class="live-pulse-dot"></span>
-                <span class="inpage-action-label" id="optimize-action-label" data-i18n="optimize.action_running">Running Optimizations...</span>
-                <span class="inpage-phase-badge" id="optimize-phase-badge" data-i18n="clean.phase_working">WORKING</span>
-              </div>
-              <div class="inpage-stats-group">
-                <span class="inpage-count" id="optimize-progress-count"></span>
-                <span class="inpage-percent" id="optimize-progress-percent">0%</span>
-              </div>
-            </div>
-            <div class="inpage-progress-track">
-              <div class="inpage-progress-fill" id="optimize-progress-bar" style="width: 0%;"></div>
-            </div>
-            <div class="inpage-path-ticker">
-              <span class="inpage-path-icon" data-icon="folder"></span>
-              <span class="inpage-path-text" id="optimize-path-text" data-i18n="clean.path_preparing">Preparing...</span>
-            </div>
-            <div class="inpage-logs-drawer">
-              <button class="inpage-logs-btn" type="button" data-log-service="optimize">
-                <span id="optimize-logs-btn-text" data-i18n="clean.logs_btn">Show details</span>
-              </button>
-              <div class="inpage-logs-container hidden" id="optimize-logs-container"></div>
-            </div>
-          </div>
-
-          <div class="tasks-grid" id="optimize-tasks-grid">
-            <!-- Dynamic Task Cards -->
-          </div>
-        </section>
-
 
         <!-- ================= TAB 6: DISK ANALYZER (NEW) ================= -->
         <section class="tab-pane" id="pane-analyzer">
@@ -2091,7 +2039,7 @@
               <div class="settings-info-grid">
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.version_label">Version</div>
-                  <div class="settings-info-value settings-info-mono">0.15.18</div>
+                  <div class="settings-info-value settings-info-mono">0.15.19</div>
                 </div>
                 <div class="settings-info-tile">
                   <div class="settings-info-label" data-i18n="settings.safety_label">Safety Model</div>

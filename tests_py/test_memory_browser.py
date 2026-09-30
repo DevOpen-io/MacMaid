@@ -210,7 +210,6 @@ def test_memory_browser_workflow(tmp_path):
                     ('dashboard', 'system-status'),
                     ('cleaner', 'clean'),
                     ('apps', 'applications'),
-                    ('optimize', 'maintenance'),
                     ('analyzer', 'storage'),
                     ('purge', 'project-cleanup'),
                 ]:

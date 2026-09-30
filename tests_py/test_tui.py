@@ -54,7 +54,7 @@ def test_textual_tui_navigation_and_page_tables(monkeypatch) -> None:
             assert len(nav.children) == len(tui.NAVIGATION)
             assert nav.children[0].id == "nav-clean"
 
-            for key, expected in (("1", "page-clean"), ("4", "page-analyzer"), ("6", "page-developer"), ("7", "page-status"), ("0", "page-update-results")):
+            for key, expected in (("1", "page-clean"), ("3", "page-analyzer"), ("5", "page-developer"), ("6", "page-status"), ("0", "page-update-results")):
                 await pilot.press("m", key); await pilot.pause()
                 assert switcher.current == expected
 
@@ -65,11 +65,11 @@ def test_textual_tui_navigation_and_page_tables(monkeypatch) -> None:
             await pilot.press("2"); await pilot.pause()
             assert app.query_one("#clean-actions", ListView).index == 1
             assert switcher.current == "page-clean"
-            await pilot.press("m", "7"); await pilot.pause()
+            await pilot.press("m", "6"); await pilot.pause()
             assert switcher.current == "page-status"
 
             await pilot.press("ctrl+n", "k", "enter"); await pilot.pause()
-            assert app.query_one("#nav", ListView).index == 5
+            assert app.query_one("#nav", ListView).index == 4
             assert switcher.current == "page-developer"
 
             await pilot.press("escape"); await pilot.pause()
@@ -185,7 +185,7 @@ def test_tui_keyboard_submenus_replace_dropdowns(monkeypatch) -> None:
     async def exercise() -> None:
         app = tui.MacMaidTUI()
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("6")
+            await pilot.press("5")
             await pilot.pause()
 
             menu = app.query_one("#developer-actions", ListView)
@@ -219,7 +219,7 @@ def test_every_tool_section_has_a_separate_results_screen(monkeypatch) -> None:
     async def exercise() -> None:
         app = tui.MacMaidTUI()
         async with app.run_test(size=(120, 40)):
-            for section in ("clean", "apps", "analyzer", "purge", "developer", "optimize", "status", "more"):
+            for section in ("clean", "apps", "analyzer", "purge", "developer", "status", "more"):
                 app._show_results(section)
                 assert app.query_one("#pages", ContentSwitcher).current == f"page-{section}-results"
                 assert app.current_page == f"{section}-results"
@@ -383,7 +383,7 @@ def test_clean_profile_switch_discards_results_and_late_callbacks(monkeypatch, l
             assert not str(app.query_one("#clean-detail", Static).content)
             try:
                 assert await asyncio.to_thread(started.wait, 5)
-                await pilot.press("escape", "escape", "6")
+                await pilot.press("escape", "escape", "5")
                 assert app.current_page == "developer"
                 app.open_page("clean")
                 app._run_menu_action("clean-profile-developer")

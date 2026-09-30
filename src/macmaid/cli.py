@@ -13,9 +13,9 @@ from .browser_storage import ACCESS_NOTE, BrowserStorageInspector
 from .cleaner import Cleaner
 from .config import Config
 from .features import (
-    OPTIMIZATIONS, OPTIMIZATION_UNAVAILABLE_REASON, ApplicationManager, ProjectPurgeManager, RecoveryCenter, analyze_directory, completion_activation_hint, completion_script,
+    ApplicationManager, ProjectPurgeManager, RecoveryCenter, analyze_directory, completion_activation_hint, completion_script,
     developer_inventory, doctor, install_completion, list_snapshots, remove_completion_hooks,
-    run_optimization, system_status, thin_snapshots,
+    system_status, thin_snapshots,
 )
 from .developer import DeveloperStorageCenter
 from .duplicates import DuplicateFinder
@@ -23,7 +23,7 @@ from .large_files import LargeOldFileScanner, SIZE_FILTERS
 from .memory import GROWTH_WINDOW_SECONDS, HISTORY_WINDOW_SECONDS, SAMPLE_INTERVAL_SECONDS, MemoryService
 from .models import CleanupProfile
 from .smart_downloads import SmartDownloadsScanner
-from .review import cleanup_plan, optimization_plan, purge_plan, snapshot_plan
+from .review import cleanup_plan, purge_plan, snapshot_plan
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
 from .system import ensure_tool_search_path, human_bytes, is_interactive, run_command
 
@@ -70,7 +70,6 @@ def _parser() -> argparse.ArgumentParser:
     completion = commands.add_parser("completion"); completion.add_argument("shell", choices=("zsh", "bash", "fish"), nargs="?", default="zsh"); completion.add_argument("--print", action="store_true", dest="print_only"); completion.add_argument("--install", action="store_true")
     caches = commands.add_parser("developer-caches"); caches.add_argument("--scan-only", action="store_true"); caches.add_argument("--apply", action="store_true"); caches.add_argument("--yes", action="store_true")
     developer = commands.add_parser("developer"); developer.add_argument("kind", choices=("storage", "runtimes", "environments", "tools", "sdks"), default="runtimes", nargs="?")
-    optimize = commands.add_parser("optimize"); optimize.add_argument("--task"); optimize.add_argument("--all", action="store_true", dest="all_tasks"); optimize.add_argument("--apply", action="store_true"); optimize.add_argument("--yes", action="store_true")
     snapshots = commands.add_parser("snapshots"); snapshots.add_argument("--thin", type=int, metavar="GB"); snapshots.add_argument("--apply", action="store_true"); snapshots.add_argument("--yes", action="store_true")
     history_parser = commands.add_parser("history"); history_parser.add_argument("--limit", type=int, default=40)
     restore = commands.add_parser("restore"); restore.add_argument("--operation-id", required=True); restore.add_argument("--trash-path", required=True); restore.add_argument("--copy", action="store_true")
@@ -663,15 +662,6 @@ def _main(argv: list[str] | None = None) -> None:
         inventory = _run_interruptible_scan(lambda: developer_inventory(args.kind))
         if inventory is None: return
         for item in inventory: print(f"{item['name']:<16} {item['version']}\n{item['detail']}\n")
-    elif command == "optimize":
-        if not OPTIMIZATIONS:
-            print(OPTIMIZATION_UNAVAILABLE_REASON)
-            return
-        selected = [task for task in OPTIMIZATIONS if task["id"] == args.task] if args.task else [task for task in OPTIMIZATIONS if args.all_tasks or task["recommended"]]
-        for task in selected: print(f"  {task['risk']:<12} {task['id']:<20} {task['title']}")
-        if args.apply: _print_review(optimization_plan(selected))
-        if not args.apply or not _confirm("Authorize this exact reviewed plan?", args.yes): print("No changes made."); return
-        for task in selected: print(task["id"], run_optimization(task["id"]))
     elif command == "snapshots":
         if args.thin:
             if args.apply: _print_review(snapshot_plan(args.thin))

@@ -235,7 +235,7 @@ def test_completion_contains_all_primary_commands() -> None:
     script = completion_script("zsh")
     for command in ("scan", "apps", "analyze", "purge", "status", "memory", "developer", "ui"):
         assert f"'{command}:" in script
-    for option in ("--profile", "--scan-only", "--apply", "--path", "--task", "--port"):
+    for option in ("--profile", "--scan-only", "--apply", "--path", "--port"):
         assert option in script
     for option in ("--growing", "--sort", "--filter"):
         assert option in script

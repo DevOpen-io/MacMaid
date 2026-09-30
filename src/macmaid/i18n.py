@@ -40,13 +40,11 @@ _EN: Final[dict[str, str]] = {
     "Home dizinini analiz et": "Analyze Home Directory", "Kullanıcı home dizinini arka planda ölç": "Measure the user's home directory in the background",
     "Başka bir yol seç": "Choose Another Path", "Yol girişinin bulunduğu analiz ekranını aç": "Open the analyzer with a custom path field",
     "Projeleri tara": "Scan Projects", "Build ve dependency artefaktlarını salt-okunur keşfet": "Discover build and dependency artifacts without modifying them",
-    "Bakım görevleri devre dışı": "Maintenance Tasks Unavailable", "Kararlılık incelemesi tamamlanana kadar komut çalıştırılmaz": "No commands run until the stability review is complete",
     "Mac sağlık ekranını aç": "Open Mac Health", "Disk, bellek baskısı, pil ve termal durumunu gerekçeleriyle göster": "Show disk, memory pressure, battery and thermal status with evidence",
     "Türkçe arayüzü kullan": "Use the Turkish interface", "İngilizce": "English", "İngilizce arayüzü kullan": "Use the English interface",
     "Mevcut arayüz dili:": "Current interface language:", "Ayar kaydedildi · arayüz dili:": "Setting saved · interface language:",
     "Hazır — kontrol yalnızca açık aksiyonla çalışır.": "Ready — the check runs only when you start it.",
     "Ayar kaydedilemedi:": "Could not save setting:", "Ayarlar açılamadı:": "Could not open Settings:",
-    "macOS bakım görevleri kararlılık incelemesi tamamlanana kadar geçici olarak devre dışı.": "macOS maintenance tasks are temporarily unavailable until the stability review is complete.",
     "Yol yaz; eşleşen konumlar aşağıda listelenir": "Type a path; matching locations appear below",
     "Korunan yol veya glob": "Protected path or glob", "Eşleşen konumlar": "Matching locations",
     "Yolu eklemek için Enter · öneriyi seçmek için ↓ ve Enter · seçili kuralı silmek için D · kaydetmek için Ctrl+S · Esc geri": "Enter Add · ↓ then Enter Select suggestion · D Remove rule · Ctrl+S Save · Esc Back",
@@ -78,8 +76,7 @@ _EN: Final[dict[str, str]] = {
     "Önce envanter tara": "Scan the inventory first", "Önce tarama yap ve öğe seç": "Scan and select an item first",
     "Durdurulabilecek aktif tarama yok": "There is no active scan to stop", "Çoklu seçim yalnız cache görünümünde": "Multiple selection is available only in the cache view",
     "Trash için bir dosya satırı seç": "Select a file row to move to Trash", "Bu öğe korumalı": "This item is protected",
-    "Application bileşenini seç": "Select an application component", "Artefakt seç": "Select an artifact", "Cache seç": "Select a cache", "Görev seç": "Select a task",
-    "Tamamlandı": "Completed", "Başarısız": "Failed", "Atlandı": "Skipped", "Önerilen": "Recommended", "Varsayılan olarak seçilmez": "Not selected by default",
+    "Application bileşenini seç": "Select an application component", "Artefakt seç": "Select an artifact", "Cache seç": "Select a cache", "Tamamlandı": "Completed", "Başarısız": "Failed", "Atlandı": "Skipped", "Önerilen": "Recommended", "Varsayılan olarak seçilmez": "Not selected by default",
     "kullanılabilir görünüyor": "appears available", "kullanılabilir değil": "is not available", "belirlenemedi": "unknown",
     "Çalışma bağlamı:": "Launch context:", "Tam Disk Erişimi:": "Full Disk Access:", "Komut satırı": "Command line", "Uygulama": "Application",
     "Bu yalnızca salt-okunur bir erişim kontrolüdür.": "This is a read-only access check.", "Bilinmeyen konum": "Unknown location",
@@ -88,12 +85,11 @@ _EN: Final[dict[str, str]] = {
 
 _TR: Final[dict[str, str]] = {
     "SELECT TOOL": "ARAÇ SEÇ", "Settings": "Ayarlar", "Ayarlar / Settings": "Ayarlar", "Tool Results": "Araç Sonuçları",
-    "Clean": "Temizlik", "Uninstall Apps": "Uygulama Kaldır", "Optimize": "Optimize Et", "Analyze": "Analiz",
+    "Clean": "Temizlik", "Uninstall Apps": "Uygulama Kaldır", "Analyze": "Analiz",
     "Project Purge": "Proje Temizliği", "Developer Tools": "Geliştirici Araçları", "Mac Health": "Mac Sağlığı",
     "Files & Storage": "Dosyalar ve Depolama", "System & History": "Sistem ve Geçmiş", "App Uninstaller": "Uygulama Kaldırıcı",
     "Update MacMaid": "MacMaid'i Güncelle",
     "Disk Analyzer": "Disk Analizörü", "Developer Inventory": "Geliştirici Envanteri", "Review Cleanup": "Temizliği İncele",
-    "macOS Optimize": "macOS Optimize Et",
     "Review operation": "İşlemi İncele", "Operation": "İşlem", "Choose Cleanup Profile": "Temizlik Profili Seç",
     "Deep clean your Mac without touching your data.": "Verilerinize dokunmadan Mac'inizi derinlemesine temizleyin.",
     "Scan safely, choose a profile, then reclaim space": "Güvenle tara, bir profil seç ve alan kazan.",
@@ -285,10 +281,8 @@ _TR_EXTRA: Final[dict[str, str]] = {
 # Fragments cover dynamic counters, paths and operation outcomes without translating paths,
 # application names or manager-owned identifiers.
 _EN_FRAGMENTS: Final[tuple[tuple[str, str], ...]] = tuple(sorted({
-    "macOS bakım görevleri kararlılık incelemesi tamamlanana kadar geçici olarak devre dışı.": "macOS maintenance tasks are temporarily unavailable until the stability review is complete.",
     "Uygulamaları tara": "Scan Applications", "Home dizinini analiz et": "Analyze Home Directory",
     "Başka bir yol seç": "Choose Another Path", "Projeleri tara": "Scan Projects", "Mac sağlık ekranını aç": "Open Mac Health",
-    "Bakım görevleri devre dışı": "Maintenance Tasks Unavailable",
     "Ayar kaydedildi · arayüz dili: ": "Setting saved · interface language: ",
     "Mevcut arayüz dili: ": "Current interface language: ", "Whitelist güvenli biçimde okunamadı: ": "Whitelist could not be read safely: ",
     "Kural kaldırıldı: ": "Rule removed: ", "Öneri ": "Suggestion ", "Kısmi tarama · ": "Partial scan · ", "Kısmi cache taraması · ": "Partial cache scan · ",
@@ -298,7 +292,6 @@ _EN_FRAGMENTS: Final[tuple[tuple[str, str], ...]] = tuple(sorted({
     " hazır": " ready", " kaldırılabilir": " removable", " korunan kural · Dosyalar bu kurallarla eşleştiğinde işlem engellenir.": " protected rules · matching files are blocked from operations.",
     " uygulama · Enter ile bileşenleri aç": " applications · Enter opens components", " · Enter ile ana menü": " · Enter returns to main menu",
     " · Seçimi değiştirmek için Enter'a basın.": " · Press Enter to change the selection.", " · kalıcılaştırmak için Ctrl+S": " · press Ctrl+S to save",
-    " önerilen görev seçildi": " recommended tasks selected",
     " yükleniyor…": " loading…", " taranıyor…": " scanning…", " hazırlanıyor…": " preparing…",
     " çalışıyor…": " running…", " kaldırılıyor": " is being removed", " taşınıyor": " is being moved",
     " tamamlandı": " completed", " başarısız": " failed", " iptal edildi": " cancelled",
@@ -319,8 +312,7 @@ _EN_FRAGMENTS: Final[tuple[tuple[str, str], ...]] = tuple(sorted({
 }.items(), key=lambda item: len(item[0]), reverse=True))
 
 _TR_FRAGMENTS: Final[tuple[tuple[str, str], ...]] = tuple(sorted({
-    "1.  Clean": "1.  Temizlik", "2.  Uninstall Apps": "2.  Uygulama Kaldır", "3.  Optimize": "3.  Optimize Et",
-    "4.  Analyze": "4.  Analiz", "5.  Project Purge": "5.  Proje Temizliği", "6.  Developer Tools": "6.  Geliştirici Araçları",
+    "1.  Clean": "1.  Temizlik", "2.  Uninstall Apps": "2.  Uygulama Kaldır", "4.  Analyze": "4.  Analiz", "5.  Project Purge": "5.  Proje Temizliği", "6.  Developer Tools": "6.  Geliştirici Araçları",
     "7.  Mac Health": "7.  Mac Sağlığı", "8.  Files & Storage": "8.  Dosyalar ve Depolama", "9.  System & History": "9.  Sistem ve Geçmiş",
     "10.  Memory": "10.  Bellek", "0.  Check for Updates": "0.  Güncellemeleri Denetle",
     "1.  Safe  [LOW RISK]": "1.  Güvenli  [DÜŞÜK RİSK]", "2.  Deep  [BALANCED]": "2.  Derin  [DENGELİ]",
