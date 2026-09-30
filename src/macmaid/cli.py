@@ -147,11 +147,11 @@ def _print_history_record(record: dict) -> None:
             observed_value = int(observed) if observed is not None else None
         except (TypeError, ValueError):
             observed_value = None
-        observed_text = "ölçülemedi" if observed_value is None else f"{human_bytes(abs(observed_value))} {'artış' if observed_value >= 0 else 'azalış'}"
-        print(f"{prefix} {record.get('action', 'operation')} · işlenen tahmin {human_bytes(record.get('processedEstimatedBytes', 0))} · tahmini geri kazanım {human_bytes(record.get('estimatedReclaimedBytes', 0))} · gözlenen fark {observed_text} (kesin atfedilemez)")
+        observed_text = "not measured" if observed_value is None else f"{human_bytes(abs(observed_value))} {'increase' if observed_value >= 0 else 'decrease'}"
+        print(f"{prefix} {record.get('action', 'operation')} · processed estimate {human_bytes(record.get('processedEstimatedBytes', 0))} · estimated reclaim {human_bytes(record.get('estimatedReclaimedBytes', 0))} · observed delta {observed_text} (not attributable)")
     else:
         restore = record.get("restoreStatus", "Restorable" if record.get("restorable") else "Not Restorable")
-        print(f"{prefix} {record.get('label', record.get('path', ''))} · hedef tahmini {human_bytes(record.get('bytes', 0))} · {record.get('reclaimStatus', 'legacy record')} · {restore}")
+        print(f"{prefix} {record.get('label', record.get('path', ''))} · target estimate {human_bytes(record.get('bytes', 0))} · {record.get('reclaimStatus', 'legacy record')} · {restore}")
 
 
 def _group_children(group: dict, filter_by: str) -> list[dict]:
@@ -509,7 +509,7 @@ def main(argv: list[str] | None = None) -> None:
 def _main(argv: list[str] | None = None) -> None:
     argv = sys.argv[1:] if argv is None else argv
     if os.geteuid() == 0 and not any(flag in argv for flag in ("-h", "--help", "--version")):
-        print("MacMaid sudo/root ile çalıştırılamaz. Normal kullanıcı hesabınla yeniden başlat.", file=sys.stderr)
+        print("MacMaid cannot run with sudo/root. Start it again as your normal user account.", file=sys.stderr)
         raise SystemExit(2)
     ensure_tool_search_path()
     if not argv:
@@ -722,7 +722,7 @@ def _main(argv: list[str] | None = None) -> None:
             if found_app:
                 run_command("/usr/bin/open", ["-a", str(found_app)], timeout=15)
                 return
-            print("MacMaid.app bulunamadı. Yerel uygulama olarak oluşturmak için: make prod-install")
+            print("MacMaid.app was not found. Build it locally with: make prod-install")
         from .web import serve
         serve(args.port, not args.no_open)
     elif command == "uninstall":

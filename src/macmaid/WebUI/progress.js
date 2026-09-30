@@ -291,7 +291,7 @@ function renderInPageProgress(p) {
   } else {
     // When finished, set 100% on active card and hide after timeout
     const phaseEl = document.getElementById(`${activePrefix}-phase-badge`) || document.getElementById(`${service}-phase-badge`);
-    if (phaseEl) phaseEl.textContent = p.phase || 'TAMAMLANDI';
+    if (phaseEl) phaseEl.textContent = p.phase || t('clean.phase_done', 'DONE');
     const barEl = document.getElementById(`${activePrefix}-progress-bar`) || document.getElementById(`${service}-progress-bar`);
     if (barEl) {
       barEl.style.width = '100%';

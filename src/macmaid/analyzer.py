@@ -508,14 +508,14 @@ class IncrementalAnalyzer:
             return {
                 "active": not job.is_complete and not job.was_cancelled,
                 "service": "analyzer",
-                "action": "Dizin arka planda analiz ediliyor",
-                "phase": "İPTAL EDİLDİ" if job.was_cancelled else "TARANIYOR" if not job.is_complete else "KISMİ" if (job.failed or job.partial) else "TAMAMLANDI",
+                "action": "Analyzing directory in background",
+                "phase": "CANCELLED" if job.was_cancelled else "SCANNING" if not job.is_complete else "PARTIAL" if (job.failed or job.partial) else "DONE",
                 "path": job.current_scan_path or str(job.path),
                 "completed": done,
                 "total": total,
                 "percent": int(done / total * 100) if total else 100,
                 "detail": str(job.path),
-                "logs": [f"{done}/{total} öğe ölçüldü", job.current_scan_path or str(job.path)],
+                "logs": [f"Measured items: {done}/{total}", job.current_scan_path or str(job.path)],
             }
 
     def cancel_active(self) -> bool:

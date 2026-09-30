@@ -35,7 +35,7 @@ class ProgressState:
 
     def start(self, service: str, action: str) -> None:
         with self.lock:
-            self.value.update(active=True, service=service, action=action, phase="Başlatılıyor…", path="", completed=0, total=0, percent=-1, detail="", logs=[action])
+            self.value.update(active=True, service=service, action=action, phase="Starting…", path="", completed=0, total=0, percent=-1, detail="", logs=[action])
 
     def update(self, percent: int, phase: str, path: str) -> None:
         with self.lock:
@@ -64,7 +64,7 @@ class ProgressState:
             if activity and (not self.value["logs"] or activity not in self.value["logs"][-1]):
                 self.value["logs"] = [*self.value["logs"][-59:], f"{phase}: {activity}"]
 
-    def finish(self, message: str = "Tamamlandı", *, percent: int = 100) -> None:
+    def finish(self, message: str = "Completed", *, percent: int = 100) -> None:
         with self.lock:
             self.value.update(active=False, phase=message, percent=percent)
             self.value["logs"] = [*self.value["logs"][-59:], message]
@@ -376,11 +376,11 @@ def serve(port: int = 8123, open_browser: bool = True) -> None:
     except OSError as exc:
         if exc.errno != errno.EADDRINUSE:
             raise
-        print(f"MacMaid Web UI zaten çalışıyor: {url}")
+        print(f"MacMaid Web UI is already running: {url}")
         if open_browser:
             webbrowser.open(url)
         return
-    print(f"MacMaid Web UI: {url}\nCtrl+C ile kapatabilirsin.")
+    print(f"MacMaid Web UI: {url}\nPress Ctrl+C to stop.")
     if open_browser:
         threading.Timer(0.25, lambda: webbrowser.open(url)).start()
     try:

@@ -20,6 +20,7 @@ from .features import (
     ApplicationManager, ProjectPurgeManager,
     RecoveryCenter, doctor, history, list_snapshots, system_status,
 )
+from .i18n import DEFAULT_LANGUAGE, translate
 from .large_files import SIZE_FILTERS, LargeOldFileScanner
 from .models import CleanupProfile
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
@@ -27,7 +28,36 @@ from .smart_downloads import SmartDownloadsScanner
 from .system import human_bytes, macos_permission_report
 
 if TYPE_CHECKING:
-    from .web import MacMaidHandler
+    from .web import MacMaidHandler, WebState
+
+
+def _progress_language(state: WebState) -> str:
+    try:
+        return state.config.preferences()["language"]
+    except (OSError, ValueError):
+        return DEFAULT_LANGUAGE
+
+
+def _progress_text(text: str, language: str) -> str:
+    # Paths pass through verbatim so fragments can never corrupt them.
+    if not text or "/" in text:
+        return text
+    return translate(text, language)
+
+
+def _localized_progress(state: WebState, snapshot: dict) -> dict:
+    language = _progress_language(state)
+    logs = []
+    for line in snapshot.get("logs", []):
+        head, sep, tail = str(line).partition(": ")
+        logs.append(f"{translate(head, language)}{sep}{tail}" if sep and "/" not in head else _progress_text(str(line), language))
+    return dict(
+        snapshot,
+        action=translate(str(snapshot.get("action") or ""), language),
+        phase=translate(str(snapshot.get("phase") or ""), language),
+        detail=_progress_text(str(snapshot.get("detail") or ""), language),
+        logs=logs,
+    )
 
 
 def _scan_endpoint(handler: MacMaidHandler, service: str, label: str, scan_fn, *, fail: str, done, on_start=None):
@@ -74,7 +104,7 @@ def route_get(handler: MacMaidHandler, path: str, query: dict[str, str]) -> dict
     if path == "/api/progress":
         regular = state.progress.snapshot()
         analyzer = state.analyzer.progress()
-        return analyzer if analyzer.get("active") and not regular.get("active") else regular
+        return _localized_progress(state, analyzer if analyzer.get("active") and not regular.get("active") else regular)
     if path == "/api/macmaid/update":
         # Read-only view of the last explicit check; never spawn brew
         # subprocesses from a passive GET. Refresh via POST /check.
@@ -93,7 +123,7 @@ def route_get(handler: MacMaidHandler, path: str, query: dict[str, str]) -> dict
             previous = state.scan_cancellations.get("clean")
             if previous: previous.cancel()
             state.scan_cancellations["clean"] = token
-        state.progress.start("cleaner", f"Akıllı Sistem Taraması ({profile.value})")
+        state.progress.start("cleaner", f"Smart system scan ({profile.value})")
         result = Scanner(state.config).scan(
             profile, include_trash=query.get("trash") == "true",
             include_system_temp=query.get("systemTemp") == "true",
@@ -107,21 +137,21 @@ def route_get(handler: MacMaidHandler, path: str, query: dict[str, str]) -> dict
                 handler._bump_generation("clean")
         if not authoritative:
             raise PermissionError("Stale scan result discarded")
-        message = ("Tarama iptal edildi" if result.status == "cancelled" else
-                   f"Kısmi tarama · {len(result.issues)} sorun" if result.is_partial else
-                   f"{len(result.items)} öğe bulundu")
+        message = ("Scan cancelled" if result.status == "cancelled" else
+                   f"Partial scan · {len(result.issues)} issues" if result.is_partial else
+                   f"{len(result.items)} items found")
         state.progress.finish(message, percent=0 if result.status == "cancelled" else 100)
         return {"profile": profile.value, "status": result.status, "isComplete": result.is_complete,
                 "issues": result.issues, "notes": result.notes,
                 "totalBytes": result.total_bytes, "humanTotal": human_bytes(result.total_bytes),
                 "items": [dict(item.web_dict(), estimatedBytes=item.estimated_bytes, humanBytes=human_bytes(item.estimated_bytes), riskLevel=int(item.risk)) for item in result.items]}
     if path == "/api/apps":
-        state.progress.start("apps", "Yüklü Uygulamalar Taranıyor")
+        state.progress.start("apps", "Scanning installed applications")
         apps = ApplicationManager(state.config).scan()[:120]
         with state.lock:
             state.apps = apps
             handler._bump_generation("apps")
-        state.progress.finish(f"{len(apps)} uygulama tespit edildi")
+        state.progress.finish(f"{len(apps)} applications found")
         return {"apps": [dict(app.web_dict(), id=str(app.path), humanBytes=human_bytes(app.bytes)) for app in apps]}
     if path == "/api/apps/leftovers":
         requested = handler._request_path_key(query.get("path", ""))
@@ -213,10 +243,10 @@ def route_get(handler: MacMaidHandler, path: str, query: dict[str, str]) -> dict
         min_bytes = SIZE_FILTERS.get(str(query.get("minSize", "500MB")), SIZE_FILTERS["500MB"])
         older = int(query["olderThanDays"]) if query.get("olderThanDays") else None
         files = _scan_endpoint(handler, 
-            "largefiles", "Büyük ve eski dosyalar taranıyor",
+            "largefiles", "Scanning large and old files",
             lambda: LargeOldFileScanner(min_bytes=min_bytes, older_than_days=older).scan(
                 roots,
-                progress=lambda seen, current: state.progress.update_items(seen, 0, "Taranıyor", str(current)),
+                progress=lambda seen, current: state.progress.update_items(seen, 0, "Scanning", str(current)),
             ),
             fail="Large/old scan failed",
             done=lambda r: f"Large/old scan completed · {len(r)} candidates")

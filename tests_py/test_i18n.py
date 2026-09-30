@@ -89,3 +89,48 @@ def test_translation_catalogs_have_no_duplicate_keys() -> None:
     for name, keys in catalogs.items():
         duplicates = sorted(key for key, count in Counter(keys).items() if count > 1)
         assert duplicates == [], f"{name} has duplicate keys: {duplicates}"
+
+
+def test_non_tui_surfaces_emit_no_turkish_source_literals() -> None:
+    # CLI prints, Web progress strings and analyzer status copy are
+    # English-source; only the TUI (Turkish-source + widget auto-translate)
+    # and the catalog itself may hold Turkish literals.
+    root = Path(__file__).resolve().parents[1]
+    leaks: list[str] = []
+    for name in ("cli.py", "web.py", "web_queries.py", "web_mutations.py", "analyzer.py"):
+        tree = ast.parse((root / "src/macmaid" / name).read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if any(character in node.value for character in "çÇğĞıİöÖşŞüÜ"):
+                    leaks.append(f"{name}:{node.lineno} {node.value!r}")
+    assert leaks == []
+
+
+def test_api_progress_localizes_saved_language(tmp_path, monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    from macmaid import web
+    from macmaid.config import Config
+
+    home = tmp_path / "home"; home.mkdir()
+    config = Config(home=home); config.ensure_files()
+    config.set_language("tr")
+    state = web.WebState(config)
+    handler = object.__new__(web.MacMaidHandler); handler.server = SimpleNamespace(state=state)
+
+    state.progress.start("cleaner", "Smart system scan (safe)")
+    state.progress.update(40, "User caches", str(home / "Library/Caches/x"))
+    state.progress.finish("42 items found")
+
+    payload = handler._route_get("/api/progress", {})
+    assert payload["action"] == "Akıllı Sistem Taraması (güvenli)"
+    assert payload["phase"] == "42 öğe bulundu"
+    assert payload["logs"][0] == "Akıllı Sistem Taraması (güvenli)"
+    assert payload["logs"][-1] == "42 öğe bulundu"
+    path_lines = [line for line in payload["logs"] if ": " in line and "/" in line.partition(": ")[2]]
+    assert all(line.startswith("Kullanıcı önbellekleri: ") for line in path_lines)
+
+    config.set_language("en")
+    payload = handler._route_get("/api/progress", {})
+    assert payload["phase"] == "42 items found"
+    assert all("öğe" not in line for line in payload["logs"])

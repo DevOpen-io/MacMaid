@@ -145,7 +145,7 @@ def _move_items_to_trash_with_progress(
     except Exception:
         progress_state.finish("Trash operation failed", percent=0)
         raise
-    progress_state.finish(f"Moved {len(moved)} item(s) to Trash")
+    progress_state.finish(f"Moved to Trash · {len(moved)} item(s)")
     return moved
 
 def _trash_reviewed_paths(
@@ -217,7 +217,7 @@ def route_post(handler: MacMaidHandler, path: str, body: dict) -> dict:
         else:
             raise ValueError("Unknown scan service")
         if cancelled:
-            state.progress.finish("Tarama iptal ediliyor", percent=0)
+            state.progress.finish("Cancelling scan", percent=0)
         return {"success": True, "cancelled": cancelled, "service": service}
     if path == "/api/macmaid/update/check":
         status = macmaid_brew_update_status(refresh=True)
