@@ -213,6 +213,34 @@ def test_tui_keyboard_submenus_replace_dropdowns(monkeypatch) -> None:
     asyncio.run(exercise())
 
 
+def test_clean_selection_label_recomputes_selected_total(monkeypatch) -> None:
+    """Toggling a large item must update both the count and the byte total."""
+    monkeypatch.setattr(tui, "system_status", _metrics)
+
+    def sized_item(size: int) -> CleanupItem:
+        return CleanupItem(
+            CleanupCategory.USER_CACHES, f"item-{size}", None, size, RiskLevel.SAFE,
+            "Synthetic cache", CleanupAction(ActionType.REMOVE_PATH),
+        )
+
+    async def exercise() -> None:
+        app = tui.MacMaidTUI()
+        async with app.run_test(size=(120, 40)) as pilot:
+            app.clean_result = ScanResult(items=[
+                sized_item(128 * 1024**2), sized_item(5 * 1024**3), sized_item(1024),
+            ])
+            app.clean_selected = {0, 1, 2}
+            app._show_results("clean")
+            app._render_clean()
+            state = app.query_one("#clean-state", Static)
+            assert "3/3" in str(state.content) and "5.1 GB" in str(state.content)
+            await pilot.press("space")
+            await pilot.pause()
+            assert "2/3" in str(state.content) and "5.0 GB" in str(state.content)
+
+    asyncio.run(exercise())
+
+
 def test_every_tool_section_has_a_separate_results_screen(monkeypatch) -> None:
     monkeypatch.setattr(tui, "system_status", _metrics)
 
