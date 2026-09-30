@@ -52,7 +52,7 @@ def _parser() -> argparse.ArgumentParser:
     installers = commands.add_parser("installers"); installers.add_argument("--older-than", type=int, default=30); installers.add_argument("--apply", action="store_true"); installers.add_argument("--yes", action="store_true")
     analyze = commands.add_parser("analyze"); analyze.add_argument("path", nargs="?", default="~"); analyze.add_argument("--top", type=int, default=30); analyze.add_argument("--min-size", default="1GB"); analyze.add_argument("--plain", action="store_true")
     duplicates = commands.add_parser("duplicates"); duplicates.add_argument("--path", action="append", default=[]); duplicates.add_argument("--min-size", default="1B")
-    large = commands.add_parser("large-files"); large.add_argument("--path", action="append", default=[]); large.add_argument("--min-size", choices=list(SIZE_FILTERS), default="500MB"); large.add_argument("--older-than-days", type=int, choices=(30, 90, 180, 365))
+    large = commands.add_parser("large-files"); large.add_argument("--path", action="append", default=[]); large.add_argument("--min-size", default="500MB"); large.add_argument("--older-than-days", type=int, choices=(30, 90, 180, 365))
     smart_downloads = commands.add_parser("smart-downloads"); smart_downloads.add_argument("--older-than-days", type=int, default=30)
     commands.add_parser("browser-storage")
     commands.add_parser("apps")
@@ -606,7 +606,7 @@ def _main(argv: list[str] | None = None) -> None:
         print("\nNo files are selected automatically. Review duplicates before moving anything to Trash in the Web/TUI flows.")
     elif command == "large-files":
         roots = [Path(p) for p in args.path] or None
-        files = _run_interruptible_scan(lambda: LargeOldFileScanner(min_bytes=SIZE_FILTERS[args.min_size], older_than_days=args.older_than_days).scan(roots))
+        files = _run_interruptible_scan(lambda: LargeOldFileScanner(min_bytes=_parse_bytes(args.min_size, SIZE_FILTERS["500MB"]), older_than_days=args.older_than_days).scan(roots))
         if files is None: return
         if not files:
             print("No large/old files found."); return

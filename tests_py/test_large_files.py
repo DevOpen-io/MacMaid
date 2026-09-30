@@ -112,3 +112,15 @@ def test_progress_update_items_zero_total_is_indeterminate():
     assert progress.value["percent"] == -1
     assert progress.value["completed"] == 42
     assert progress.value["total"] == 0
+
+
+def test_cli_large_files_accepts_freeform_min_size(monkeypatch, tmp_path, capsys):
+    from macmaid import cli
+    home = tmp_path / "home"
+    (home / "Downloads").mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setattr(cli, "Config", lambda: Config(home=home))
+
+    cli.main(["large-files", "--min-size", "250MB", "--path", str(home / "Downloads")])
+
+    assert "No large/old files found" in capsys.readouterr().out
