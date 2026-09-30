@@ -88,6 +88,24 @@ def test_history_api_totals_only_explicit_estimated_reclaim(monkeypatch):
     assert "Trash" in payload["measurementCaveat"]
 
 
+def test_history_api_keeps_restorable_items_when_summaries_exist(monkeypatch):
+    records = [
+        {"recordType": "operation_summary", "timestamp": "2", "operation_id": "op1",
+         "processedEstimatedBytes": 900, "estimatedReclaimedBytes": 100, "result": "success"},
+        {"recordType": "item", "timestamp": "2", "operation_id": "op1", "trash_path": "/t/f",
+         "restorable": True, "action": "move_to_trash", "label": "f", "bytes": 100,
+         "result": "success"},
+    ]
+    monkeypatch.setattr(web_queries, "history", lambda limit: records)
+    handler = object.__new__(web.MacMaidHandler)
+    handler.server = SimpleNamespace(state=SimpleNamespace())
+    payload = handler._route_get("/api/history", {})
+    assert payload["totalOperations"] == 1
+    items = [e for e in payload["entries"] if e.get("recordType") == "item"]
+    assert len(items) == 1 and items[0]["operation_id"] == "op1" and items[0]["trash_path"] == "/t/f"
+    assert items[0]["restorable"] is True
+
+
 def test_list_snapshots_skips_header_and_notes(monkeypatch):
     monkeypatch.setattr(features, "run_command", lambda *args, **kwargs: CommandResult(
         0, "Snapshots for volume group containing disk /:\n"

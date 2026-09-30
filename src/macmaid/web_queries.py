@@ -290,14 +290,14 @@ def route_get(handler: MacMaidHandler, path: str, query: dict[str, str]) -> dict
         if summaries:
             total = sum(max(0, int(item.get("estimatedReclaimedBytes", 0))) for item in summaries)
             processed = sum(max(0, int(item.get("processedEstimatedBytes", 0))) for item in summaries)
-            displayed = summaries
+            displayed = entries
         else:
             reclaiming_actions = {"remove_path", "remove_children", "manual_cache_fallback"}
             total = sum(max(0, int(item.get("bytes", 0))) for item in entries
                         if item.get("result") == "success" and item.get("action") in reclaiming_actions)
             processed = total
             displayed = entries
-        return {"totalOperations": len(displayed), "totalFreed": total, "humanTotalFreed": human_bytes(total),
+        return {"totalOperations": len(summaries) if summaries else len(displayed), "totalFreed": total, "humanTotalFreed": human_bytes(total),
                 "totalEstimatedReclaimed": total, "humanTotalEstimatedReclaimed": human_bytes(total),
                 "totalProcessedEstimated": processed, "humanTotalProcessedEstimated": human_bytes(processed),
                 "lastOperationDate": entries[0].get("timestamp") if entries else None,
