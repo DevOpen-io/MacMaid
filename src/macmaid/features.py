@@ -760,7 +760,9 @@ def doctor() -> list[dict[str, Any]]:
 
 def list_snapshots() -> list[str]:
     result = run_command("/usr/bin/tmutil", ["listlocalsnapshots", "/"], timeout=30)
-    return result.stdout.splitlines() if result.succeeded else []
+    if not result.succeeded:
+        return []
+    return [line for line in result.stdout.splitlines() if line.startswith("com.apple.")]
 
 
 def thin_snapshots(bytes_to_free: int, config: Config | None = None) -> dict[str, Any]:

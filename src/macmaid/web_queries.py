@@ -7,6 +7,7 @@ this module owns only the read path. ``web.py`` imports it lazily inside
 from __future__ import annotations
 
 import os
+import re
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -42,6 +43,17 @@ def _scan_endpoint(handler: MacMaidHandler, service: str, label: str, scan_fn, *
         raise
     state.progress.finish(done(result))
     return result
+
+
+_SNAPSHOT_DATE = re.compile(r"(\d{4}-\d{2}-\d{2})-(\d{6})")
+
+
+def _snapshot_date(snapshot_id: str) -> str | None:
+    match = _SNAPSHOT_DATE.search(snapshot_id)
+    if not match:
+        return None
+    stamp = match.group(2)
+    return f"{match.group(1)} {stamp[0:2]}:{stamp[2:4]}:{stamp[4:6]}"
 
 
 def _item_age_days(path: Path | None) -> int | None:
@@ -259,7 +271,9 @@ def route_get(handler: MacMaidHandler, path: str, query: dict[str, str]) -> dict
             handler._bump_generation(f"developer-{category}")
         return {"items": [dict(item.web_dict(), humanBytes=human_bytes(item.bytes)) for item in items], "totalBytes": sum(item.bytes for item in items), "humanTotal": human_bytes(sum(item.bytes for item in items))}
     if path == "/api/snapshots":
-        snapshots = list_snapshots(); return {"snapshots": [{"id": item, "date": item.rsplit(".", 1)[-1]} for item in snapshots], "raw": "\n".join(snapshots)}
+        snapshots = list_snapshots()
+        return {"snapshots": [{"id": item, "date": _snapshot_date(item)} for item in snapshots],
+                "raw": "\n".join(snapshots)}
     if path == "/api/optimize":
         return {"tasks": [dict(item, subtitle="", requiresSudo=False) for item in OPTIMIZATIONS],
                 "available": bool(OPTIMIZATIONS), "reason": OPTIMIZATION_UNAVAILABLE_REASON}

@@ -88,6 +88,34 @@ def test_history_api_totals_only_explicit_estimated_reclaim(monkeypatch):
     assert "Trash" in payload["measurementCaveat"]
 
 
+def test_list_snapshots_skips_header_and_notes(monkeypatch):
+    monkeypatch.setattr(features, "run_command", lambda *args, **kwargs: CommandResult(
+        0, "Snapshots for volume group containing disk /:\n"
+           "com.apple.TimeMachine.2026-09-30-120000.local\n"
+           "com.apple.os.update-5203530F8BB7.local\n"))
+    assert features.list_snapshots() == [
+        "com.apple.TimeMachine.2026-09-30-120000.local",
+        "com.apple.os.update-5203530F8BB7.local",
+    ]
+    monkeypatch.setattr(features, "run_command", lambda *args, **kwargs: CommandResult(1, stderr="denied"))
+    assert features.list_snapshots() == []
+
+
+def test_snapshots_api_omits_header_and_derives_real_dates(monkeypatch):
+    from macmaid import web_queries
+    monkeypatch.setattr(web_queries, "list_snapshots", lambda: [
+        "com.apple.TimeMachine.2026-09-30-120000.local",
+        "com.apple.os.update-MSUPrepareUpdate",
+    ])
+    handler = object.__new__(web.MacMaidHandler)
+    handler.server = SimpleNamespace(state=SimpleNamespace())
+    payload = handler._route_get("/api/snapshots", {})
+    assert payload["snapshots"] == [
+        {"id": "com.apple.TimeMachine.2026-09-30-120000.local", "date": "2026-09-30 12:00:00"},
+        {"id": "com.apple.os.update-MSUPrepareUpdate", "date": None},
+    ]
+
+
 def test_snapshot_thinning_audits_command_target_and_observed_measurement(monkeypatch, tmp_path):
     config, _ = configured(tmp_path, monkeypatch)
     monkeypatch.setattr(features, "run_command", lambda *args, **kwargs: CommandResult(0, "thinned"))
