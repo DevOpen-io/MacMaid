@@ -48,6 +48,15 @@ def test_tui_render_calls_do_not_leave_untranslated_turkish_copy_in_english() ->
     assert untranslated == []
 
 
+def test_hatası_suffix_does_not_chop_into_errors_fragment() -> None:
+    # " hata" → " errors" must not split "hatası" into "hata"+"sı".
+    assert translate("Analiz hatası: bozuk", "en") == "Analysis failed: bozuk"
+    assert translate("Tarama hatası: x", "en") == "Scan failed: x"
+    assert translate("Bileşen tarama hatası: x", "en") == "Component scan failed: x"
+    assert translate("Envanter hatası: x", "en") == "Inventory scan failed: x"
+    assert translate("3 hata", "en") == "3 errors"
+
+
 def test_translation_catalogs_have_no_duplicate_keys() -> None:
     root = Path(__file__).resolve().parents[1]
     tree = ast.parse((root / "src/macmaid/i18n.py").read_text())
