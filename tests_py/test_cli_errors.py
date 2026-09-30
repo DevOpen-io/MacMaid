@@ -51,6 +51,15 @@ def test_memory_watch_out_of_range_exits_cleanly(monkeypatch: pytest.MonkeyPatch
     assert "--watch must be between" in capsys.readouterr().err
 
 
+def test_clean_help_uses_its_own_program_name(capsys) -> None:
+    with pytest.raises(SystemExit) as stopped:
+        cli.main(["clean", "--help"])
+    assert stopped.value.code == 0
+    output = capsys.readouterr().out
+    assert "usage: macmaid clean" in output
+    assert "usage: macmaid scan" not in output
+
+
 def test_argparse_errors_still_exit_2(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _isolated_config(monkeypatch, tmp_path)
     with pytest.raises(SystemExit) as stopped:
