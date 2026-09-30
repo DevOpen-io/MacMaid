@@ -693,7 +693,14 @@ def _main(argv: list[str] | None = None) -> None:
             print(f"Current session only: {completion_activation_hint(args.shell)}")
         else: print(completion_script(args.shell))
     elif command == "whitelist":
-        print(config.whitelist_file)
+        try:
+            rules = [line.strip() for line in config.whitelist_file.read_text().splitlines()
+                     if line.strip() and not line.strip().startswith("#")]
+        except OSError:
+            rules = []
+        for rule in rules:
+            print(f"  {rule}")
+        print(f"Whitelist: {len(rules)} protected path{'s' if len(rules) != 1 else ''} · {config.whitelist_file}")
     elif command in ("ui", "web", "gui", "dashboard", "app"):
         if command == "app" or getattr(args, "app", False):
             home = Path.home()

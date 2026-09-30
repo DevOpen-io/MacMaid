@@ -72,3 +72,15 @@ def test_unexpected_errors_still_raise(monkeypatch: pytest.MonkeyPatch, tmp_path
     monkeypatch.setattr(cli, "doctor", lambda: (_ for _ in ()).throw(KeyError("boom")))
     with pytest.raises(KeyError):
         cli.main(["doctor"])
+
+
+def test_whitelist_lists_rules_and_path(monkeypatch, tmp_path, capsys):
+    _isolated_config(monkeypatch, tmp_path)
+    (tmp_path / ".config/macmaid").mkdir(parents=True)
+    (tmp_path / ".config/macmaid/whitelist").write_text("/tmp/keep\n# comment\n\n/tmp/other\n")
+    cli.main(["whitelist"])
+    output = capsys.readouterr().out
+    assert "/tmp/keep" in output and "/tmp/other" in output
+    assert "# comment" not in output
+    assert "2 protected paths" in output
+    assert str(tmp_path / ".config/macmaid/whitelist") in output
