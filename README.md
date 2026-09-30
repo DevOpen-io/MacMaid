@@ -117,6 +117,7 @@ macmaid large-files --path ~/Downloads --min-size 1GB
 macmaid smart-downloads
 macmaid browser-storage
 macmaid developer storage
+macmaid whitelist                 # List protected paths
 macmaid history
 ```
 
@@ -212,11 +213,13 @@ The project version is the source of truth. CI creates an immutable matching rel
 
 Documentation-only changes such as `README.md` or other Markdown files do not trigger the CI/build workflows.
 
-To release a new version, update both:
+To release a new version, keep all four version surfaces synchronized:
 
 ```text
 pyproject.toml
 src/macmaid/__init__.py
+uv.lock
+src/macmaid/WebUI/index.html
 ```
 
 then commit and push to `main`.

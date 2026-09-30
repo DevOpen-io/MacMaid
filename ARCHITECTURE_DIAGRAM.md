@@ -2,7 +2,7 @@
 
 ## System Overview
 
-MacMaid is a Python-based macOS cleanup, maintenance, and system optimization tool with a safety-first architecture. The system is designed around a core principle: **never compromise user data safety for disk space recovery**.
+MacMaid is a Python-based macOS cleanup, maintenance, and developer-tool management tool with a safety-first architecture. The system is designed around a core principle: **never compromise user data safety for disk space recovery**.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -33,10 +33,10 @@ MacMaid is a Python-based macOS cleanup, maintenance, and system optimization to
 │  │- Leftover removal │  │- Build artifacts  │  │- Operation history      │  │
 │  └──────────────────┘  └──────────────────┘  └──────────────────────────┘  │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────────┐  │
-│  │OPTIMIZATIONS     │  │system_status()   │  │doctor()                  │  │
-│  │- DNS cache       │  │- Disk/health info │  │- Diagnostics            │  │
-│  │- Quick Look      │  │- Memory pressure  │  │- Environment check      │  │
-│  │- Spotlight       │  │- Thermal state    │  │                          │  │
+│  │Brew update check │  │system_status()   │  │doctor()                  │  │
+│  │- Update status   │  │- Disk/health info │  │- Diagnostics            │  │
+│  │- Reviewed install│  │- Memory pressure  │  │- Environment check      │  │
+│  │- Snapshot tools  │  │- Thermal state    │  │                          │  │
 │  └──────────────────┘  └──────────────────┘  └──────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -261,7 +261,7 @@ USER REQUEST (CLI/TUI/Web)
 │                   │ Background tree traversal, size measurement, navigation   │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ features.py        │ High-level features                                      │
-│                   │ App management, project purge, optimizations, recovery    │
+│                   │ App management, project purge, recovery, updates          │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ cli.py             │ Command-line interface                                   │
 │                   │ argparse commands, interactive prompts, output formatting │

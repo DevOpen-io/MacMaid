@@ -78,11 +78,6 @@ The same ownership rule applies beyond runtimes. Conda/Micromamba non-base envir
 
 Developer discovery and disk sizing follow the same no-silent-work invariant as cleanup scans: long manager commands and `du` measurements keep live activity visible.
 
-## Optimize safety boundary
-
-Optimize is intentionally bounded maintenance, not a license to reset arbitrary macOS state. The recommended set may refresh DNS/Quick Look/Finder/Dock/LaunchServices and inspect Spotlight health. Full Spotlight reindex is separate and advanced. MacMaid does not delete Dock databases, purge memory, remove swap, reset Wi-Fi/Bluetooth preferences, or rebuild font caches as general-purpose optimizations.
-
-
 ## App uninstall boundary (v0.9.0)
 
 App uninstall is evidence-based. The application bundle path comes from an enumerated `.app`; remnants are derived from the exact `CFBundleIdentifier`, not broad substring recursion. Caches/logs/saved state and exact user LaunchAgents are safe defaults. HTTP storage, Preferences, `Application Support`, Containers and WebKit are visible but opt-in because they may hold user/session state. Homebrew Casks are routed through Homebrew only while exact ownership remains proven; command failure never falls back to raw deletion. Non-cask bundles and selected remnants move to Trash after identity, ownership, parent-root, whitelist, symlink and running-process revalidation. MacMaid does not elevate application removal.
