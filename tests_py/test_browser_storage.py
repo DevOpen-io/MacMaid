@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from macmaid import browser_storage, cleaner as cleaning, web
+from macmaid import browser_storage, cleaner as cleaning, cli, web
 from macmaid.browser_storage import BrowserStorageInspector
 from macmaid.config import Config
 
@@ -137,6 +137,24 @@ def test_browser_storage_denied_area_path_surfaces_issue(tmp_path, monkeypatch):
     inspector.scan()
 
     assert any(str(cookies) in issue for issue in inspector.issues)
+
+
+def test_cli_browser_storage_surfaces_access_issues(tmp_path, monkeypatch, capsys):
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setattr(cli, "Config", lambda: Config(home=home))
+    inspector = SimpleNamespace(
+        issues=["Google Chrome: /denied/profile: Operation not permitted"],
+        scan=lambda: [],
+    )
+    monkeypatch.setattr(cli, "BrowserStorageInspector", lambda: inspector)
+
+    cli.main(["browser-storage"])
+
+    output = capsys.readouterr().out
+    assert "Google Chrome: /denied/profile" in output
+    assert "Full Disk Access" in output
 
 
 def test_browser_storage_scan_result_exposes_issues_and_notes(tmp_path, monkeypatch):

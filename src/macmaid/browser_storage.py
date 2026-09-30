@@ -41,6 +41,9 @@ class BrowserStorageArea:
                 "reason": self.reason, "requiresAppClosed": self.requires_app_closed or ""}
 
 
+ACCESS_NOTE = "Some browser data was not fully accessible; grant Full Disk Access for complete coverage."
+
+
 class BrowserStorageInspector:
     def __init__(self) -> None:
         home = Path.home()
@@ -72,7 +75,7 @@ class BrowserStorageInspector:
                     areas: list[BrowserStorageArea] | None = None) -> ScanResult:
         areas = self.scan(cancellation=cancellation) if areas is None else areas
         items = [self._cleanup_item(area) for area in areas if area.cleanable]
-        notes = ["Some browser data was not fully accessible; grant Full Disk Access for complete coverage."] if self.issues else []
+        notes = [ACCESS_NOTE] if self.issues else []
         return ScanResult(items=items, notes=notes, status="complete", issues=list(self.issues))
 
     def _profiles(self, browser: BrowserDefinition) -> Iterable[Path]:

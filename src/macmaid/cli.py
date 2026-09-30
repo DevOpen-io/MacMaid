@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 from . import __version__
-from .browser_storage import BrowserStorageInspector
+from .browser_storage import ACCESS_NOTE, BrowserStorageInspector
 from .cleaner import Cleaner
 from .config import Config
 from .features import (
@@ -614,8 +614,13 @@ def _main(argv: list[str] | None = None) -> None:
             print(f"{human_bytes(item.bytes):>10}  {item.age_days:>4}d  {', '.join(item.categories)}\n     {item.path}")
         print("\nUser files are never selected automatically. Review before moving anything to Trash in the Web/TUI flows.")
     elif command == "browser-storage":
-        areas = _run_interruptible_scan(lambda: BrowserStorageInspector().scan())
+        inspector = BrowserStorageInspector()
+        areas = _run_interruptible_scan(lambda: inspector.scan())
         if areas is None: return
+        for issue in inspector.issues:
+            print(f"! {issue}")
+        if inspector.issues:
+            print(f"! {ACCESS_NOTE}")
         if not areas:
             print("No browser storage found."); return
         for area in areas:
