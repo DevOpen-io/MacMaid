@@ -14,6 +14,14 @@ INSTALLER_EXTENSIONS = {".dmg", ".pkg", ".xip", ".iso", ".ipsw"}
 ARCHIVE_EXTENSIONS = {".zip", ".rar", ".7z"}
 INCOMPLETE_EXTENSIONS = {".crdownload", ".download", ".part"}
 SMART_DOWNLOAD_EXTENSIONS = INSTALLER_EXTENSIONS | ARCHIVE_EXTENSIONS | INCOMPLETE_EXTENSIONS
+# Regenerable project artifacts: their contents are rebuildable, not downloads.
+GENERATED_DIRECTORY_NAMES = frozenset({
+    ".git", ".hg", ".svn",
+    ".venv", "venv", "node_modules", "bower_components", "vendor", "Pods", "Carthage",
+    "build", "dist", "target", ".build", "DerivedData",
+    "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", ".nox",
+    ".next", ".nuxt", ".gradle",
+})
 PROTECTED_USER_EXTENSIONS = {".pdf", ".doc", ".docx", ".txt", ".rtf", ".md", ".jpg", ".jpeg", ".png", ".heic", ".gif", ".py", ".js", ".ts", ".java", ".swift", ".c", ".cpp", ".h", ".rs", ".go"}
 
 
@@ -43,7 +51,7 @@ class SmartDownloadsScanner:
     def scan(self, *, cancellation: CancellationToken | None = None) -> list[SmartDownloadItem]:
         token = cancellation or CancellationToken()
         root = Path.home() / "Downloads"
-        duplicate_paths = {file.path for group in DuplicateFinder().scan([root], cancellation=token) for file in group.files}
+        duplicate_paths = {file.path for group in DuplicateFinder().scan([root], cancellation=token, skip_dirs=GENERATED_DIRECTORY_NAMES) for file in group.files}
         found: list[SmartDownloadItem] = []
         cutoff = time.time() - self.older_than_days * 86400
         stack = [root]
@@ -58,7 +66,8 @@ class SmartDownloadsScanner:
                             continue
                         try:
                             if entry.is_dir(follow_symlinks=False):
-                                stack.append(Path(entry.path))
+                                if entry.name not in GENERATED_DIRECTORY_NAMES:
+                                    stack.append(Path(entry.path))
                                 continue
                             if not entry.is_file(follow_symlinks=False):
                                 continue

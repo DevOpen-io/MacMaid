@@ -54,12 +54,13 @@ class DuplicateFinder:
         self.max_files = max_files
         self.skipped_roots: list[Path] = []
 
-    def scan(self, roots: Iterable[Path] | None = None, *, cancellation: CancellationToken | None = None) -> list[DuplicateGroup]:
+    def scan(self, roots: Iterable[Path] | None = None, *, cancellation: CancellationToken | None = None,
+             skip_dirs: frozenset[str] | set[str] | None = None) -> list[DuplicateGroup]:
         token = cancellation or CancellationToken()
         candidates: dict[int, list[tuple[Path, os.stat_result]]] = {}
         self.skipped_roots = []
         for root in roots or [Path.home() / "Downloads", Path.home() / "Desktop"]:
-            self._collect(Path(root).expanduser().absolute(), candidates, token)
+            self._collect(Path(root).expanduser().absolute(), candidates, token, skip_dirs)
         partials: dict[tuple[int, str], list[tuple[Path, os.stat_result]]] = {}
         for size, files in candidates.items():
             if len(files) < 2:
@@ -87,9 +88,10 @@ class DuplicateFinder:
                   for (size, digest), files in fulls.items() if len(files) > 1]
         return sorted(groups, key=lambda group: (-group.wasted_bytes, str(group.files[0].path)))
 
-    def scan_result(self, roots: Iterable[Path] | None = None, *, cancellation: CancellationToken | None = None) -> ScanResult:
+    def scan_result(self, roots: Iterable[Path] | None = None, *, cancellation: CancellationToken | None = None,
+                    skip_dirs: frozenset[str] | set[str] | None = None) -> ScanResult:
         items: list[CleanupItem] = []
-        for group_index, group in enumerate(self.scan(roots, cancellation=cancellation), 1):
+        for group_index, group in enumerate(self.scan(roots, cancellation=cancellation, skip_dirs=skip_dirs), 1):
             for file_index, duplicate in enumerate(group.files, 1):
                 items.append(CleanupItem(
                     CleanupCategory.TRASH,
@@ -103,7 +105,8 @@ class DuplicateFinder:
         notes = [f"Skipped path outside your home directory: {root}" for root in self.skipped_roots]
         return ScanResult(items=items, notes=notes)
 
-    def _collect(self, root: Path, candidates: dict[int, list[tuple[Path, os.stat_result]]], token: CancellationToken) -> None:
+    def _collect(self, root: Path, candidates: dict[int, list[tuple[Path, os.stat_result]]], token: CancellationToken,
+                 skip_dirs: frozenset[str] | set[str] | None = None) -> None:
         root = PathSafety._lexical(root)
         home = Path.home()
         if root != home and home not in root.parents:
@@ -122,7 +125,8 @@ class DuplicateFinder:
                             continue
                         try:
                             if entry.is_dir(follow_symlinks=False):
-                                stack.append(Path(entry.path))
+                                if not skip_dirs or entry.name not in skip_dirs:
+                                    stack.append(Path(entry.path))
                             elif entry.is_file(follow_symlinks=False):
                                 info = entry.stat(follow_symlinks=False)
                                 if info.st_size >= self.min_bytes:

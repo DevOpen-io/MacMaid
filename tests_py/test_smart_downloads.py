@@ -54,6 +54,28 @@ def test_smart_downloads_does_not_classify_documents_photos_or_source(tmp_path, 
     assert SmartDownloadsScanner(older_than_days=30).scan() == []
 
 
+def test_smart_downloads_prunes_generated_directories(tmp_path, monkeypatch):
+    home = _home(tmp_path, monkeypatch)
+    downloads = home / "Downloads"
+    project = downloads / "my-project"
+    for dirname in ("node_modules", ".venv", "dist", "build", "__pycache__"):
+        generated = project / dirname
+        generated.mkdir(parents=True)
+        (generated / "junk.dmg").write_bytes(b"shared payload")
+        (generated / "junk.zip").write_bytes(b"shared payload")
+    real = downloads / "real.dmg"
+    real.write_bytes(b"shared payload")
+    # A same-content duplicate inside a pruned directory must not drag it into results.
+    (project / "node_modules" / "copy.dmg").write_bytes(b"shared payload")
+
+    items = SmartDownloadsScanner().scan()
+    paths = {str(item.path) for item in items}
+
+    assert str(real) in paths
+    assert all("node_modules" not in path and ".venv" not in path and "dist" not in path
+               and "build" not in path and "__pycache__" not in path for path in paths)
+
+
 def test_smart_downloads_skips_symlinks(tmp_path, monkeypatch):
     home = _home(tmp_path, monkeypatch)
     outside = tmp_path / "outside"
