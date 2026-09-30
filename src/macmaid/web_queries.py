@@ -227,7 +227,7 @@ def route_get(handler: MacMaidHandler, path: str, query: dict[str, str]) -> dict
         return {"files": [item.web_dict() for item in files], "totalBytes": total,
                 "humanTotal": human_bytes(total), "selectedByDefault": []}
     if path == "/api/duplicates":
-        roots = [Path(item).expanduser().absolute() for item in query.get("path", [])] or None
+        roots = [Path(query["path"]).expanduser().absolute()] if query.get("path") else None
         groups = DuplicateFinder(min_bytes=int(query.get("minBytes", "1"))).scan(roots)
         with state.lock:
             state.duplicates = {file.path for group in groups for file in group.files}

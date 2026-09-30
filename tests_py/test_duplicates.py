@@ -90,6 +90,23 @@ def test_web_duplicate_cleanup_requires_latest_scan_and_review(monkeypatch, tmp_
     assert any((home / ".Trash").iterdir())
 
 
+def test_web_duplicates_get_path_query_targets_one_directory(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    downloads = home / "Downloads"
+    downloads.mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    (downloads / "a.txt").write_text("same")
+    (downloads / "b.txt").write_text("same")
+    state = SimpleNamespace(duplicates=set(), generations={}, review_tokens={},
+                            lock=__import__("threading").RLock())
+    handler = object.__new__(web.MacMaidHandler)
+    handler.server = SimpleNamespace(state=state)
+
+    payload = handler._route_get("/api/duplicates", {"path": str(downloads)})
+
+    assert len(payload["groups"]) == 1
+
+
 def test_duplicate_restore_validation_rejects_protected_library(tmp_path, monkeypatch):
     home = tmp_path / "home"
     library = home / "Library"
