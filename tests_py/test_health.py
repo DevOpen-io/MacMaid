@@ -144,4 +144,47 @@ def test_ioreg_battery_health_is_used_when_psutil_sensor_is_unavailable(monkeypa
     assert probes["batteryPresent"] is True
     assert probes["battery"] == {
         "percent": 80.0, "charging": True, "cycleCount": 77, "condition": "Normal",
+        "maxCapacityPercent": None,
     }
+
+
+def test_battery_condition_derived_from_capacity_on_newer_macos(monkeypatch) -> None:
+    # macOS 27 ioreg drops BatteryHealth/Condition; BatteryData remains.
+    record = plistlib.dumps([{
+        "CurrentCapacity": 50, "MaxCapacity": 100, "CycleCount": 263,
+        "IsCharging": False, "ExternalConnected": False,
+        "BatteryData": {"FullChargeCapacity": 3802, "DesignCapacity": 4382},
+    }]).decode()
+
+    def command(executable, _arguments, **_kwargs):
+        if executable.endswith("memory_pressure"):
+            return CommandResult(0, "System-wide memory free percentage: 50%")
+        if executable.endswith("pmset"):
+            return CommandResult(0, "System-wide thermal level = 0")
+        return CommandResult(0, record)
+
+    monkeypatch.setattr(features, "run_command", command)
+    monkeypatch.setattr(features.psutil, "sensors_battery", lambda: None)
+    monkeypatch.setattr(features, "_health_probe_cache", None)
+
+    battery = features._expensive_health_probes(force=True)["battery"]
+
+    assert battery["condition"] == "Normal"
+    assert battery["maxCapacityPercent"] == 87
+    assert battery["percent"] == 50.0
+
+
+def test_battery_below_eighty_percent_reports_service(monkeypatch) -> None:
+    record = plistlib.dumps([{
+        "CurrentCapacity": 90, "MaxCapacity": 100, "CycleCount": 900,
+        "BatteryData": {"FullChargeCapacity": 2800, "DesignCapacity": 4382},
+    }]).decode()
+
+    def command(executable, _arguments, **_kwargs):
+        return CommandResult(0, record if executable.endswith("ioreg") else "")
+
+    monkeypatch.setattr(features, "run_command", command)
+    monkeypatch.setattr(features.psutil, "sensors_battery", lambda: None)
+    monkeypatch.setattr(features, "_health_probe_cache", None)
+
+    assert features._expensive_health_probes(force=True)["battery"]["condition"] == "Service Recommended"

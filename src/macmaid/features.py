@@ -475,6 +475,21 @@ def _measured_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def _battery_condition(record: dict[str, Any] | None) -> tuple[str, int | None]:
+    if not record:
+        return "Unknown", None
+    condition = record.get("BatteryHealth") or record.get("Condition")
+    data = record.get("BatteryData")
+    max_percent = None
+    if isinstance(data, dict):
+        full_charge, design = data.get("FullChargeCapacity"), data.get("DesignCapacity")
+        if isinstance(full_charge, (int, float)) and isinstance(design, (int, float)) and design > 0:
+            max_percent = round(min(100.0, max(0.0, full_charge / design * 100)))
+    if condition is None and max_percent is not None:
+        condition = "Normal" if max_percent >= 80 else "Service Recommended"
+    return str(condition) if condition is not None else "Unknown", max_percent
+
+
 def _expensive_health_probes(*, force: bool = False) -> dict[str, Any]:
     """Read bounded macOS health probes, caching them to avoid polling commands every UI tick."""
     global _health_probe_cache
@@ -527,14 +542,15 @@ def _expensive_health_probes(*, force: bool = False) -> dict[str, Any]:
             record_percent = None
             if isinstance(current_capacity, (int, float)) and isinstance(max_capacity, (int, float)) and max_capacity > 0:
                 record_percent = min(100.0, max(0.0, current_capacity / max_capacity * 100))
+            condition, max_capacity_percent = _battery_condition(battery_record)
             battery_details = {
                 "percent": battery.percent if battery is not None else record_percent,
                 "charging": battery.power_plugged if battery is not None else bool(
                     battery_record and (battery_record.get("IsCharging") or battery_record.get("ExternalConnected"))
                 ),
                 "cycleCount": battery_record.get("CycleCount") if battery_record else None,
-                "condition": ((battery_record.get("BatteryHealth") or battery_record.get("Condition"))
-                              if battery_record else "Unknown"),
+                "condition": condition,
+                "maxCapacityPercent": max_capacity_percent,
             }
 
         probes = {
@@ -614,7 +630,10 @@ def health_indicators(status: dict[str, Any]) -> list[HealthIndicator]:
             battery_state, battery_recommendation = "warning", "Review the battery-health recommendation in macOS Settings."
         battery_value = f"{condition} · {battery.get('percent', '—')}%"
         cycles = battery.get("cycleCount")
-        battery_detail = f"Smart-battery condition reported by macOS{f'; {cycles} cycles' if cycles is not None else ''}."
+        max_capacity = battery.get("maxCapacityPercent")
+        battery_detail = (f"Smart-battery condition reported by macOS"
+                          f"{f'; {cycles} cycles' if cycles is not None else ''}"
+                          f"{f'; {max_capacity}% maximum capacity' if max_capacity is not None else ''}.")
     indicators.append(HealthIndicator(
         "battery", "Battery health", battery_state, battery_value, battery_detail,
         battery_recommendation, measured_at,
