@@ -488,7 +488,18 @@ def _interactive_menu() -> None:
     InteractiveUI().run()
 
 
+_EXPECTED_ERRORS = (OSError, ValueError, RuntimeError)
+
+
 def main(argv: list[str] | None = None) -> None:
+    try:
+        _main(argv)
+    except _EXPECTED_ERRORS as exc:
+        print(f"macmaid: error: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
+
+
+def _main(argv: list[str] | None = None) -> None:
     argv = sys.argv[1:] if argv is None else argv
     if os.geteuid() == 0 and not any(flag in argv for flag in ("-h", "--help", "--version")):
         print("MacMaid sudo/root ile çalıştırılamaz. Normal kullanıcı hesabınla yeniden başlat.", file=sys.stderr)

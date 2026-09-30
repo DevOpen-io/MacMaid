@@ -634,11 +634,13 @@ def test_cli_memory_snapshot_rich_rendering(service, monkeypatch, capsys):
     assert "dart" in output
 
 
-def test_cli_memory_growing_requires_a_ten_minute_watch(service, monkeypatch):
+def test_cli_memory_growing_requires_a_ten_minute_watch(service, monkeypatch, capsys):
     monkeypatch.setattr(cli, "Config", lambda: service.config)
     monkeypatch.setattr(cli, "MemoryService", lambda config, lock: service)
-    with pytest.raises(ValueError, match="--watch 600"):
+    with pytest.raises(SystemExit) as stopped:
         cli.main(["memory", "--growing"])
+    assert stopped.value.code == 1
+    assert "--watch 600" in capsys.readouterr().err
 
 
 def test_cli_memory_watch_collects_multiple_samples(service, monkeypatch, capsys):
