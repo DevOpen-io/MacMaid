@@ -592,8 +592,11 @@ def _main(argv: list[str] | None = None) -> None:
         for item in result.get("largestFiles", []): print(f"  {human_bytes(item['bytes']):>10}  {item['path']}")
     elif command == "duplicates":
         roots = [Path(p) for p in args.path] or None
-        groups = _run_interruptible_scan(lambda: DuplicateFinder(min_bytes=_parse_bytes(args.min_size)).scan(roots))
+        finder = DuplicateFinder(min_bytes=_parse_bytes(args.min_size))
+        groups = _run_interruptible_scan(lambda: finder.scan(roots))
         if groups is None: return
+        for skipped in finder.skipped_roots:
+            print(f"! Skipped path outside your home directory: {skipped}")
         if not groups:
             print("No byte-for-byte duplicates found."); return
         for index, group in enumerate(groups, 1):

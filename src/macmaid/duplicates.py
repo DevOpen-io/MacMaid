@@ -52,10 +52,12 @@ class DuplicateFinder:
     def __init__(self, *, min_bytes: int = 1, max_files: int = 200_000) -> None:
         self.min_bytes = max(1, min_bytes)
         self.max_files = max_files
+        self.skipped_roots: list[Path] = []
 
     def scan(self, roots: Iterable[Path] | None = None, *, cancellation: CancellationToken | None = None) -> list[DuplicateGroup]:
         token = cancellation or CancellationToken()
         candidates: dict[int, list[tuple[Path, os.stat_result]]] = {}
+        self.skipped_roots = []
         for root in roots or [Path.home() / "Downloads", Path.home() / "Desktop"]:
             self._collect(Path(root).expanduser().absolute(), candidates, token)
         partials: dict[tuple[int, str], list[tuple[Path, os.stat_result]]] = {}
@@ -98,12 +100,14 @@ class DuplicateFinder:
                     "Byte-for-byte duplicate confirmed by size, partial hash and full hash. Nothing is selected automatically; review before moving to Trash.",
                     CleanupAction(ActionType.MOVE_TO_TRASH),
                 ))
-        return ScanResult(items=items)
+        notes = [f"Skipped path outside your home directory: {root}" for root in self.skipped_roots]
+        return ScanResult(items=items, notes=notes)
 
     def _collect(self, root: Path, candidates: dict[int, list[tuple[Path, os.stat_result]]], token: CancellationToken) -> None:
         root = PathSafety._lexical(root)
         home = Path.home()
         if root != home and home not in root.parents:
+            self.skipped_roots.append(root)
             return
         stack = [root]
         seen = 0

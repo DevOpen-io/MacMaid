@@ -228,13 +228,15 @@ def route_get(handler: MacMaidHandler, path: str, query: dict[str, str]) -> dict
                 "humanTotal": human_bytes(total), "selectedByDefault": []}
     if path == "/api/duplicates":
         roots = [Path(query["path"]).expanduser().absolute()] if query.get("path") else None
-        groups = DuplicateFinder(min_bytes=int(query.get("minBytes", "1"))).scan(roots)
+        finder = DuplicateFinder(min_bytes=int(query.get("minBytes", "1")))
+        groups = finder.scan(roots)
         with state.lock:
             state.duplicates = {file.path for group in groups for file in group.files}
             handler._bump_generation("duplicates")
         total = sum(group.wasted_bytes for group in groups)
         return {"groups": [group.web_dict() for group in groups], "totalWastedBytes": total,
-                "humanTotalWasted": human_bytes(total), "selectedByDefault": []}
+                "humanTotalWasted": human_bytes(total), "selectedByDefault": [],
+                "skippedRoots": [str(root) for root in finder.skipped_roots]}
     if path == "/api/developer/storage":
         sections = _scan_endpoint(handler, 
             "devstorage", "Scanning developer storage",

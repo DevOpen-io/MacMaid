@@ -107,6 +107,38 @@ def test_web_duplicates_get_path_query_targets_one_directory(monkeypatch, tmp_pa
     assert len(payload["groups"]) == 1
 
 
+def test_duplicate_finder_records_skipped_outside_home_roots(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    outside = tmp_path / "outside"
+    home.mkdir()
+    outside.mkdir()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+
+    finder = DuplicateFinder()
+    assert finder.scan([outside]) == []
+    assert finder.skipped_roots == [outside]
+    result = finder.scan_result([outside])
+    assert result.items == []
+    assert any("outside your home" in note for note in result.notes)
+
+
+def test_web_duplicates_reports_skipped_roots(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    outside = tmp_path / "outside"
+    home.mkdir()
+    outside.mkdir()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    state = SimpleNamespace(duplicates=set(), generations={}, review_tokens={},
+                            lock=__import__("threading").RLock())
+    handler = object.__new__(web.MacMaidHandler)
+    handler.server = SimpleNamespace(state=state)
+
+    payload = handler._route_get("/api/duplicates", {"path": str(outside)})
+
+    assert payload["groups"] == []
+    assert payload["skippedRoots"] == [str(outside)]
+
+
 def test_duplicate_restore_validation_rejects_protected_library(tmp_path, monkeypatch):
     home = tmp_path / "home"
     library = home / "Library"
