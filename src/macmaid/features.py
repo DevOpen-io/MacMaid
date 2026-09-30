@@ -970,7 +970,7 @@ _macmaid() {{
     'snapshots:List or thin local snapshots'
     'history:Show operation history'
     'restore:Restore a restorable Trash history item'
-    'whitelist:Print the whitelist path'
+    'whitelist:List whitelist rules and the file path'
     'uninstall:Uninstall MacMaid'
     'ui:Open the local Web UI'
     'web:Alias for ui'
