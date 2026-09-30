@@ -747,12 +747,16 @@ def compatibility_checks() -> list[dict[str, Any]]:
 def doctor() -> list[dict[str, Any]]:
     config_writable = os.access(Config().config_dir.parent, os.W_OK)
     tmutil = which("tmutil")
+    csrutil = run_command("/usr/bin/csrutil", ["status"], timeout=5)
+    sip_output = csrutil.stdout.strip() or "Unknown"
+    sip_lower = sip_output.lower()
+    sip_ok = True if "enabled" in sip_lower else False if "disabled" in sip_lower else None
     checks = compatibility_checks()
     checks.extend([
         {"name": "Running as root", "value": "NO (safe)" if os.geteuid() != 0 else "YES — restart without sudo", "ok": os.geteuid() != 0},
         {"name": "Home", "value": str(Path.home()), "ok": True},
         {"name": "Config writable", "value": "YES" if config_writable else "NO", "ok": config_writable},
-        {"name": "System Integrity Protection", "value": run_command("/usr/bin/csrutil", ["status"], timeout=5).stdout or "Unknown", "ok": None},
+        {"name": "System Integrity Protection", "value": sip_output, "ok": sip_ok},
         {"name": "Time Machine", "value": "Available" if tmutil else "Unavailable", "ok": tmutil is not None},
     ])
     return checks

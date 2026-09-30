@@ -101,6 +101,18 @@ def test_list_snapshots_skips_header_and_notes(monkeypatch):
     assert features.list_snapshots() == []
 
 
+def test_doctor_sip_probe_maps_csrutil_status(monkeypatch):
+    cases = [
+        ("System Integrity Protection status: enabled.\n", True),
+        ("System Integrity Protection status: disabled.\n", False),
+        ("csrutil: command not available\n", None),
+    ]
+    for output, expected in cases:
+        monkeypatch.setattr(features, "run_command", lambda *a, **k: CommandResult(0, output))
+        check = {item["name"]: item for item in features.doctor()}["System Integrity Protection"]
+        assert check["ok"] is expected
+
+
 def test_snapshots_api_omits_header_and_derives_real_dates(monkeypatch):
     from macmaid import web_queries
     monkeypatch.setattr(web_queries, "list_snapshots", lambda: [
