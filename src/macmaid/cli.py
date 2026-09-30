@@ -245,6 +245,9 @@ def _print_memory_snapshot(
         if snapshot.get("error"):
             console.print(f"[bold yellow]Warning:[/bold yellow] {snapshot['error']}")
 
+        if not groups:
+            console.print("[dim]No matching processes found.[/dim]")
+            return
         table = Table(box=box.ROUNDED, header_style="bold cyan", border_style="dim")
         table.add_column("PID", justify="right", style="cyan", no_wrap=True)
         table.add_column("APPLICATION / PROCESS", style="bold")
@@ -368,6 +371,9 @@ def _print_memory_snapshot(
             )
         if snapshot.get("error"):
             print(f"Warning: {snapshot['error']}")
+        if not groups:
+            print("No matching processes found.")
+            return
         print("\n     PID         MEM      GROWTH    CPU  STATUS                 APPLICATION / PROCESS")
         for group in groups:
             children = group.get("children", [])
@@ -585,10 +591,13 @@ def _main(argv: list[str] | None = None) -> None:
         minimum = _parse_bytes(args.min_size, 1_000_000_000)
         result = _run_interruptible_scan(lambda: analyze_directory(Path(args.path), args.top, minimum))
         if result is None: return
+        if not result["entries"] and not result.get("largestFiles"):
+            print(f"Path: {result['path']}\nNo files found."); return
         print(f"Path: {result['path']}")
         for item in result["entries"]: print(f"  {human_bytes(item['bytes']):>10}  {'[VIEW ONLY] ' if item['viewOnly'] else ''}{item['name']}")
-        print("\nLargest files")
-        for item in result.get("largestFiles", []): print(f"  {human_bytes(item['bytes']):>10}  {item['path']}")
+        if result.get("largestFiles"):
+            print("\nLargest files")
+            for item in result["largestFiles"]: print(f"  {human_bytes(item['bytes']):>10}  {item['path']}")
     elif command == "duplicates":
         roots = [Path(p) for p in args.path] or None
         finder = DuplicateFinder(min_bytes=_parse_bytes(args.min_size))
@@ -636,12 +645,16 @@ def _main(argv: list[str] | None = None) -> None:
     elif command == "apps":
         apps = _run_interruptible_scan(lambda: ApplicationManager(config).scan())
         if apps is None: return
+        if not apps:
+            print("No applications found."); return
         for index, app in enumerate(apps, 1): print(f"{index:3}. {human_bytes(app.bytes):>10}  {app.name} {app.version or ''}\n     {app.path}")
         print("\nApp removal is available in the reviewed Web UI: macmaid ui")
     elif command == "purge":
         manager = ProjectPurgeManager(config)
         artifacts = _run_interruptible_scan(lambda: manager.scan([Path(p) for p in args.path] or None))
         if artifacts is None: return
+        if not artifacts:
+            print("No rebuildable project artifacts found."); return
         for item in artifacts: print(f"{'*' if item.selected else ' '} {human_bytes(item.bytes):>10}  {item.project_name} · {item.artifact_name} · {item.path}")
         selected = [item for item in artifacts if item.selected]
         if args.apply:
@@ -653,6 +666,8 @@ def _main(argv: list[str] | None = None) -> None:
         if args.kind == "storage":
             sections = _run_interruptible_scan(lambda: DeveloperStorageCenter(config).scan())
             if sections is None: return
+            if not sections:
+                print("No developer storage data found."); return
             for section in sections:
                 print(f"\n{section.title}: {human_bytes(section.bytes)}")
                 if section.note: print(f"  {section.note}")
@@ -661,6 +676,8 @@ def _main(argv: list[str] | None = None) -> None:
             return
         inventory = _run_interruptible_scan(lambda: developer_inventory(args.kind))
         if inventory is None: return
+        if not inventory:
+            print(f"No {args.kind} inventory found."); return
         for item in inventory: print(f"{item['name']:<16} {item['version']}\n{item['detail']}\n")
     elif command == "snapshots":
         if args.thin:
@@ -672,7 +689,10 @@ def _main(argv: list[str] | None = None) -> None:
         else:
             print("\n".join(list_snapshots()) or "No local snapshots found.")
     elif command == "history":
-        for record in RecoveryCenter(Config()).entries(args.limit): _print_history_record(record)
+        records = RecoveryCenter(Config()).entries(args.limit)
+        if not records:
+            print("No history records found."); return
+        for record in records: _print_history_record(record)
     elif command == "restore":
         outcome = RecoveryCenter(Config()).restore(args.operation_id, args.trash_path, copy=args.copy)
         print(f"Restored: {outcome['restored_path']}")
