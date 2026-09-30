@@ -595,14 +595,21 @@ def test_analyzer_navigation_clears_previous_directory(monkeypatch, tmp_path) ->
 
 
 def test_tui_update_page_lifecycle_and_actions(monkeypatch) -> None:
+    checked: list[bool] = []
+    monkeypatch.setattr(tui, "macmaid_brew_update_status",
+                        lambda refresh=False: checked.append(True) or {"installed": False, "available": False, "reason": "stub"})
+
     async def exercise() -> None:
         app = tui.MacMaidTUI()
         async with app.run_test(size=(120, 40)) as pilot:
-            # 1. Open update page via shortcut '0' from dashboard
+            # 1. Open update page via shortcut '0' from dashboard — the check auto-starts
             await pilot.press("0")
             await pilot.pause()
             assert app.current_page == "update-results"
             assert app.query_one("#pages", ContentSwitcher).current == "page-update-results"
+            await app.workers.wait_for_complete()
+            assert checked  # opening the screen ran the check
+            assert app.query_one("#update-actions", ListView).index == 1  # Install is not armed by the auto-check failure
 
             # 2. Update check when Homebrew is not installed
             app._finish_macmaid_update_check(

@@ -1067,9 +1067,7 @@ class MacMaidTUI(App[None]):
             return
         if key == "update":
             self._show_results("update", "#update-actions")
-            self.query_one("#update-progress", ProgressBar).update(total=100, progress=0)
-            self._set_state("update", self._ui("Hazır — kontrol yalnızca açık aksiyonla çalışır."))
-            self.query_one("#update-output", Static).update(self._ui("This check is read-only. No update will be installed without your approval."))
+            self._check_macmaid_update()
             return
         self._leave_results()
         self.current_page = key
@@ -2071,6 +2069,7 @@ class MacMaidTUI(App[None]):
         self.update_status = None
         self.query_one("#update-progress", ProgressBar).remove_class("complete")
         self.query_one("#update-progress", ProgressBar).update(total=None, progress=0)
+        self.query_one("#update-actions", ListView).index = 1  # highlight Check Again; Install is armed only by a finished check
         self._set_state("update", "Checking Homebrew for updates…")
         self.query_one("#update-output", Static).update("This check is read-only. No update will be installed without your approval.")
         self._check_macmaid_update_worker()

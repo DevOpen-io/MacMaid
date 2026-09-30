@@ -184,22 +184,26 @@ def test_tui_navigation_opens_menu_pages_without_workers(monkeypatch) -> None:
             app.open_page("memory")
             await pilot.pause()
             assert app.current_page == "memory"
+            assert calls == [], calls
+
+            # The update screen is the deliberate exception (#25): opening it
+            # runs the read-only Homebrew check immediately.
             app.open_page("update")
             await pilot.pause()
             assert app.current_page == "update-results"
-            assert calls == [], calls
+            assert calls == ["update"], calls
 
             # Explicit menu action still starts the scan.
             app._run_menu_action("apps-scan")
-            assert calls == ["apps"]
+            assert calls == ["update", "apps"]
     asyncio.run(exercise())
 
 
-def test_tui_update_page_entry_never_runs_brew(monkeypatch) -> None:
-    def explode(**kwargs):
-        raise AssertionError("brew subprocess started from navigation")
-
-    monkeypatch.setattr(tui, "macmaid_brew_update_status", explode)
+def test_tui_update_page_entry_runs_a_read_only_check(monkeypatch) -> None:
+    """Opening the update screen auto-checks (#25); installation still needs review."""
+    calls: list[bool] = []
+    monkeypatch.setattr(tui, "macmaid_brew_update_status",
+                        lambda refresh=False: calls.append(True) or {"installed": False, "available": False, "reason": "stub"})
 
     async def exercise() -> None:
         app = tui.MacMaidTUI()
@@ -208,6 +212,10 @@ def test_tui_update_page_entry_never_runs_brew(monkeypatch) -> None:
             app.open_page("update")
             await pilot.pause()
             assert app.current_page == "update-results"
+            await app.workers.wait_for_complete()
+            assert calls  # the read-only status check ran on open
+            assert app.update_status == {"installed": False, "available": False, "reason": "stub"}
+            assert app.review_plan is None  # no mutation plan was created
     asyncio.run(exercise())
 
 
