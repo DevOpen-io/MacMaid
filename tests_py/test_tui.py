@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from textual.widgets import ContentSwitcher, DataTable, ListView, Select, Static
+from textual.widgets import ContentSwitcher, DataTable, ListView, ProgressBar, Select, Static
 
 from macmaid.models import RiskLevel
 
@@ -237,6 +237,26 @@ def test_clean_selection_label_recomputes_selected_total(monkeypatch) -> None:
             await pilot.press("space")
             await pilot.pause()
             assert "2/3" in str(state.content) and "5.0 GB" in str(state.content)
+
+    asyncio.run(exercise())
+
+
+def test_finished_scans_collapse_their_progress_bar(monkeypatch) -> None:
+    monkeypatch.setattr(tui, "system_status", _metrics)
+
+    async def exercise() -> None:
+        app = tui.MacMaidTUI()
+        async with app.run_test(size=(120, 40)):
+            app._finish_projects([])
+            assert app.query_one("#purge-progress", ProgressBar).has_class("complete")
+            app._finish_more_scan("duplicates", ScanResult())
+            assert app.query_one("#more-progress", ProgressBar).has_class("complete")
+            app._finish_macmaid_update_check(None, "network down")
+            assert app.query_one("#update-progress", ProgressBar).has_class("complete")
+
+            # A fresh scan must show the bar again.
+            app._reset_scan("more")
+            assert not app.query_one("#more-progress", ProgressBar).has_class("complete")
 
     asyncio.run(exercise())
 

@@ -568,11 +568,13 @@ class MacMaidTUI(App[None]):
     def _scan_failed(self, page: str, progress_id: str, message: str) -> None:
         self.scan_cancellations.pop(page, None)
         self._set_progress(progress_id, 100, 0)
+        self.query_one(f"#{progress_id}", ProgressBar).add_class("complete")
         self._set_state(page, message)
 
     def _scan_cancelled(self, page: str, progress_id: str) -> None:
         self.scan_cancellations.pop(page, None)
         self._set_progress(progress_id, 100, 0)
+        self.query_one(f"#{progress_id}", ProgressBar).add_class("complete")
         self._set_state(page, "Tarama iptal edildi · sonuçlar eksik ve işlem yapılamaz")
 
     @staticmethod
@@ -623,6 +625,7 @@ class MacMaidTUI(App[None]):
         self.operation_lines.clear()
         self.current_page = "operation"
         self.query_one("#pages", ContentSwitcher).current = "page-operation"
+        self.query_one("#operation-progress", ProgressBar).remove_class("complete")
         self.query_one("#operation-progress", ProgressBar).update(total=max(total, 1), progress=0)
         self.query_one("#operation-current", Static).update(f"~  {title} hazırlanıyor…")
         self.query_one("#operation-log", Static).update("")
@@ -650,6 +653,7 @@ class MacMaidTUI(App[None]):
     def _complete_operation(self, title: str, summary: str, before: dict[str, Any], after: dict[str, Any], *, failed: bool = False) -> None:
         self.operation_done = True
         self._mutation_requested = False
+        self.query_one("#operation-progress", ProgressBar).add_class("complete")
         self.query_one("#operation-current", Static).update(f"{'x' if failed else '+'}  {title} · {summary}")
         if before and after:
             delta = int(after["disk_free"]) - int(before["disk_free"])
@@ -1454,6 +1458,7 @@ class MacMaidTUI(App[None]):
         self.apps = apps; self.current_app = None; self.app_components = []; self.component_selected.clear(); left = self.query_one("#apps-table", DataTable); left.clear(); self.query_one("#components-table", DataTable).clear()
         for app in apps: left.add_row(human_bytes(app.bytes), app.name, app.version or "—", str(app.path))
         self.query_one("#apps-progress", ProgressBar).update(total=100, progress=100)
+        self.query_one("#apps-progress", ProgressBar).add_class("complete")
         self._set_state("apps", f"{len(apps)} uygulama · Enter ile bileşenleri aç")
         if apps: left.focus()
 
@@ -1544,13 +1549,13 @@ class MacMaidTUI(App[None]):
         if cached and not force:
             self.analyzer_snapshot = cached
             self._render_analysis(cached)
-        self.analyzer_path = path; self.analyzer_focus += 1; self.query_one("#analyzer-input", Input).value = str(path); self._set_state("analyzer", f"{path} listeleniyor…"); self._analysis_worker(path, force, self.analyzer_focus)
+        self.analyzer_path = path; self.analyzer_focus += 1; self.query_one("#analyzer-input", Input).value = str(path); self.query_one("#analyzer-progress", ProgressBar).remove_class("complete"); self._set_state("analyzer", f"{path} listeleniyor…"); self._analysis_worker(path, force, self.analyzer_focus)
 
     @work(thread=True, exclusive=True, group="analyzer-request")
     def _analysis_worker(self, path: Path, force: bool, focus: int) -> None:
         try: self._scan_update(self._finish_analysis, self.analyzer.snapshot(path, start=True, force=force, top=200, focus_id=focus), focus)
         except Exception as exc:
-            self._scan_update(self._set_state, "analyzer", f"Analiz hatası: {exc}")
+            self._scan_update(self._scan_failed, "analyzer", "analyzer-progress", f"Analiz hatası: {exc}")
 
     def _finish_analysis(self, result: dict[str, Any], focus: int) -> None:
         if focus != self.analyzer_focus: return
@@ -1564,6 +1569,10 @@ class MacMaidTUI(App[None]):
             size = f"{'~' if e['state'] == 'partial' else ''}{e.get('humanBytes', '—')}" if measured else "measuring…"
             table.add_row(icons.get(e["state"], "."), size, self._compact_bar(percent / 100, 10) if measured else "[..........]", ">" if e["directory"] else ".", e["name"], e["path"])
         self._restore_cursor(table, cursor); done = result.get("completed", 0) + result.get("failed", 0) + result.get("partial", 0); total = result.get("total", 0); self.query_one("#analyzer-progress", ProgressBar).update(total=max(total, 1), progress=done if total else 1)
+        if result.get("isComplete") or result.get("isCancelled"):
+            self.query_one("#analyzer-progress", ProgressBar).add_class("complete")
+        else:
+            self.query_one("#analyzer-progress", ProgressBar).remove_class("complete")
         if result.get("isCancelled"):
             suffix = f"iptal edildi · {done}/{total} ölçüldü · sonuç eksik"
         elif result.get("isComplete") and (result.get("failed") or result.get("partial")):
@@ -1615,6 +1624,7 @@ class MacMaidTUI(App[None]):
         self.scan_cancellations.pop("purge", None)
         self.artifacts = items; self.purge_selected = {i for i, x in enumerate(items) if x.selected}; self._render_projects()
         self.query_one("#purge-progress", ProgressBar).update(total=100, progress=100)
+        self.query_one("#purge-progress", ProgressBar).add_class("complete")
         self._set_state("purge", f"{len(items)} artefakt · {human_bytes(sum(x.bytes for x in items))}")
         if items: self.query_one("#purge-table", DataTable).focus()
     def _render_projects(self, cursor: int | None = None) -> None:
@@ -1675,12 +1685,14 @@ class MacMaidTUI(App[None]):
         self.scan_cancellations.pop("developer", None)
         self.dev_cache_result = None; self.developer_storage = []; self.developer_items = items; self.dev_selected.clear(); self._render_developer()
         self.query_one("#developer-progress", ProgressBar).update(total=100, progress=100)
+        self.query_one("#developer-progress", ProgressBar).add_class("complete")
         self._set_state("developer", f"{len(items)} öğe · {sum(x.removable and not x.is_active for x in items)} kaldırılabilir")
         if items: self.query_one("#developer-table", DataTable).focus()
     def _finish_developer_storage(self, sections: list[DeveloperStorageSection]) -> None:
         self.scan_cancellations.pop("developer", None)
         self.dev_cache_result = None; self.developer_items = []; self.developer_storage = sections; self.dev_selected.clear(); self._render_developer()
         self.query_one("#developer-progress", ProgressBar).update(total=100, progress=100)
+        self.query_one("#developer-progress", ProgressBar).add_class("complete")
         self._set_state("developer", f"Storage Center · {len(sections)} bölüm · {human_bytes(sum(x.bytes for x in sections))}")
         if sections: self.query_one("#developer-table", DataTable).focus()
 
@@ -1691,6 +1703,7 @@ class MacMaidTUI(App[None]):
                              if result.is_complete else set())
         self._render_developer()
         self.query_one("#developer-progress", ProgressBar).update(total=100, progress=100)
+        self.query_one("#developer-progress", ProgressBar).add_class("complete")
         if result.is_complete:
             self._set_state("developer", f"{len(result.items)} cache · {human_bytes(result.total_bytes)}")
         else:
@@ -2056,6 +2069,7 @@ class MacMaidTUI(App[None]):
 
     def _check_macmaid_update(self) -> None:
         self.update_status = None
+        self.query_one("#update-progress", ProgressBar).remove_class("complete")
         self.query_one("#update-progress", ProgressBar).update(total=None, progress=0)
         self._set_state("update", "Checking Homebrew for updates…")
         self.query_one("#update-output", Static).update("This check is read-only. No update will be installed without your approval.")
@@ -2072,6 +2086,7 @@ class MacMaidTUI(App[None]):
 
     def _finish_macmaid_update_check(self, status: dict[str, Any] | None, error: str | None) -> None:
         self.query_one("#update-progress", ProgressBar).update(total=100, progress=100)
+        self.query_one("#update-progress", ProgressBar).add_class("complete")
         menu = self.query_one("#update-actions", ListView)
         if error is not None or status is None:
             self.update_status = None
@@ -2455,6 +2470,7 @@ class MacMaidTUI(App[None]):
         self.scan_cancellations.pop("more", None)
         self.more_result = None; self.more_selected.clear(); self.query_one("#more-table", DataTable).clear(); self.query_one("#more-output", Static).update(text)
         self.query_one("#more-progress", ProgressBar).update(total=100, progress=100)
+        self.query_one("#more-progress", ProgressBar).add_class("complete")
         if kind == "permissions":
             self.query_one("#more-hint", Static).update("O  Tam Disk Erişimi ayarlarını aç  ·  R Yenile  ·  Esc Geri")
         elif kind == "leftovers":
@@ -2550,6 +2566,7 @@ class MacMaidTUI(App[None]):
             self.query_one("#more-output", Static).update("")
         self._render_more_scan()
         self.query_one("#more-progress", ProgressBar).update(total=100, progress=100)
+        self.query_one("#more-progress", ProgressBar).add_class("complete")
         if result.is_complete:
             self._set_state("more", f"{kind} · {len(result.items)} öğe · {human_bytes(result.total_bytes)}")
         else:
