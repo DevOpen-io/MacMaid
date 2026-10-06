@@ -262,3 +262,28 @@ The uninstall script removes user-local tool installs and the local `~/Applicati
 MacMaid targets macOS 13+ and Python 3.11+. The source/dev install can run on Intel or Apple Silicon Macs. The current packaged DMG/Homebrew cask is Apple Silicon only until Intel release builds are enabled again.
 
 Some folders may require macOS privacy permissions such as Full Disk Access. MacMaid reports those limitations instead of trying to bypass system security.
+
+---
+
+## Support
+
+- **Bugs**: [open an issue](https://github.com/DevOpen-io/MacMaid/issues/new/choose) — the bug template collects `macmaid doctor` output, which covers most diagnostics.
+- **Security vulnerabilities**: report privately via [GitHub Security Advisories](https://github.com/DevOpen-io/MacMaid/security/advisories/new) — never in a public issue. See [SECURITY.md](SECURITY.md).
+- **Releases and release notes**: [GitHub Releases](https://github.com/DevOpen-io/MacMaid/releases).
+
+### Frequently asked
+
+**macOS says "Apple could not verify MacMaid" or "MacMaid is damaged"?**
+Packaged builds are not yet signed/notarized by Apple. Open **System Settings > Privacy & Security**, scroll to the blocked-app message, and choose **Open Anyway** — or remove the quarantine flag after verifying the download: `xattr -dr com.apple.quarantine /Applications/MacMaid.app` (or `~/Applications/MacMaid.app` for `make prod-install`). Verify the `.sha256` checksum files attached to the GitHub release first.
+
+**Some folders show "denied" or clean results look smaller than expected?**
+macOS Full Disk Access (TCC) is blocking reads. Grant it under **System Settings > Privacy & Security > Full Disk Access** — to **MacMaid.app** when using the app, or to **your terminal app** (Terminal, iTerm, …) when using the CLI/TUI. `macmaid doctor` reports the current state.
+
+**Is my Intel Mac supported?**
+The source and `install.sh`/`uv tool` installs run on Intel. The packaged DMG and Homebrew cask are currently Apple Silicon only; Intel release builds are planned post-1.0.
+
+**How do I update MacMaid?**
+Run `macmaid update` — it detects the install channel. Homebrew installs update in place (`brew upgrade [--cask] macmaid`); DMG/source installs get a link to the latest release.
+
+**Where are config and history stored?**
+`~/.config/macmaid` (whitelist, preferences) and `~/Library/Logs/MacMaid` (operation history/audit log). `brew uninstall --zap --cask macmaid` removes both on cask installs; for every other channel `./uninstall.sh --purge-data` does the same.

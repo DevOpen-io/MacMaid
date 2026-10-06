@@ -1,8 +1,7 @@
-# MacMaid TUI Parity Roadmap
+# MacMaid — v1.0.0 Yolu ve Sonrası
 
-Bu roadmap yalnızca Web GUI'de mevcut olup TUI'da henüz bulunmayan veya aynı esneklikte sunulmayan özellikleri içerir.
-
-## Teslim Standardı
+Tüm harita kararları çözüldü: [issue #26](https://github.com/DevOpen-io/MacMaid/issues/26).
+Bu dosya, tag'lenmemiş kalan işleri ve post-1.0 backlog'unu listeler.
 
 Her madde ortak backend ve güvenlik modelini kullanmalıdır:
 
@@ -10,65 +9,44 @@ Her madde ortak backend ve güvenlik modelini kullanmalıdır:
 Discover → Classify → PathSafety → Whitelist → Preview → Confirmation → Execute → Verify → History
 ```
 
-- Tarama işlemleri arka planda, iptal edilebilir ve symlink takip etmeden çalışır.
-- Kullanıcı verisi varsayılan olarak seçilmez.
-- Dosya işlemleri mümkün olduğunda Trash'e taşınır.
-- Yeni TUI kontrolleri klavye ile erişilebilir, açıklayıcı ve responsive olmalıdır.
+## v1.0.0 Release Bar'ı (onaylı)
 
-## Öncelik 1 — Ayarlar ve Uygulama Yönetimi
+Tag ancak şunların tamamı sağlanınca atılır:
 
-### TUI Settings ekranı
+- [ ] `uv run ruff check src/macmaid tests_py` → 0 hata
+- [ ] `uv run mypy` → 0 hata
+- [ ] `uv run pytest tests_py -q` → tamamı yeşil
+- [ ] Dört sürüm yüzeyi `1.0.0`'da senkron: `pyproject.toml`, `src/macmaid/__init__.py`, `uv.lock`, `src/macmaid/WebUI/index.html`
+- [ ] README / SECURITY / FAQ iddiaları koda karşı doğru
+- [ ] **Temiz makinede manuel smoke testi** (tag öncesi şart):
+  - DMG'den kurulum → Gatekeeper akışı (Open Anyway / quarantine) beklenen gibi
+  - Full Disk Access ver → `macmaid doctor` "Granted" raporluyor
+  - Bir gerçek Smart Clean turu: preview → review → uygula → history'de kayıt
+- [ ] `main`'e push → release CI `v1.0.0` immutable tag + GitHub Release + sha256 asset'leri + Homebrew tap güncellemesi
+- [ ] Release sonrası doğrulama: `brew install --cask macmaid` ve DMG indirme gerçekten çalışıyor
 
-- [x] Whitelist'i sadece görüntülemek yerine TUI içinden güvenli biçimde düzenleme ve kaydetme.
-- [x] Arayüz dili seçimi (Türkçe / English).
-- [x] Ayarların kaydedildiğine veya hata oluştuğuna dair açık geri bildirim.
+## Kararlar (1.0 için kilitli)
 
-### İzin Durumu
+- **Platform**: macOS 13+, arm64 paketlenmiş dağıtım; Intel yalnızca source/`install.sh`/`uv tool` (#36)
+- **İmzalama**: 1.0 unsigned/unnotarized çıkar; Gatekeeper FAQ yolu kalıcı (#37, tarif #27'de hazır)
+- **Update**: kanal-aware `macmaid update`; brew self-apply review-gated, diğer kanallar release linki (#33)
+- **Onboarding**: minimal inline FDA/TCC uyarısı tüm yüzeylerde, terminal-app tuzağı dahil (#34)
+- **Destek**: issue formları + private vuln reporting + README FAQ; ayrı CHANGELOG yok, Discussions yok (#35)
+- **Özellik seti**: donmuş — Smart Clean, Treemap, App removal, Memory, Developer/Browser Storage, Duplicates, Large Files, Smart Downloads, History
+- **Semver**: `1.0.0` tag'i CLI komut/flag yüzeyini ve Web API endpoint kontratlarını public yapar; kırıcı değişiklik → `2.0.0`. İç refactor ve UI düzeltmeleri minor/patch'te devam eder
 
-- [x] Okunabilen, sınırlı ve erişilemeyen cleanup konumlarının özetini göster.
-- [x] Tam Disk Erişimi durumunu ve uygulama/CLI bağlamını göster.
-- [x] Engellenen konumların ayrıntılarını listede sun.
-- [x] Kullanıcı isterse macOS Full Disk Access ayarlarını açan güvenli aksiyon ekle.
+## Sıradaki adımlar (sıralı)
 
-### Güncelleme Yönetimi
+- [ ] 1. Bu session'ın birikmiş 1.0-readiness değişikliklerini `main`'e land et (commit/merge)
+- [ ] 2. Yukarıdaki manuel smoke testini gerçek makinede koş
+- [ ] 3. Sürüm yüzeylerini `1.0.0`'a çek, kapıları koştur
+- [ ] 4. `main`'e push → CI release'ini izle → Homebrew + DMG kurulumunu doğrula
 
-- [x] Homebrew kurulumu için güncelleme denetimi ekle.
-- [x] Yeni sürüm varsa mevcut ve hedef sürümü göster.
-- [x] Yalnızca açık onay sonrası Homebrew ile güncelleme başlat.
-- [x] Homebrew ile kurulmayan uygulamalarda anlaşılır, salt-okunur durum mesajı göster.
+## Post-1.0 backlog (öncelik sırasız)
 
-## Öncelik 2 — Görsel Disk Keşfi ve Snapshot Yönetimi
-
-### Time Machine Snapshot Thinning
-
-- [x] Yerel APFS snapshot listesinin yanında 10 / 20 / 50 GB hedefli thinning seçeneklerini sun.
-- [x] Apple'ın snapshot'ları otomatik yönettiğini ve işlemin yalnızca acil alan ihtiyacı için olduğunu açıkça belirt.
-- [x] Uygulama öncesinde hedef reclaim miktarını ve etkisini onay ekranında göster.
-- [x] Komut sonucu, hata ve tahmini/ölçülen kazanımı history'ye yaz.
-
-## Öncelik 3 — Mevcut Dosya Araçları İçin Filtre Paritesi
-
-### Application Leftovers
-
-- [x] Yaş filtresi ekle: tümü, 14 gün ve 30 gün.
-- [x] Application Support / Containers kullanıcı verisini dahil etmeyi ayrı, varsayılan kapalı bir opt-in olarak sun.
-
-### Old Installers
-
-- [x] Minimum yaş filtresi ekle: tümü, 7, 14 ve 30 gün.
-
-### Smart Downloads
-
-- [x] Eski indirmeler için 30 / 90 / 180 / 365 gün filtresi ekle.
-
-### Large & Old Files
-
-- [x] Boyut filtresi ile yaş filtresini aynı ekranda bağımsız seçilebilir yap.
-- [x] Yaş seçenekleri: tümü, 30, 90, 180 ve 365 gün.
-- [x] Mevcut 500 MB / 1 GB / 5 GB / 10 GB boyut eşiklerini koru.
-
-## Öncelik 4 — TUI İşlem Geri Bildirimi
-
-- [x] GUI'deki canlı log akışına denk, tarama/işlem sırasında açılıp kapanabilen bir TUI olay günlüğü ekle.
-- [x] Aktif yol, aşama, yüzde ve bulunan öğe sayısını aynı görünümde göster.
-- [x] Log akışının UI event loop'u engellememesini ve iptal sonrası eski olayları göstermemesini sağla.
+- **Apple imzalama + notarization** — Developer Program önkoşulu gelince; mekanik tarif [docs/research/notarization-ci.md](https://github.com/DevOpen-io/MacMaid/blob/research/notarization-ci/docs/research/notarization-ci.md) (#27)
+- **Intel (x86_64) paketlenmiş build'ler** — x86 runner veya cross-compile CI işi
+- **Genişletilmiş lokalizasyon** — CONTRIBUTING/docs İngilizce paritesi ve ek diller
+- **Karşılaştırıcı özellik yüzeyleri** — Finder extension, menu-bar widget (gap audit post-1.0 listesi)
+- **Support-bundle export + in-app feedback** — tek tıkla teşhis paketi; issue'a eklenebilir çıktı
+- **GitHub Discussions / curated CHANGELOG** — yalnızca talep oluşursa

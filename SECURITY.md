@@ -2,6 +2,16 @@
 
 MacMaid is destructive software. Its core invariant is that a cleanup candidate is never sufficient authorization to delete a path.
 
+## Reporting a vulnerability
+
+If you find a security issue — for example a way for a cleanup path to escape its reviewed scope, a Web UI authorization bypass, or unsafe privilege/permission handling — **do not open a public issue**. Report it privately through [GitHub Security Advisories](https://github.com/DevOpen-io/MacMaid/security/advisories/new).
+
+Please include the MacMaid version (`macmaid --version`), macOS version, and a description of the impact. Reports are triaged as quickly as possible; expect a first response within a few days. If the report is confirmed, a fix is released and the advisory is published with credit (unless you prefer otherwise).
+
+## Scope
+
+Supported versions: the latest released version. Fixes land on `main` and ship in the next release — there is no backport line.
+
 ## Deletion gate
 
 Immediately before deletion, `PathSafety`:
@@ -45,7 +55,7 @@ Arbitrary Application Support, Preferences, Containers/Group Containers, credent
 - `--apply` remains accepted for backwards-compatible non-interactive automation; it does not bypass the y/N prompt in an interactive terminal.
 - Installer cleanup moves files to Trash.
 - Time Machine thinning is a separate command with a separate `THIN SNAPSHOTS` confirmation.
-- Operations are logged as JSONL in `~/Library/Logs/macmaid/operations.jsonl`; `macmaid history` presents the same records as a readable timeline.
+- Operations are logged as JSONL in `~/Library/Logs/MacMaid/operations.jsonl`; `macmaid history` presents the same records as a readable timeline.
 - Backward-compatible item records distinguish scanned estimate, successfully processed estimate, conservative estimated reclaim and reclaim status. Aggregate `operation_summary` records also contain Trash-moved estimates, unknown manager effects and observed free-space deltas. Failed and skipped targets never contribute to processed/reclaim totals.
 - The compatibility `freed` field is an estimate, not guaranteed physical-disk reclamation. It excludes Trash moves and unknown manager-command effects. Filesystem-wide before/after observations are labeled separately and are not attributed solely to MacMaid because APFS clones, snapshots, sparse files and concurrent disk activity can affect them.
 - Scan/search/analyze work emits live activity/current-path feedback so long-running filesystem reads do not look frozen.

@@ -1,0 +1,90 @@
+name: Bug report
+description: Report a defect in MacMaid (CLI, TUI, Web UI, or the app)
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. MacMaid performs destructive
+        filesystem operations — if you believe MacMaid **deleted or damaged data
+        it should not have**, please say so explicitly in the description.
+
+        **Do not file security vulnerabilities here.** Use the
+        [private vulnerability report](https://github.com/DevOpen-io/MacMaid/security/advisories/new)
+        channel instead.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+      placeholder: "macmaid scan shows ... but ..."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The exact command or UI steps that trigger the problem.
+      placeholder: |
+        1. macmaid scan --profile safe
+        2. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface?
+      options:
+        - CLI (terminal commands)
+        - TUI (interactive terminal UI)
+        - Web UI (browser)
+        - Native app (MacMaid.app)
+        - Install / packaging (DMG, Homebrew, install.sh)
+    validations:
+      required: true
+  - type: dropdown
+    id: channel
+    attributes:
+      label: How is MacMaid installed?
+      options:
+        - "Homebrew cask (`brew install --cask macmaid`)"
+        - "Homebrew formula (`brew install macmaid`)"
+        - "DMG / `make prod-install` app bundle"
+        - "`install.sh` / `uv tool`"
+        - Running from source checkout
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: MacMaid version
+      description: Output of `macmaid --version`
+      placeholder: "0.15.33"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and chip
+      description: "e.g. macOS 15.1, Apple Silicon M3 (see Apple menu > About This Mac)"
+      placeholder: "macOS 15.1, Apple Silicon"
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `macmaid doctor`
+      description: Paste the full output — it captures compatibility, permissions and Full Disk Access state.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output or logs
+      description: Error text, traceback, or screenshots. Remove any private file paths you do not want public.
+      render: text
+    validations:
+      required: false
