@@ -44,7 +44,7 @@ Tag ancak şunların tamamı sağlanınca atılır:
 
 ## Post-1.0 backlog (öncelik sırasız)
 
-- **Apple imzalama + notarization** — Developer Program önkoşulu gelince; mekanik tarif [docs/research/notarization-ci.md](https://github.com/DevOpen-io/MacMaid/blob/research/notarization-ci/docs/research/notarization-ci.md) (#27)
+- **Apple imzalama + notarization** — Developer Program önkoşulu gelince; mekanik tarif [docs/research/notarization-ci.md](https://github.com/DevOpen-io/MacMaid/blob/main/docs/research/notarization-ci.md) (#27)
 - **Intel (x86_64) paketlenmiş build'ler** — x86 runner veya cross-compile CI işi
 - **Genişletilmiş lokalizasyon** — CONTRIBUTING/docs İngilizce paritesi ve ek diller
 - **Karşılaştırıcı özellik yüzeyleri** — Finder extension, menu-bar widget (gap audit post-1.0 listesi)
