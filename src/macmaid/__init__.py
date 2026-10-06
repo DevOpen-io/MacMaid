@@ -1,6 +1,6 @@
 """MacMaid - fast, safe macOS system cleanup and maintenance toolkit."""
 
-__version__ = "0.15.34"
+__version__ = "0.15.35"
 
 
 def main() -> None:

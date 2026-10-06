@@ -10,7 +10,7 @@ from typing import Any, Callable, overload
 from rich.text import Text, TextType
 from textual.visual import VisualType
 from textual import events, work
-from textual.app import App, ComposeResult
+from textual.app import App, ComposeResult, ScreenStackError
 from textual.binding import Binding
 from textual.worker import get_current_worker
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -2120,6 +2120,10 @@ class MacMaidTUI(App[None]):
         self.call_from_thread(self._finish_macmaid_update_check, status, None)
 
     def _finish_macmaid_update_check(self, status: dict[str, Any] | None, error: str | None) -> None:
+        try:
+            self.query_one("#update-progress", ProgressBar)
+        except (NoMatches, ScreenStackError):
+            return
         self.query_one("#update-progress", ProgressBar).update(total=100, progress=100)
         self.query_one("#update-progress", ProgressBar).add_class("complete")
         menu = self.query_one("#update-actions", ListView)
@@ -2210,7 +2214,10 @@ class MacMaidTUI(App[None]):
         self.call_from_thread(self._render_fda_notice, report)
 
     def _render_fda_notice(self, report: dict[str, Any]) -> None:
-        notice = self.query_one("#fda-notice", Static)
+        try:
+            notice = self.query_one("#fda-notice", Static)
+        except (NoMatches, ScreenStackError):
+            return
         fda = str(report.get("fullDiskAccess") or "unknown")
         if fda == "granted":
             notice.display = False

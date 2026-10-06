@@ -747,6 +747,12 @@ def test_tui_fda_notice_visibility_and_context(monkeypatch) -> None:
     asyncio.run(exercise())
 
 
+def test_fda_notice_render_is_safe_before_mount_or_after_shutdown() -> None:
+    app = tui.MacMaidTUI()
+    app._render_fda_notice({"fullDiskAccess": "not_granted", "launchContext": "cli"})
+    app._finish_macmaid_update_check({"installed": False}, None)
+
+
 def test_tui_memory_table_rendering_and_detail(monkeypatch) -> None:
     monkeypatch.setattr(tui, "system_status", _metrics)
 
