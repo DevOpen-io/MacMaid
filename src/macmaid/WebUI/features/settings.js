@@ -176,14 +176,14 @@ async function openFullDiskAccessSettings() {
 }
 
 // =========================================================
-// MacMaid Homebrew update
+// MacMaid update check
 // =========================================================
 
 async function checkMacMaidUpdate() {
   const button = document.getElementById('btn-check-macmaid-update');
   const status = document.getElementById('macmaid-update-status');
   button.disabled = true;
-  status.textContent = t('settings.update_checking', 'Checking Homebrew for updates…');
+  status.textContent = t('settings.update_checking', 'Checking for updates…');
   try {
     const result = await readAPIResponse(await fetch('/api/macmaid/update/check', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
@@ -196,9 +196,17 @@ async function checkMacMaidUpdate() {
       status.textContent = result.reason || t('settings.update_up_to_date', 'MacMaid is up to date.');
       return;
     }
-    status.textContent = t('settings.update_available', 'Update available: {current} → {latest}')
+    const versionText = t('settings.update_available', 'Update available: {current} → {latest}')
       .replace('{current}', result.installedVersion || 'current')
       .replace('{latest}', result.latestVersion || 'latest');
+    if (!result.canApply) {
+      const guide = result.updateCommand
+        ? t('settings.update_manual_command', 'Update with: {command}').replace('{command}', result.updateCommand)
+        : t('settings.update_manual_download', 'Download the latest release: {url}').replace('{url}', result.updateUrl || 'GitHub Releases');
+      status.textContent = `${versionText} — ${guide}`;
+      return;
+    }
+    status.textContent = versionText;
     await reviewedMutation('/api/macmaid/update', {}, {
       confirmText: t('settings.update_with_brew', 'Update with Homebrew'),
       trackProgress: false,
@@ -220,8 +228,35 @@ async function checkMacMaidUpdate() {
   }
 }
 
+// =========================================================
+// Full Disk Access dashboard notice
+// =========================================================
+
+async function showFdaBannerIfNeeded() {
+  const banner = document.getElementById('fda-banner');
+  if (!banner || localStorage.getItem('macmaid_fda_dismissed') === '1') return;
+  let report = state.permissionReport;
+  if (!report) report = await fetchPermissionReport().catch(() => null);
+  if (!report) return; // banner is informational; a failed probe must not break the dashboard
+  const fda = report.fullDiskAccess || 'unknown';
+  if (fda === 'granted') return;
+  const key = fda === 'unknown' ? 'fda.notice_unknown'
+    : report.launchContext === 'app' ? 'fda.notice_app' : 'fda.notice_cli';
+  const fallback = fda === 'unknown'
+    ? 'Full Disk Access could not be checked — some locations may be unreachable.'
+    : 'Full Disk Access is off — grant it for complete cleanup coverage.';
+  const text = document.getElementById('fda-banner-text');
+  if (text) text.textContent = t(key, fallback);
+  banner.hidden = false;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-check-macmaid-update')?.addEventListener('click', checkMacMaidUpdate);
+  document.getElementById('fda-banner-dismiss')?.addEventListener('click', () => {
+    document.getElementById('fda-banner')?.setAttribute('hidden', '');
+    localStorage.setItem('macmaid_fda_dismissed', '1');
+  });
+  showFdaBannerIfNeeded();
   document.getElementById('btn-save-settings')?.addEventListener('click', saveWhitelist);
   document.getElementById('btn-refresh-permissions')?.addEventListener('click', fetchPermissionReport);
   document.getElementById('btn-manage-permissions')?.addEventListener('click', showPermissionManager);

@@ -384,7 +384,7 @@ function renderMemory() {
             </div>
           </div>
         </td>
-        <td class="memory-pid"><span class="memory-pid-pill memory-count-pill">×${group.processCount}</span></td>
+        <td class="memory-pid"><span class="memory-pid-pill memory-count-pill">${e(mt('procCountShort', { count: group.processCount }))}</span></td>
         <td class="memory-number memory-rss-cell" title="${e(metricTitle)}">
           <div class="memory-cell-metric">
             <span class="memory-val">${e(group.memoryBytes == null ? mt('unknown') : formatBytes(group.memoryBytes))}</span>${memoryMetricTag(group)}

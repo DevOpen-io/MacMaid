@@ -169,15 +169,15 @@ async function fetchDoctorReport() {
     const res = await fetch('/api/doctor');
     const data = await readAPIResponse(res);
 
-    document.getElementById('doc-macos').textContent = `${data.macosVersion || 'macOS'} (${data.buildVersion || ''})`;
-    document.getElementById('doc-arch').textContent = data.architecture || 'arm64 (Apple Silicon)';
-    document.getElementById('doc-sip').textContent = data.sipStatus || 'Etkin (Tam Koruma)';
+    document.getElementById('doc-macos').textContent = `${data.macosVersion || 'macOS'}${data.buildVersion ? ` (${data.buildVersion})` : ''}`;
+    document.getElementById('doc-arch').textContent = data.architecture || '—';
+    document.getElementById('doc-sip').textContent = data.sipStatus || '—';
     document.getElementById('doc-disk').textContent = data.diskRoot || '/';
 
     if (data.probes && data.probes.length) {
       document.getElementById('doc-probes-list').innerHTML = data.probes.map(p => `
         <div class="probe-item ${p.ok ? 'ok' : 'limited'}" style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
-          <span class="badge-status ${p.ok ? 'live-status' : ''}">${p.ok ? 'OK' : 'SINIRLI'}</span>
+          <span class="badge-status ${p.ok ? 'live-status' : ''}">${p.ok ? 'OK' : t('system.doctor_limited')}</span>
           <span style="font-family: var(--font-mono); font-size:12px;">${escapeHtml(p.path)}</span>
         </div>
       `).join('');
