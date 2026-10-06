@@ -11,6 +11,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.request
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -27,7 +28,7 @@ from .config import Config
 from .models import ActionType, CleanupAction, CleanupCategory, CleanupItem, RiskLevel
 from .reporting import FreeSpaceProbe
 from .safety import PathSafety, PathSafetyError
-from .system import human_bytes, iter_app_bundles, process_running, run_command, size_of, sizes_of, which
+from .system import human_bytes, iter_app_bundles, macos_permission_report, process_running, run_command, size_of, sizes_of, which
 
 
 @dataclass(slots=True)
@@ -690,32 +691,45 @@ def system_status(*, force_health_refresh: bool = False) -> dict[str, Any]:
     return status
 
 
-def macmaid_brew_update_status(*, refresh: bool = False) -> dict[str, Any]:
-    """Return the Homebrew Cask update state without guessing installation paths."""
+def macmaid_brew_update_status(*, refresh: bool = False, cask: bool | None = None) -> dict[str, Any]:
+    """Return the Homebrew update state without guessing installation paths.
+
+    ``cask=None`` auto-detects cask vs formula; pass explicit True/False to force.
+    """
     brew = which("brew")
     if not brew:
-        return {"available": False, "installed": False, "reason": "Homebrew is not available"}
+        return {"available": False, "installed": False, "checked": False, "reason": "Homebrew is not available"}
     if refresh:
         refreshed = run_command(brew, ["update"], timeout=300)
         if not refreshed.succeeded:
-            return {"available": False, "installed": False, "reason": refreshed.stderr or refreshed.stdout or "Homebrew update failed"}
-    installed = run_command(brew, ["list", "--cask", "macmaid"], timeout=30)
-    if not installed.succeeded:
-        return {"available": False, "installed": False, "reason": "MacMaid is not installed by Homebrew"}
-    outdated = run_command(brew, ["outdated", "--cask", "macmaid", "--json=v2"], timeout=60)
+            return {"available": False, "installed": False, "checked": False,
+                    "reason": refreshed.stderr or refreshed.stdout or "Homebrew update failed"}
+    if cask is None:
+        cask = run_command(brew, ["list", "--cask", "macmaid"], timeout=30).succeeded
+        if not cask and not run_command(brew, ["list", "macmaid"], timeout=30).succeeded:
+            return {"available": False, "installed": False, "checked": True, "reason": "MacMaid is not installed by Homebrew"}
+    else:
+        installed = run_command(brew, ["list", *( ["--cask"] if cask else [] ), "macmaid"], timeout=30)
+        if not installed.succeeded:
+            return {"available": False, "installed": False, "checked": True, "reason": "MacMaid is not installed by Homebrew"}
+    outdated_args = ["outdated", *( ["--cask"] if cask else [] ), "macmaid", "--json=v2"]
+    outdated = run_command(brew, outdated_args, timeout=60)
     # Homebrew returns 1 when it finds outdated packages; JSON remains the authoritative result.
     if outdated.status not in (0, 1):
-        return {"available": False, "installed": True, "reason": outdated.stderr or "Could not check Homebrew updates"}
+        return {"available": False, "installed": True, "checked": False, "reason": outdated.stderr or "Could not check Homebrew updates"}
     try:
         data = json.loads(outdated.stdout or "{}")
-        casks = data.get("casks", [])
+        if not isinstance(data, dict):
+            raise ValueError("Homebrew returned a non-object update result")
+        entries = data.get("casks" if cask else "formulae", [])
     except (TypeError, ValueError, json.JSONDecodeError):
-        return {"available": False, "installed": True, "reason": "Homebrew returned an unreadable update result"}
-    update = next((item for item in casks if item.get("name") == "macmaid"), None)
+        return {"available": False, "installed": True, "checked": False, "reason": "Homebrew returned an unreadable update result"}
+    update = next((item for item in entries if item.get("name") == "macmaid"), None)
     return {
-        "available": update is not None, "installed": True,
+        "available": update is not None, "installed": True, "checked": True,
         "installedVersion": (update or {}).get("installed_versions", [None])[0],
         "latestVersion": (update or {}).get("current_version"),
+        "brewCask": cask,
         "reason": None if update else "MacMaid is up to date",
     }
 
@@ -726,10 +740,106 @@ def apply_macmaid_brew_update() -> dict[str, Any]:
         return status
     brew = which("brew")
     assert brew is not None
-    result = run_command(brew, ["upgrade", "--cask", "macmaid"], timeout=900)
+    result = run_command(brew, ["upgrade", *( ["--cask"] if status.get("brewCask", True) else [] ), "macmaid"], timeout=900)
     if not result.succeeded:
         raise RuntimeError(result.stderr or result.stdout or "Homebrew upgrade failed")
     return dict(status, updated=True)
+
+
+MACMAID_RELEASES_URL = "https://github.com/DevOpen-io/MacMaid/releases/latest"
+_MACMAID_RELEASES_API = "https://api.github.com/repos/DevOpen-io/MacMaid/releases/latest"
+
+
+def _version_tuple(value: str) -> tuple[int, ...]:
+    parts = []
+    for chunk in re.split(r"[^0-9]+", value):
+        if chunk:
+            parts.append(int(chunk))
+    return tuple(parts)
+
+
+def macmaid_install_channel() -> str:
+    """Identify which MacMaid installation this machine should update.
+
+    Detection describes the managed installation on the machine, not necessarily
+    the running copy: a Homebrew-managed install wins over a stray .app or
+    source checkout because `brew upgrade` is the only channel that can apply
+    an update in place.
+    """
+    brew = which("brew")
+    if brew is not None:
+        if run_command(brew, ["list", "--cask", "macmaid"], timeout=30).succeeded:
+            return "homebrew-cask"
+        if run_command(brew, ["list", "macmaid"], timeout=30).succeeded:
+            return "homebrew-formula"
+        brew = None
+    if getattr(sys, "frozen", False) or getattr(sys, "_MEIPASS", None):
+        return "standalone-app"
+    home = Path.home()
+    if (home / "Applications/MacMaid.app").exists() or Path("/Applications/MacMaid.app").exists():
+        return "app-bundle"
+    uv = which("uv")
+    if uv is not None:
+        listed = run_command(uv, ["tool", "list"], timeout=15)
+        if listed.succeeded and re.search(r"(?m)^macmaid\s", listed.stdout):
+            return "uv-tool"
+    if (home / ".local/bin/macmaid").exists():
+        return "local-binary"
+    return "source"
+
+
+def _latest_github_release(version: str) -> dict[str, str]:
+    request = urllib.request.Request(
+        _MACMAID_RELEASES_API,
+        headers={"Accept": "application/vnd.github+json", "User-Agent": f"MacMaid/{version}"},
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        data = json.loads(response.read().decode("utf-8"))
+    if not isinstance(data, dict):
+        raise RuntimeError("GitHub release response was not a JSON object")
+    tag = str(data.get("tag_name") or "").lstrip("v")
+    if not tag:
+        raise RuntimeError("GitHub release response had no tag_name")
+    return {"version": tag, "url": str(data.get("html_url") or MACMAID_RELEASES_URL)}
+
+
+def macmaid_update_status(*, refresh: bool = False) -> dict[str, Any]:
+    """Channel-aware update check: Homebrew via `brew outdated`, everything else via GitHub Releases."""
+    channel = macmaid_install_channel()
+    if channel.startswith("homebrew"):
+        brew_status = macmaid_brew_update_status(refresh=refresh, cask=channel == "homebrew-cask")
+        brew_status["channel"] = channel
+        brew_status["canApply"] = True
+        brew_status["updateCommand"] = "brew upgrade --cask macmaid" if channel == "homebrew-cask" else "brew upgrade macmaid"
+        brew_status["updateUrl"] = MACMAID_RELEASES_URL
+        return brew_status
+    from . import __version__
+    status: dict[str, Any] = {
+        "channel": channel, "installed": True, "canApply": False, "available": False,
+        "checked": True, "installedVersion": __version__, "latestVersion": None,
+        "updateCommand": None, "updateUrl": MACMAID_RELEASES_URL, "reason": None,
+    }
+    if channel == "uv-tool":
+        status["updateCommand"] = "sh install.sh"
+    elif channel in ("standalone-app", "app-bundle"):
+        status["updateCommand"] = None
+    try:
+        release = _latest_github_release(__version__)
+    except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        status["checked"] = False
+        status["reason"] = f"Could not check GitHub Releases: {exc}"
+        return status
+    status["latestVersion"] = release["version"]
+    status["updateUrl"] = release["url"]
+    latest_tuple = _version_tuple(release["version"])
+    if not latest_tuple:
+        status["checked"] = False
+        status["reason"] = f"Could not parse the latest release tag: {release['version']}"
+    elif latest_tuple > _version_tuple(__version__):
+        status["available"] = True
+    else:
+        status["reason"] = "MacMaid is up to date"
+    return status
 
 
 
@@ -770,6 +880,16 @@ def doctor() -> list[dict[str, Any]]:
         {"name": "System Integrity Protection", "value": sip_output, "ok": sip_ok},
         {"name": "Time Machine", "value": "Available" if tmutil else "Unavailable", "ok": tmutil is not None},
     ])
+    permission = macos_permission_report(Config().home)
+    fda = str(permission.get("fullDiskAccess") or "unknown")
+    if fda == "granted":
+        fda_value, fda_ok = "Granted", True
+    elif fda == "unknown":
+        fda_value, fda_ok = "Could not be determined", None
+    else:
+        target = "your terminal app" if permission.get("launchContext") == "cli" else "MacMaid"
+        fda_value, fda_ok = f"Not granted — grant it to {target} in System Settings > Privacy & Security", False
+    checks.append({"name": "Full Disk Access", "value": fda_value, "ok": fda_ok})
     return checks
 
 

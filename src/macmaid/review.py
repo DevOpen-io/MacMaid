@@ -161,9 +161,13 @@ def snapshot_plan(target_gb: int) -> ReviewPlan:
 def macmaid_update_plan(status: Mapping[str, object]) -> ReviewPlan:
     installed = str(status.get("installedVersion") or "installed version")
     latest = str(status.get("latestVersion") or "latest available version")
-    item = ReviewItem("macmaid-brew-update", "Update MacMaid with Homebrew", "brew upgrade --cask macmaid",
-                      "Homebrew Cask upgrade", "MODERATE", f"Upgrade {installed} to {latest}")
-    return ReviewPlan("Update MacMaid", (item,), "Homebrew will replace the MacMaid application bundle. Restart MacMaid after the update completes.")
+    cask = bool(status.get("brewCask", status.get("channel") != "homebrew-formula"))
+    command = "brew upgrade --cask macmaid" if cask else "brew upgrade macmaid"
+    kind = "Homebrew Cask upgrade" if cask else "Homebrew formula upgrade"
+    item = ReviewItem("macmaid-brew-update", "Update MacMaid with Homebrew", command,
+                      kind, "MODERATE", f"{installed} → {latest}")
+    target = "the MacMaid application bundle" if cask else "the MacMaid command-line package"
+    return ReviewPlan("Update MacMaid", (item,), f"Homebrew will replace {target}. Restart MacMaid after the update completes.")
 
 
 def issue_review_token(secret: str, scope: str, generation: int, plan: ReviewPlan, *, now: float | None = None) -> str:

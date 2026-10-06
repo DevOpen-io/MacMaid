@@ -14,7 +14,7 @@ from .cleaner import Cleaner
 from .config import Config
 from .features import (
     ApplicationManager, ProjectPurgeManager, RecoveryCenter, analyze_directory, completion_activation_hint, completion_script,
-    developer_inventory, doctor, install_completion, list_snapshots, remove_completion_hooks,
+    developer_inventory, doctor, install_completion, list_snapshots, macmaid_update_status, apply_macmaid_brew_update, remove_completion_hooks,
     system_status, thin_snapshots,
 )
 from .developer import DeveloperStorageCenter
@@ -25,7 +25,7 @@ from .models import CleanupProfile
 from .smart_downloads import SmartDownloadsScanner
 from .review import cleanup_plan, purge_plan, snapshot_plan
 from .scanner import PackageManagerCacheScanner, Scanner, scan_installers, scan_leftovers
-from .system import ensure_tool_search_path, human_bytes, is_interactive, run_command
+from .system import ensure_tool_search_path, human_bytes, is_interactive, macos_permission_report, run_command
 
 try:
     from rich.console import Console
@@ -74,6 +74,7 @@ def _parser() -> argparse.ArgumentParser:
     history_parser = commands.add_parser("history", help="Show operation history"); history_parser.add_argument("--limit", type=int, default=40)
     restore = commands.add_parser("restore", help="Restore a restorable Trash history item"); restore.add_argument("--operation-id", required=True); restore.add_argument("--trash-path", required=True); restore.add_argument("--copy", action="store_true")
     commands.add_parser("whitelist", help="List whitelist rules and the file path")
+    update = commands.add_parser("update", help="Check for MacMaid updates"); update.add_argument("--apply", action="store_true", help="Install the update (Homebrew installs only)")
     uninstall = commands.add_parser("uninstall", help="Uninstall MacMaid"); uninstall.add_argument("--purge-data", action="store_true")
     web = commands.add_parser("ui", aliases=["web", "gui", "dashboard", "app"], help="Open the local Web UI"); web.add_argument("--port", type=int, default=8123); web.add_argument("--no-open", action="store_true"); web.add_argument("--app", action="store_true", help="Launch native macOS app window")
     return parser
@@ -113,6 +114,17 @@ def _print_scan(result) -> None:
         print(f"  {item.risk.name:<11} {human_bytes(item.estimated_bytes):>10}  {item.label}")
         if item.path: print(f"               {item.path}")
     print(f"\nTotal: {human_bytes(result.total_bytes)} in {len(result.items)} item(s)")
+
+
+def _fda_hint(config: Config) -> None:
+    try:
+        report = macos_permission_report(config.home)
+    except OSError:
+        return
+    if report.get("fullDiskAccess") == "granted":
+        return
+    target = "your terminal app" if report.get("launchContext") == "cli" else "MacMaid"
+    print(f"Note: Full Disk Access is not granted — grant it to {target} (System Settings > Privacy & Security) for complete coverage.", file=sys.stderr)
 
 
 def _confirm(prompt: str, assume_yes: bool) -> bool:
@@ -523,7 +535,9 @@ def _main(argv: list[str] | None = None) -> None:
             CleanupProfile(args.profile), include_trash=args.trash,
             include_system_temp=args.system_temp, progress=_progress,
         ))
-        if result is not None: _run_clean_result(result, args)
+        if result is not None:
+            _run_clean_result(result, args)
+            _fda_hint(config)
     elif command == "leftovers":
         result = _run_interruptible_scan(lambda: scan_leftovers(config, args.older_than, args.include_data)); args.scan_only = not args.apply
         if result is not None: _run_clean_result(result, args)
@@ -711,6 +725,33 @@ def _main(argv: list[str] | None = None) -> None:
         for rule in rules:
             print(f"  {rule}")
         print(f"Whitelist: {len(rules)} protected path{'s' if len(rules) != 1 else ''} · {config.whitelist_file}")
+    elif command == "update":
+        status = macmaid_update_status(refresh=True)
+        channel = status.get("channel") or "unknown"
+        print(f"Install channel: {channel}")
+        if not status.get("installed") or status.get("checked") is False:
+            raise RuntimeError(str(status.get("reason") or "MacMaid installation was not detected."))
+        print(f"Installed version: {status.get('installedVersion') or __version__}")
+        if status.get("latestVersion"):
+            print(f"Latest version:   {status['latestVersion']}")
+        if status.get("available"):
+            if status.get("canApply"):
+                if getattr(args, "apply", False):
+                    print("Installing update with Homebrew…")
+                    result = apply_macmaid_brew_update()
+                    if result.get("updated"):
+                        print("Update installed. Restart MacMaid to use the new version.")
+                    else:
+                        print(result.get("reason") or "No update was installed.")
+                    return
+                print(f"Update available — run: {status.get('updateCommand') or 'brew upgrade macmaid'}  (or: macmaid update --apply)")
+            else:
+                print("Update available.")
+                if status.get("updateCommand"):
+                    print(f"Update with: {status['updateCommand']}")
+                print(f"Release: {status.get('updateUrl')}")
+        else:
+            print(status.get("reason") or "MacMaid is up to date.")
     elif command in ("ui", "web", "gui", "dashboard", "app"):
         if command == "app" or getattr(args, "app", False):
             home = Path.home()
@@ -720,9 +761,13 @@ def _main(argv: list[str] | None = None) -> None:
             ]
             found_app = next((p for p in candidates if p.exists()), None)
             if found_app:
-                run_command("/usr/bin/open", ["-a", str(found_app)], timeout=15)
-                return
-            print("MacMaid.app was not found. Build it locally with: make prod-install")
+                opened = run_command("/usr/bin/open", ["-a", str(found_app)], timeout=15)
+                if opened.succeeded:
+                    return
+                detail = f": {opened.stderr}" if opened.stderr else ""
+                print(f"Could not open {found_app}{detail} — starting the Web UI instead.")
+            else:
+                print("MacMaid.app was not found — starting the Web UI instead. (Install the app with: make prod-install)")
         from .web import serve
         serve(args.port, not args.no_open)
     elif command == "uninstall":

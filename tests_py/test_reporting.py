@@ -131,6 +131,24 @@ def test_doctor_sip_probe_maps_csrutil_status(monkeypatch):
         assert check["ok"] is expected
 
 
+def test_doctor_reports_full_disk_access_with_context(monkeypatch):
+    monkeypatch.setattr(features, "run_command", lambda *a, **k: CommandResult(0, "System Integrity Protection status: enabled."))
+    monkeypatch.setattr(features, "macos_permission_report",
+                        lambda home=None: {"fullDiskAccess": "not_granted", "launchContext": "cli", "checks": []})
+    check = {item["name"]: item for item in features.doctor()}["Full Disk Access"]
+    assert check["ok"] is False and "terminal app" in check["value"]
+
+    monkeypatch.setattr(features, "macos_permission_report",
+                        lambda home=None: {"fullDiskAccess": "not_granted", "launchContext": "app", "checks": []})
+    check = {item["name"]: item for item in features.doctor()}["Full Disk Access"]
+    assert check["ok"] is False and "to MacMaid" in check["value"]
+
+    monkeypatch.setattr(features, "macos_permission_report",
+                        lambda home=None: {"fullDiskAccess": "granted", "launchContext": "cli", "checks": []})
+    check = {item["name"]: item for item in features.doctor()}["Full Disk Access"]
+    assert check["ok"] is True and check["value"] == "Granted"
+
+
 def test_snapshots_api_omits_header_and_derives_real_dates(monkeypatch):
     from macmaid import web_queries
     monkeypatch.setattr(web_queries, "list_snapshots", lambda: [

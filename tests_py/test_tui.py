@@ -42,6 +42,8 @@ def _metrics() -> dict:
 
 def test_textual_tui_navigation_and_page_tables(monkeypatch) -> None:
     monkeypatch.setattr(tui, "system_status", _metrics)
+    monkeypatch.setattr(tui, "macmaid_update_status", lambda refresh=False: {
+        "installed": False, "available": False, "checked": True, "reason": "stub"})
 
     async def exercise() -> None:
         app = tui.MacMaidTUI()
@@ -57,6 +59,7 @@ def test_textual_tui_navigation_and_page_tables(monkeypatch) -> None:
             for key, expected in (("1", "page-clean"), ("3", "page-analyzer"), ("5", "page-developer"), ("6", "page-status"), ("0", "page-update-results")):
                 await pilot.press("m", key); await pilot.pause()
                 assert switcher.current == expected
+            await app.workers.wait_for_complete()  # let the update-check worker finish before continuing
 
             await pilot.press("m", "1"); await pilot.pause()
             assert switcher.current == "page-clean"
@@ -596,7 +599,7 @@ def test_analyzer_navigation_clears_previous_directory(monkeypatch, tmp_path) ->
 
 def test_tui_update_page_lifecycle_and_actions(monkeypatch) -> None:
     checked: list[bool] = []
-    monkeypatch.setattr(tui, "macmaid_brew_update_status",
+    monkeypatch.setattr(tui, "macmaid_update_status",
                         lambda refresh=False: checked.append(True) or {"installed": False, "available": False, "reason": "stub"})
 
     async def exercise() -> None:
@@ -616,7 +619,7 @@ def test_tui_update_page_lifecycle_and_actions(monkeypatch) -> None:
                 {"available": False, "installed": False, "reason": "MacMaid is not installed by Homebrew"},
                 None,
             )
-            assert "Homebrew update unavailable" in str(app.query_one("#update-state", Static).content)
+            assert "Update unavailable" in str(app.query_one("#update-state", Static).content)
             assert "MacMaid is not installed by Homebrew" in str(app.query_one("#update-output", Static).content)
 
             # 3. Update check when update is available
@@ -626,6 +629,8 @@ def test_tui_update_page_lifecycle_and_actions(monkeypatch) -> None:
                     "installed": True,
                     "installedVersion": "0.11.18",
                     "latestVersion": "0.12.0",
+                    "canApply": True,
+                    "channel": "homebrew-cask",
                 },
                 None,
             )
@@ -679,6 +684,7 @@ def test_tui_update_page_lifecycle_and_actions(monkeypatch) -> None:
                     "installed": True,
                     "installedVersion": "0.11.18",
                     "latestVersion": "0.12.0",
+                    "canApply": True,
                 },
                 None,
             )
@@ -686,6 +692,57 @@ def test_tui_update_page_lifecycle_and_actions(monkeypatch) -> None:
             tr_output = str(app.query_one("#update-output", Static).content)
             assert "Mevcut sürüm: 0.11.18" in tr_output
             assert "Mevcut güncelleme sürümü: 0.12.0" in tr_output
+
+    asyncio.run(exercise())
+
+
+def test_tui_update_result_does_not_steal_focus_after_navigation(monkeypatch) -> None:
+    monkeypatch.setattr(tui, "macmaid_update_status", lambda refresh=False: {
+        "installed": True, "available": False, "checked": True, "reason": "MacMaid is up to date"})
+
+    async def exercise() -> None:
+        app = tui.MacMaidTUI()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.open_page("update")
+            await pilot.pause()
+            # A slow check completes only after the user has already moved on.
+            app.open_page("dashboard")
+            await pilot.pause()
+            app._finish_macmaid_update_check(
+                {"installed": True, "available": False, "checked": True, "reason": "MacMaid is up to date"},
+                None,
+            )
+            await pilot.pause()
+            assert app.focused is not app.query_one("#update-actions", ListView)
+            assert app.query_one("#pages", ContentSwitcher).current == "page-dashboard"
+
+    asyncio.run(exercise())
+
+
+def test_tui_fda_notice_visibility_and_context(monkeypatch) -> None:
+    monkeypatch.setattr(tui, "macos_permission_report", lambda home: {
+        "fullDiskAccess": "not_granted", "launchContext": "cli", "checks": []})
+
+    async def exercise() -> None:
+        app = tui.MacMaidTUI()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await app.workers.wait_for_complete()
+            notice = app.query_one("#fda-notice", Static)
+            assert notice.display
+            assert "terminal app" in str(notice.content)
+
+            app._render_fda_notice({"fullDiskAccess": "not_granted", "launchContext": "app"})
+            assert "grant it to MacMaid" in str(notice.content)
+            app._render_fda_notice({"fullDiskAccess": "unknown"})
+            assert "could not be checked" in str(notice.content)
+            app._render_fda_notice({"fullDiskAccess": "granted"})
+            assert notice.display is False
+
+            app._save_language("tr")
+            app._render_fda_notice({"fullDiskAccess": "not_granted", "launchContext": "cli"})
+            assert "terminal uygulamanıza" in str(notice.content)
 
     asyncio.run(exercise())
 

@@ -13,7 +13,7 @@ from .cleaner import Cleaner
 from .developer import DeveloperInventory
 from .features import (
     ApplicationManager, ProjectPurgeManager,
-    RecoveryCenter, apply_macmaid_brew_update, macmaid_brew_update_status,
+    RecoveryCenter, apply_macmaid_brew_update, macmaid_update_status,
     thin_snapshots,
 )
 from .models import ActionType, RiskLevel, ScanResult
@@ -220,11 +220,15 @@ def route_post(handler: MacMaidHandler, path: str, body: dict) -> dict:
             state.progress.finish("Cancelling scan", percent=0)
         return {"success": True, "cancelled": cancelled, "service": service}
     if path == "/api/macmaid/update/check":
-        status = macmaid_brew_update_status(refresh=True)
+        status = macmaid_update_status(refresh=True)
         state.macmaid_update = status
         return status
     if path == "/api/macmaid/update":
-        status = macmaid_brew_update_status()
+        status = macmaid_update_status()
+        if not status.get("canApply"):
+            return {"success": False, "error": str(status.get("reason") or "This install channel cannot update in place"),
+                    "updateCommand": status.get("updateCommand"), "updateUrl": status.get("updateUrl"),
+                    "channel": status.get("channel")}
         plan = macmaid_update_plan(status)
         if review := _review_gate(handler, "macmaid-update", body, plan): return review
         return dict(apply_macmaid_brew_update(), success=True)

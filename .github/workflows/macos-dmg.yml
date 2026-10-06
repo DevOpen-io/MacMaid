@@ -201,6 +201,7 @@ jobs:
             desc "Safe macOS cleanup, disk analysis and developer-tool maintenance"
             homepage "https://github.com/${GITHUB_REPOSITORY}"
             depends_on arch: :arm64
+            depends_on macos: ">= :ventura"
             app "MacMaid.app"
             zap trash: ["~/.config/macmaid", "~/Library/Logs/MacMaid"]
           end
@@ -213,6 +214,7 @@ jobs:
             desc "Safe macOS cleanup, disk analysis and developer-tool maintenance"
             homepage "https://github.com/${GITHUB_REPOSITORY}"
             depends_on arch: :arm64
+            depends_on macos: ">= :ventura"
             def install
               libexec.install Dir["*"]
               bin.install_symlink libexec/"macmaid"

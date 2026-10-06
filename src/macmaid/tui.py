@@ -13,7 +13,8 @@ from textual import events, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.worker import get_current_worker
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.widget import Widget
 from textual.css.query import NoMatches
 from textual.widgets import (
     ContentSwitcher, DataTable as TextualDataTable, Input as TextualInput,
@@ -35,7 +36,7 @@ from .smart_downloads import SmartDownloadsScanner
 from .features import (
     AppComponent, ApplicationManager, InstalledApplication,
     ProjectArtifact, ProjectPurgeManager, RecoveryCenter, apply_macmaid_brew_update,
-    doctor, list_snapshots, macmaid_brew_update_status, system_status,
+    doctor, list_snapshots, macmaid_update_status, system_status,
     thin_snapshots,
 )
 from .models import CleanupItem, CleanupProfile, RiskLevel, ScanResult
@@ -57,7 +58,7 @@ NAVIGATION = [
     ("files", "Files & Storage", "Large files, duplicates, downloads and browser storage"),
     ("more", "System & History", "Leftovers, installers, snapshots, history and diagnostics"),
     ("memory", "Memory", "Inspect process memory growth and review exact processes before stopping"),
-    ("update", "Check for Updates", "Check Homebrew for a newer MacMaid release"),
+    ("update", "Check for Updates", "Check for a newer MacMaid release"),
 ]
 
 WORDMARK = r""" __  __            __  __       _     _ 
@@ -204,6 +205,7 @@ class MacMaidTUI(App[None]):
     #wordmark { height: 6; color: #5ee7e7; text-style: bold; }
     .compact-wordmark { height: 6; color: #5ee7e7; text-style: bold; }
     #tagline { height: 2; color: #777b83; }
+    #fda-notice { display: none; height: 1; color: #d9bd45; margin-bottom: 1; }
     #system-strip { height: 2; color: #d5d7da; }
     #menu-title { display: none; }
     #menu-help { height: 2; color: #6f737b; }
@@ -223,7 +225,7 @@ class MacMaidTUI(App[None]):
     .action-desc { width: 1fr; height: 1; color: #777b83; padding-left: 6; }
     #menu-help { height: 2; color: #737780; }
     .notice { height: auto; min-height: 3; border-left: thick #6f8798; padding: 0 2; margin-bottom: 1; color: #aeb3ba; }
-    DataTable { height: 1fr; min-height: 7; background: transparent; border: none; scrollbar-size: 0 0; }
+    DataTable { height: 1fr; min-height: 7; background: transparent; border: none; scrollbar-size: 0 1; scrollbar-color: #4a5560; scrollbar-background: transparent; scrollbar-color-hover: #73d9cf; }
     DataTable > .datatable--header { display: none; }
     DataTable > .datatable--cursor { background: transparent; color: #73d9cf; text-style: bold; }
     DataTable > .datatable--even-row, DataTable > .datatable--odd-row { background: transparent; }
@@ -243,19 +245,29 @@ class MacMaidTUI(App[None]):
     .state.error { color: #e27d82; }
     .detail { height: 3; padding: 1 0 0 2; color: #858a92; }
     .hint { height: 2; color: #747982; padding: 0 1; }
-    #apps-split { height: 1fr; }
+    #apps-split { height: 1fr; min-height: 12; }
     #apps-table { width: 3fr; }
     #components-table { width: 2fr; margin-left: 1; }
-    #status-output, #more-output, #review-body { height: 1fr; background: transparent; padding: 1 0; overflow-y: auto; }
+    .scroll-output { height: 1fr; scrollbar-color: #4a5560; scrollbar-background: transparent; scrollbar-color-hover: #73d9cf; }
+    #more-scroll { height: auto; max-height: 8; }
+    #page-more-results.text-mode #more-scroll { height: 1fr; max-height: 100%; }
+    #status-output, #more-output, #review-body { height: auto; background: transparent; padding: 1 0; }
     #review-title { height: 3; }
     #review-prompt { height: 3; color: #d9bd72; text-style: bold; padding: 1; }
     #operation-current { height: 3; color: #8bd8c5; text-style: bold; padding: 1; }
-    #operation-log { height: 1fr; min-height: 8; background: transparent; padding: 1 2; overflow-y: auto; }
+    #operation-scroll { min-height: 8; }
+    #operation-log { height: auto; background: transparent; padding: 1 2; }
     #operation-summary { height: 8; color: #b6bbc1; padding: 1 2; }
     #operation-hint { height: 2; color: #8fcf8b; text-style: bold; }
     #more-table { height: 1fr; }
     #whitelist-suggestions { height: 7; min-height: 3; }
     #activity { height: 1; dock: bottom; background: transparent; color: #d5d7da; padding: 0 1; content-align: left middle; }
+    Screen.compact .compact-wordmark, Screen.compact #wordmark { display: none; }
+    Screen.compact #tagline { display: none; }
+    Screen.compact .page { padding: 0 1; }
+    Screen.compact .page-description { min-height: 1; margin-bottom: 0; }
+    Screen.compact #nav { min-height: 6; }
+    Screen.compact .live-events { height: 5; }
     """
 
     def __init__(self) -> None:
@@ -324,15 +336,15 @@ class MacMaidTUI(App[None]):
     def _ui(self, text: str) -> str:
         return translate(text, self.language)
 
-    def _page(self, key: str, title: str, desc: str, *children: Any) -> Vertical:
+    def _page(self, key: str, title: str, desc: str, *children: Any) -> VerticalScroll:
         heading = Horizontal(
             Static(title, classes="page-title"),
             Static("M Menü  ·  R Yenile  ·  Q Çıkış", classes="page-shortcuts"),
             classes="page-heading",
         )
-        return Vertical(Static(COMPACT_WORDMARK, classes="compact-wordmark", markup=False), heading, Static(desc, classes="page-description", markup=False), *children, id=f"page-{key}", classes="page")
+        return VerticalScroll(Static(COMPACT_WORDMARK, classes="compact-wordmark", markup=False), heading, Static(desc, classes="page-description", markup=False), *children, id=f"page-{key}", classes="page", can_focus=False)
 
-    def _dashboard_page(self) -> Vertical:
+    def _dashboard_page(self) -> VerticalScroll:
         menu = ListView(
             *[
                 ListItem(
@@ -350,15 +362,17 @@ class MacMaidTUI(App[None]):
             ],
             id="nav",
         )
-        return Vertical(
+        return VerticalScroll(
             Static(WORDMARK, id="wordmark", markup=False),
             Static("Deep clean your Mac without touching your data.", id="tagline", markup=False),
+            Static("", id="fda-notice", markup=False),
             Static("SELECT TOOL", id="menu-title"),
             menu,
             Static("Loading system metrics…", id="system-strip"),
             Static(f"↑↓  Navigate     Enter  Select     Q  Quit\nv{__version__}  •  safety-first  •  scanning always shows live feedback", id="menu-help"),
             id="page-dashboard",
             classes="page",
+            can_focus=False,
         )
 
     @staticmethod
@@ -391,7 +405,7 @@ class MacMaidTUI(App[None]):
             classes="action-menu",
         )
 
-    def _clean_page(self) -> Vertical:
+    def _clean_page(self) -> VerticalScroll:
         return self._page("clean", "Choose cleanup profile", "The profile controls how deep the scan goes. You will review the result before anything is deleted.", self._action_menu("clean-actions", [
             ("clean-profile-safe", "Safe  [LOW RISK]", "Third-party caches, old logs and browser rendering/network caches."),
             ("clean-profile-deep", "Deep  [BALANCED]", "Adds Apple user caches and saved application state."),
@@ -399,35 +413,35 @@ class MacMaidTUI(App[None]):
             ("clean-profile-aggressive", "Aggressive  [MAX CLEAN]", "Adds expensive-to-regenerate dependency caches; still protects user data."),
         ]), Static("↑↓ / j k  Navigate     Enter  Scan     1–4  Jump     Esc/B  Back", classes="hint"))
 
-    def _clean_results_page(self) -> Vertical:
+    def _clean_results_page(self) -> VerticalScroll:
         return self._page("clean-results", "Review Cleanup", "Safe items start enabled. Move with ↑↓ and press Space to exclude/include an item.", Horizontal(ProgressBar(total=100, show_eta=False, id="clean-progress"), Static("", id="clean-target", markup=False), id="clean-progress-line"), Static("Starting scan…", id="clean-state", classes="state"), Static("", id="clean-events", classes="live-events", markup=False), DataTable(id="clean-table", zebra_stripes=True), Static("The selected item's reason, path and impact appear here.", id="clean-detail", classes="detail", markup=False), Static("L Live events · ↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Cancel", classes="hint"))
 
-    def _apps_page(self) -> Vertical:
+    def _apps_page(self) -> VerticalScroll:
         return self._page("apps", "Uygulama Kaldırıcı", "Ayrı tarama ekranında app paketlerini ve exact bundle-ID bileşenlerini incele.", self._action_menu("apps-actions", [
             ("apps-scan", "Uygulamaları tara", "Kurulu app paketlerini ve disk boyutlarını bul"),
         ]), Static("Enter ile taramayı aç · Esc ile ana menü", classes="hint"))
 
-    def _apps_results_page(self) -> Vertical:
+    def _apps_results_page(self) -> VerticalScroll:
         return self._page("apps-results", "App Uninstaller", "Exact bundle sizes and bundle-ID leftovers remain reviewable before removal.", ProgressBar(total=None, show_eta=False, id="apps-progress"), Static("Discovering applications…", id="apps-state", classes="state"), Horizontal(DataTable(id="apps-table", zebra_stripes=True), DataTable(id="components-table", zebra_stripes=True), id="apps-split"), Static("User-data locations start disabled and require explicit opt-in.", id="apps-detail", classes="detail", markup=False), Static("↑↓ Navigate · Enter Review · Space Select · C Stop scan · Esc Back", classes="hint"))
 
-    def _analyzer_page(self) -> Vertical:
+    def _analyzer_page(self) -> VerticalScroll:
         return self._page("analyzer", "Disk Alanı Analizörü", "Başlangıç konumunu seç; analiz ve canlı boyut ölçümü ayrı ekranda açılır.", self._action_menu("analyzer-actions", [
             ("analyzer-start-home", "Home dizinini analiz et", "Kullanıcı home dizinini arka planda ölç"),
             ("analyzer-open-custom", "Başka bir yol seç", "Yol girişinin bulunduğu analiz ekranını aç"),
         ]), Static("Enter ile analiz ekranını aç · Esc ile ana menü", classes="hint"))
 
-    def _analyzer_results_page(self) -> Vertical:
+    def _analyzer_results_page(self) -> VerticalScroll:
         return self._page("analyzer-results", "Disk Analyzer", "Completed rows are usable immediately; you do not need to wait for the whole folder.", Input(value=str(Path.home()), id="analyzer-input"), ProgressBar(total=100, show_eta=False, id="analyzer-progress"), Static("Choose a folder.", id="analyzer-state", classes="state"), DataTable(id="analyzer-table", zebra_stripes=True), Static("Trash is recoverable. Protected home anchors remain view-only.", id="analyzer-detail", classes="detail", markup=False), Static("↑↓ Navigate · Enter Open · Space Select · D Trash · C Stop analysis · Esc / ← Parent", classes="hint"))
 
-    def _purge_page(self) -> Vertical:
+    def _purge_page(self) -> VerticalScroll:
         return self._page("purge", "Project Purge", "Doğrulanmış proje köklerinde yeniden üretilebilir artefakt taraması başlat.", self._action_menu("purge-actions", [
             ("purge-scan", "Projeleri tara", "Build ve dependency artefaktlarını salt-okunur keşfet"),
         ]), Static("Enter ile taramayı aç · Esc ile ana menü", classes="hint"))
 
-    def _purge_results_page(self) -> Vertical:
+    def _purge_results_page(self) -> VerticalScroll:
         return self._page("purge-results", "Project Purge", "Only proven rebuildable artifacts are shown; project source remains protected.", ProgressBar(total=None, show_eta=False, id="purge-progress"), Static("Scanning projects…", id="purge-state", classes="state"), DataTable(id="purge-table", zebra_stripes=True), Static("The selected artifact's rebuild class and exact path appear here.", id="purge-detail", classes="detail", markup=False), Static("↑↓ Navigate · Space Select · Enter Purge · C Stop scan · Esc Back", classes="hint"))
 
-    def _developer_page(self) -> Vertical:
+    def _developer_page(self) -> VerticalScroll:
         return self._page("developer", "Developer Tools", "Developer storage with manager-aware removal and cache cleanup", self._action_menu("developer-actions", [
             ("developer-kind-storage", "Storage Center", "Grouped Xcode, Node, Python, Rust, Android and Docker storage overview"),
             ("developer-kind-runtime", "Runtimes & Languages", "Find managed Python, Ruby, Rust, Node, Go, Java and other versions"),
@@ -438,18 +452,18 @@ class MacMaidTUI(App[None]):
             ("back", "Back", "Return to the main menu"),
         ]), Static("↑↓ / j k  Navigate     Enter  Select     Esc/B  Back", classes="hint"))
 
-    def _developer_results_page(self) -> Vertical:
+    def _developer_results_page(self) -> VerticalScroll:
         return self._page("developer-results", "Developer Inventory", "Only manager-owned items are removable. Active and protected items remain view-only.", ProgressBar(total=None, show_eta=False, id="developer-progress"), Static("Scanning developer inventory…", id="developer-state", classes="state"), DataTable(id="developer-table", zebra_stripes=True), Static("Active, base and manager-protected items cannot be removed.", id="developer-detail", classes="detail", markup=False), Static("↑↓ Navigate · Enter/D Remove · R Rescan · C Stop scan · Esc Back", classes="hint"))
 
-    def _status_page(self) -> Vertical:
+    def _status_page(self) -> VerticalScroll:
         return self._page("status", "Mac Sağlığı", "Somut, salt-okunur macOS ölçümlerini ayrı görünümde aç.", self._action_menu("status-actions", [
             ("status-open", "Mac sağlık ekranını aç", "Disk, bellek baskısı, pil ve termal durumunu gerekçeleriyle göster"),
         ]), Static("Enter ile canlı görünümü aç · Esc ile ana menü", classes="hint"))
 
-    def _status_results_page(self) -> Vertical:
-        return self._page("status-results", "Mac Health", "Read-only indicators with evidence, freshness and safe recommendations; no health score or automatic action.", Static("Loading metrics…", id="status-state", classes="state busy"), Static("Loading metrics…", id="status-output", markup=False), Static("R Refresh · Q / Esc Back", classes="hint"))
+    def _status_results_page(self) -> VerticalScroll:
+        return self._page("status-results", "Mac Health", "Read-only indicators with evidence, freshness and safe recommendations; no health score or automatic action.", Static("Loading metrics…", id="status-state", classes="state busy"), VerticalScroll(Static("Loading metrics…", id="status-output", markup=False), id="status-scroll", classes="scroll-output"), Static("R Refresh · Q / Esc Back", classes="hint"))
 
-    def _memory_page(self) -> Vertical:
+    def _memory_page(self) -> VerticalScroll:
         return self._page(
             "memory", "Memory", "Process memory evidence. Growth is not a confirmed leak and RSS is not a reclaim estimate.",
             Static("Collecting process memory…", id="memory-state", classes="state busy"),
@@ -458,7 +472,7 @@ class MacMaidTUI(App[None]):
             Static("↑↓ Navigate · Enter Review & Stop · D Review Force Stop · R Refresh · Esc Back", classes="hint"),
         )
 
-    def _files_page(self) -> Vertical:
+    def _files_page(self) -> VerticalScroll:
         return self._page("files", "Files & Storage", "User-file and browser inspection tools; nothing is removed without review", self._action_menu("files-actions", [
             ("files-browser-storage", "Browser Storage", "Inspect cache, site data, cookies and session boundaries"),
             ("files-smart-downloads", "Smart Downloads", "Classify installers, archives, incomplete downloads and duplicates"),
@@ -467,7 +481,7 @@ class MacMaidTUI(App[None]):
             ("back", "Back", "Return to the main menu"),
         ]), Static("↑↓ / j k  Navigate     Enter  Select     Esc/B  Back", classes="hint"))
 
-    def _more_page(self) -> Vertical:
+    def _more_page(self) -> VerticalScroll:
         return self._page("more", "System & History", "Maintenance, diagnostics and audit tools", self._action_menu("more-actions", [
             ("more-leftovers", "Leftovers", "Find safe remnants from removed applications"),
             ("more-installers", "Installers", "Find old DMG, PKG, XIP, ISO and IPSW files"),
@@ -480,24 +494,24 @@ class MacMaidTUI(App[None]):
             ("back", "Back", "Return to the main menu"),
         ]), Static("↑↓ / j k  Navigate     Enter  Select     Esc/B  Back", classes="hint"))
 
-    def _more_results_page(self) -> Vertical:
-        return self._page("more-results", "Araç Sonuçları", "Seçilen aracın ilerlemesi ve sonuçları bu ekranda gösterilir.", ProgressBar(total=None, show_eta=False, id="more-progress"), Static("Starting tool…", id="more-state", classes="state"), DataTable(id="more-table", zebra_stripes=True), Static("The selected result's safety reason appears here.", id="more-detail", classes="detail", markup=False), Static("", id="more-output", markup=False), Static("↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Back", id="more-hint", classes="hint"))
+    def _more_results_page(self) -> VerticalScroll:
+        return self._page("more-results", "Araç Sonuçları", "Seçilen aracın ilerlemesi ve sonuçları bu ekranda gösterilir.", ProgressBar(total=None, show_eta=False, id="more-progress"), Static("Starting tool…", id="more-state", classes="state"), DataTable(id="more-table", zebra_stripes=True), Static("The selected result's safety reason appears here.", id="more-detail", classes="detail", markup=False), VerticalScroll(Static("", id="more-output", markup=False), id="more-scroll", classes="scroll-output"), Static("↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Back", id="more-hint", classes="hint"))
 
-    def _update_page(self) -> Vertical:
+    def _update_page(self) -> VerticalScroll:
         return self._page(
-            "update-results", "Check for Updates", "Check Homebrew for a newer release. Installation always requires explicit approval.",
+            "update-results", "Check for Updates", "Check for a newer MacMaid release. Homebrew installs can update in place; other channels get download instructions. Installation always requires explicit approval.",
             ProgressBar(total=None, show_eta=False, id="update-progress"),
-            Static("Checking Homebrew for updates…", id="update-state", classes="state busy", markup=False),
+            Static("Checking for updates…", id="update-state", classes="state busy", markup=False),
             Static("", id="update-output", markup=False),
             self._action_menu("update-actions", [
-                ("update-install", "Install Update", "Review and install the available Homebrew Cask update"),
-                ("update-check", "Check Again", "Refresh Homebrew metadata and check again"),
+                ("update-install", "Install Update", "Review and install the available update (Homebrew installs only)"),
+                ("update-check", "Check Again", "Check for a newer release again"),
                 ("back", "Back", "Return to the main menu"),
             ]),
             Static("↑↓ Select · Enter Continue · R Check again · Esc Back", id="update-hint", classes="hint"),
         )
 
-    def _settings_page(self) -> Vertical:
+    def _settings_page(self) -> VerticalScroll:
         return self._page(
             "settings", "Ayarlar / Settings", "Arayüz dilini seçin. Seçim güvenli biçimde kaydedilir ve sonraki açılışlarda korunur.",
             Static("Mevcut dil yükleniyor…", id="settings-state", classes="state", markup=False),
@@ -509,7 +523,7 @@ class MacMaidTUI(App[None]):
             Static("↑↓ Seç · Enter Kaydet · Esc Geri", classes="hint"),
         )
 
-    def _whitelist_editor_page(self) -> Vertical:
+    def _whitelist_editor_page(self) -> VerticalScroll:
         return self._page(
             "whitelist-editor", "Whitelist Editor", "Bu listedeki mutlak yollar ve globlar hiçbir cleanup işlemi tarafından değiştirilemez.",
             Static("Whitelist yükleniyor…", id="whitelist-state", classes="state", markup=False),
@@ -519,25 +533,28 @@ class MacMaidTUI(App[None]):
             Static("Yolu eklemek için Enter · öneriyi seçmek için ↓ ve Enter · seçili kuralı silmek için D · kaydetmek için Ctrl+S · Esc geri", classes="hint"),
         )
 
-    def _review_page(self) -> Vertical:
+    def _review_page(self) -> VerticalScroll:
         return self._page(
             "review", "Review operation", "Nothing changes until you explicitly confirm this exact plan.",
             Static("", id="review-title", classes="state warning", markup=False),
-            Static("", id="review-body", markup=False),
+            VerticalScroll(Static("", id="review-body", markup=False), id="review-scroll", classes="scroll-output"),
             ReviewPrompt("İşlem uygulansın mı? [y/N]", id="review-prompt", markup=False),
             Static("y  Onayla · n / Enter / Esc  İptal", id="review-hint", classes="hint", markup=False),
         )
 
-    def _operation_page(self) -> Vertical:
+    def _operation_page(self) -> VerticalScroll:
         return self._page(
             "operation", "Operation", "Every reviewed target is revalidated immediately before execution.",
             ProgressBar(total=100, show_eta=False, id="operation-progress"),
             Static("Preparing operation…", id="operation-current", markup=False),
             Static("", id="operation-events", classes="live-events", markup=False),
-            Static("", id="operation-log", markup=False),
+            VerticalScroll(Static("", id="operation-log", markup=False), id="operation-scroll", classes="scroll-output"),
             Static("Preparing before-operation system metrics…", id="operation-summary", markup=False),
             Static("When complete, press Enter to return to MacMaid.", id="operation-hint", markup=False),
         )
+
+    def on_resize(self, event: events.Resize) -> None:
+        self.screen.set_class(event.size.height < 30, "compact")
 
     def on_mount(self) -> None:
         columns = {
@@ -557,6 +574,7 @@ class MacMaidTUI(App[None]):
             table.add_columns(*labels)
         self.query_one("#nav", ListView).index = 0
         self.set_interval(2.0, self._periodic_status); self.set_interval(0.4, self._periodic_analyzer); self._load_status()
+        self._probe_permissions()
 
     def on_unmount(self) -> None:
         self.analyzer.shutdown()
@@ -631,6 +649,7 @@ class MacMaidTUI(App[None]):
         self.query_one("#operation-log", Static).update("")
         self.query_one("#operation-summary", Static).update(self._snapshot_line("ÖNCE", before))
         self.query_one("#operation-hint", Static).update("L Canlı olayları aç/kapat · İşlem sürüyor · lütfen terminali kapatma")
+        self.query_one("#operation-scroll", VerticalScroll).focus()
         self._set_activity(f"~  {title} çalışıyor…")
 
     def _operation_item(self, index: int, total: int, label: str, outcome: str) -> None:
@@ -644,6 +663,7 @@ class MacMaidTUI(App[None]):
             self.operation_lines.append(f"{icon}  {label} · {labels.get(outcome, outcome)}")
             self.operation_lines = self.operation_lines[-200:]
             self.query_one("#operation-log", Static).update("\n".join(self.operation_lines))
+            self.query_one("#operation-scroll", VerticalScroll).scroll_end(animate=False)
             self.query_one("#operation-progress", ProgressBar).update(total=max(total, 1), progress=index)
 
     def _cleanup_progress_event(self, index: int, total: int, item: CleanupItem, outcome: str) -> None:
@@ -689,6 +709,12 @@ class MacMaidTUI(App[None]):
                 self.focused.index = index
             return
         if self.current_page == "review":
+            if event.key in {"up", "down", "pageup", "pagedown", "home", "end", "j", "k"}:
+                scroll = self.query_one("#review-scroll", VerticalScroll)
+                {"up": scroll.scroll_up, "down": scroll.scroll_down,
+                 "pageup": scroll.scroll_page_up, "pagedown": scroll.scroll_page_down,
+                 "home": scroll.scroll_home, "end": scroll.scroll_end,
+                 "j": scroll.scroll_down, "k": scroll.scroll_up}[event.key](animate=False)
             event.prevent_default()
             event.stop()
             answer = event.key.casefold()
@@ -825,6 +851,7 @@ class MacMaidTUI(App[None]):
         self.query_one("#pages", ContentSwitcher).current = "page-review"
         self.query_one("#review-title", Static).update(plan.title)
         self.query_one("#review-body", Static).update(plan.text(self.language))
+        self.query_one("#review-scroll", VerticalScroll).scroll_home(animate=False)
         prompt = "Plan onaylansın mı? [y/N]"
         if plan.requires_extra_opt_in:
             prompt += "  · USER DATA/MANUAL için iki ayrı y onayı gerekir"
@@ -832,6 +859,16 @@ class MacMaidTUI(App[None]):
         self.query_one("#review-hint", Static).update("y  Onayla · n / Enter / Esc  İptal")
         self.query_one("#review-prompt", ReviewPrompt).focus()
         self._set_activity("İnceleme hazır · henüz hiçbir değişiklik yapılmadı")
+
+    def _focus_page_target(self, key: str) -> None:
+        candidates: list[Widget] = [t for t in self.query(f"#page-{key} DataTable") if t.display]
+        candidates += [w for w in self.query(f"#page-{key} .scroll-output") if w.display]
+        candidates += [w for w in self.query(f"#page-{key} .action-menu") if w.display]
+        candidates += [self.query_one(f"#page-{key}"), self.query_one("#nav", ListView)]
+        for candidate in candidates:
+            if candidate.focusable:
+                candidate.focus()
+                return
 
     def _authorize_review(self) -> None:
         plan, callback = self.review_plan, self.review_callback
@@ -850,6 +887,7 @@ class MacMaidTUI(App[None]):
                 if origin:
                     self.current_page = origin
                     self.query_one("#pages", ContentSwitcher).current = f"page-{origin}"
+                    self._focus_page_target(origin)
                 return
         if plan.requires_extra_opt_in and not self.review_extra_armed:
             self.review_extra_armed = True
@@ -873,8 +911,7 @@ class MacMaidTUI(App[None]):
         self._clear_review()
         self.current_page = origin
         self.query_one("#pages", ContentSwitcher).current = f"page-{origin}"
-        target = next(iter(self.query(f"#page-{origin} DataTable")), self.query_one(f"#page-{origin}"))
-        target.focus()
+        self._focus_page_target(origin)
         self._set_activity("İşlem iptal edildi · hiçbir değişiklik yapılmadı")
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
@@ -1033,12 +1070,11 @@ class MacMaidTUI(App[None]):
         key = f"{section}-results"
         self.current_page = key
         self.query_one("#pages", ContentSwitcher).current = f"page-{key}"
+        self.query_one(f"#page-{key}", VerticalScroll).scroll_home(animate=False)
         if focus:
-            target = self.query_one(focus)
+            self.query_one(focus).focus()
         else:
-            tables = list(self.query(f"#page-{key} DataTable"))
-            target = tables[0] if tables else self.query_one(f"#page-{key}")
-        target.focus()
+            self._focus_page_target(key)
         self._set_activity("")
 
     def _open_and_run(self, section: str, callback: Callable[[], None]) -> None:
@@ -1155,22 +1191,22 @@ class MacMaidTUI(App[None]):
             self.query_one("#review-prompt", ReviewPrompt).focus()
             return
         page = self.query_one(f"#page-{self.current_page}")
-        for widget in page.query(".action-menu, Input, DataTable"):
-            if widget.can_focus:
+        for widget in page.query(".action-menu, Input, DataTable, .scroll-output"):
+            if widget.can_focus and widget.display:
                 widget.focus(); break
     def action_cursor_down(self) -> None:
         if self.current_page == "whitelist-editor" and self.focused and self.focused.id == "whitelist-input" and self.whitelist_suggestions:
             self.query_one("#whitelist-suggestions", DataTable).focus()
             return
         focused = self.focused
-        action = getattr(focused, "action_cursor_down", None)
+        action = getattr(focused, "action_cursor_down", None) or getattr(focused, "action_scroll_down", None)
         if action: action()
     def action_cursor_up(self) -> None:
         if self.current_page == "whitelist-editor" and self.focused and self.focused.id == "whitelist-suggestions":
             self.query_one("#whitelist-input", Input).focus()
             return
         focused = self.focused
-        action = getattr(focused, "action_cursor_up", None)
+        action = getattr(focused, "action_cursor_up", None) or getattr(focused, "action_scroll_up", None)
         if action: action()
     def action_analyzer_parent(self) -> None:
         if self.current_page == "analyzer-results": self._request_analysis(self.analyzer_path.parent)
@@ -2070,14 +2106,14 @@ class MacMaidTUI(App[None]):
         self.query_one("#update-progress", ProgressBar).remove_class("complete")
         self.query_one("#update-progress", ProgressBar).update(total=None, progress=0)
         self.query_one("#update-actions", ListView).index = 1  # highlight Check Again; Install is armed only by a finished check
-        self._set_state("update", "Checking Homebrew for updates…")
+        self._set_state("update", "Checking for updates…")
         self.query_one("#update-output", Static).update("This check is read-only. No update will be installed without your approval.")
         self._check_macmaid_update_worker()
 
     @work(thread=True, exclusive=True, group="macmaid-update-check")
     def _check_macmaid_update_worker(self) -> None:
         try:
-            status = macmaid_brew_update_status(refresh=True)
+            status = macmaid_update_status(refresh=True)
         except (OSError, RuntimeError, ValueError) as exc:
             self.call_from_thread(self._finish_macmaid_update_check, None, str(exc))
             return
@@ -2092,34 +2128,46 @@ class MacMaidTUI(App[None]):
             self._set_state("update", "Update check failed")
             self.query_one("#update-output", Static).update(error or "Unknown update-check error")
             menu.index = 1
-            menu.focus()
+            if self.current_page == "update-results":
+                menu.focus()
             return
         self.update_status = status
         if not status.get("installed"):
-            self._set_state("update", "Homebrew update unavailable")
+            self._set_state("update", "Update unavailable")
             self.query_one("#update-output", Static).update(
-                str(status.get("reason") or "MacMaid is not installed by Homebrew. No changes were made.")
+                str(status.get("reason") or "MacMaid installation was not detected. No changes were made.")
             )
             menu.index = 1
         elif status.get("available"):
             current = status.get("installedVersion") or __version__
             latest = status.get("latestVersion") or "unknown"
             self._set_state("update", "Update available")
-            self.query_one("#update-output", Static).update(
-                f"Current version: {current}\nAvailable version: {latest}\n\nSelect Install Update to review the exact Homebrew operation."
-            )
-            menu.index = 0
+            if status.get("canApply"):
+                output = (f"Current version: {current}\nAvailable version: {latest}\n\n"
+                          "Select Install Update to review the exact Homebrew operation.")
+                menu.index = 0
+            else:
+                command = status.get("updateCommand")
+                guidance = (f"Update with: {command}" if command else
+                            f"Download the latest release from: {status.get('updateUrl') or 'GitHub Releases'}")
+                channel = status.get("channel") or "unknown"
+                output = (f"Current version: {current}\nLatest version: {latest}\n"
+                          f"Install channel: {channel}\n\n{guidance}")
+                menu.index = 1
+            self.query_one("#update-output", Static).update(output)
         else:
-            self._set_state("update", "MacMaid is up to date")
+            state = "MacMaid is up to date" if status.get("checked", True) else "Update check failed"
+            self._set_state("update", state)
             self.query_one("#update-output", Static).update(
                 str(status.get("reason") or f"Installed version: {__version__}")
             )
             menu.index = 1
-        menu.focus()
+        if self.current_page == "update-results":
+            menu.focus()
 
     def _current_macmaid_update_plan(self) -> ReviewPlan:
         status = self.update_status
-        if not status or not status.get("installed") or not status.get("available"):
+        if not status or not status.get("installed") or not status.get("available") or not status.get("canApply"):
             raise ValueError("No reviewed Homebrew update is currently available")
         return macmaid_update_plan(status)
 
@@ -2139,7 +2187,8 @@ class MacMaidTUI(App[None]):
             result = apply_macmaid_brew_update()
             if not result.get("updated"):
                 raise RuntimeError(str(result.get("reason") or "Homebrew did not install an update"))
-            self.call_from_thread(self._operation_item, 1, 1, "Homebrew Cask: macmaid", "success")
+            kind = "Cask" if result.get("brewCask", True) else "formula"
+            self.call_from_thread(self._operation_item, 1, 1, f"Homebrew {kind}: macmaid", "success")
             after = self._system_snapshot()
             self.call_from_thread(
                 self._complete_operation,
@@ -2151,6 +2200,29 @@ class MacMaidTUI(App[None]):
         except (OSError, RuntimeError, ValueError) as exc:
             after = self._system_snapshot()
             self.call_from_thread(self._complete_operation, "MacMaid update failed", str(exc), before, after, failed=True)
+
+    @work(thread=True, group="fda-probe")
+    def _probe_permissions(self) -> None:
+        try:
+            report = macos_permission_report(self.config.home)
+        except OSError:
+            return
+        self.call_from_thread(self._render_fda_notice, report)
+
+    def _render_fda_notice(self, report: dict[str, Any]) -> None:
+        notice = self.query_one("#fda-notice", Static)
+        fda = str(report.get("fullDiskAccess") or "unknown")
+        if fda == "granted":
+            notice.display = False
+            return
+        if fda == "unknown":
+            text = "!  Full Disk Access could not be checked — some locations may be unreachable."
+        elif report.get("launchContext") == "app":
+            text = "!  Full Disk Access is off — grant it to MacMaid in System Settings > Privacy & Security for full coverage."
+        else:
+            text = "!  Full Disk Access is off — grant it to your terminal app in System Settings > Privacy & Security for full coverage."
+        notice.update(text)
+        notice.display = True
 
     @staticmethod
     def _permission_report_text(report: dict[str, Any]) -> str:
@@ -2412,6 +2484,13 @@ class MacMaidTUI(App[None]):
     def _load_more(self, kind: str) -> None:
         self._reset_scan("more")
         self.more_kind = kind
+        text_kind = kind in {"snapshots", "doctor", "permissions", "history", "whitelist"}
+        self.query_one("#more-table", DataTable).display = not text_kind
+        self.query_one("#more-detail", Static).display = not text_kind
+        self.query_one("#page-more-results").set_class(text_kind, "text-mode")
+        scroll = self.query_one("#more-scroll", VerticalScroll)
+        scroll.scroll_home(animate=False)
+        (scroll if text_kind else self.query_one("#more-table", DataTable)).focus()
         self.query_one("#more-progress", ProgressBar).update(total=None, progress=0)
         self.query_one("#more-hint", Static).update("↑↓ Navigate · Space Select · Enter Continue · C Stop scan · Esc Back")
         self._set_state("more", f"{kind} yükleniyor…")

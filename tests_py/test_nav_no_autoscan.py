@@ -202,7 +202,7 @@ def test_tui_navigation_opens_menu_pages_without_workers(monkeypatch) -> None:
 def test_tui_update_page_entry_runs_a_read_only_check(monkeypatch) -> None:
     """Opening the update screen auto-checks (#25); installation still needs review."""
     calls: list[bool] = []
-    monkeypatch.setattr(tui, "macmaid_brew_update_status",
+    monkeypatch.setattr(tui, "macmaid_update_status",
                         lambda refresh=False: calls.append(True) or {"installed": False, "available": False, "reason": "stub"})
 
     async def exercise() -> None:
@@ -253,7 +253,7 @@ def test_update_get_is_passive_and_never_invokes_brew(web_server, monkeypatch) -
     def explode(**kwargs):
         raise AssertionError("brew subprocess started by a passive GET")
 
-    monkeypatch.setattr(web_mutations, "macmaid_brew_update_status", explode)
+    monkeypatch.setattr(web_mutations, "macmaid_update_status", explode)
     status, payload = _get(host, "/api/macmaid/update")
     assert status == 200
     assert payload["installed"] is False
