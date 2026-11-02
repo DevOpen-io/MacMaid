@@ -1,0 +1,22 @@
+[package]
+name = "macmaid-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Core engine, safety rules, and scanning services for MacMaid"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+libc = { workspace = true }
+sha2 = { workspace = true }
+uuid = { workspace = true }
+glob = { workspace = true }
+chrono = { workspace = true }
+walkdir = { workspace = true }
+sysinfo = { workspace = true }
+plist = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

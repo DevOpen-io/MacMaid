@@ -11,25 +11,13 @@ SCRIPT_DIR=$(dirname "$0")
 ROOT=$(CDPATH= cd "$SCRIPT_DIR/.." 2>/dev/null && pwd -P) || fail "Could not resolve project root."
 cd "$ROOT"
 
-UV=${UV:-$(command -v uv 2>/dev/null || true)}
-[ -n "$UV" ] || fail "uv is required for production packaging. Run sh install.sh once or install uv manually."
+CARGO=$(command -v cargo 2>/dev/null || true)
+[ -n "$CARGO" ] || fail "cargo is required for compiling MacMaid from source. Install Rust via https://rustup.rs."
 
-PYTHON_VERSION=${PYTHON_VERSION:-3.11}
-MACOS_DEPLOYMENT_TARGET=${MACOS_DEPLOYMENT_TARGET:-13.0}
-APP_VERSION=$("$UV" run --python "$PYTHON_VERSION" python -c 'from macmaid import __version__; print(__version__)')
 APP_NAME=${APP_NAME:-MacMaid}
 BIN_NAME=${BIN_NAME:-macmaid}
 INSTALL_BIN_DIR=${INSTALL_BIN_DIR:-$HOME/.local/bin}
-INSTALL_RUNTIME_DIR=${INSTALL_RUNTIME_DIR:-$HOME/.local/lib/macmaid}
 INSTALL_APP_DIR=${INSTALL_APP_DIR:-$HOME/Applications}
-BUILD_DIR=${BUILD_DIR:-$ROOT/build/prod}
-ENTRYPOINT=$BUILD_DIR/macmaid_entry.py
-DIST_DIR=$BUILD_DIR/dist
-WORK_DIR=$BUILD_DIR/work
-SPEC_DIR=$BUILD_DIR/spec
-LOGO_PNG=$ROOT/assets/MacMaid-Logo.png
-ICONSET=$BUILD_DIR/MacMaid.iconset
-ICON_FILE=MacMaid.icns
 
 case "$ROOT" in
   "$HOME"|"$HOME"/*) : ;;
@@ -40,123 +28,29 @@ if command -v xattr >/dev/null 2>&1; then
   xattr -dr com.apple.quarantine "$ROOT" >/dev/null 2>&1 || true
 fi
 
-mkdir -p "$BUILD_DIR" "$DIST_DIR" "$WORK_DIR" "$SPEC_DIR" "$INSTALL_BIN_DIR" "$INSTALL_APP_DIR"
-cat > "$ENTRYPOINT" <<'PY'
-from macmaid import main
+info "Building native MacMaid desktop application and CLI with scripts/build-macos-app.sh..."
+./scripts/build-macos-app.sh
 
-if __name__ == "__main__":
-    main()
-PY
+BUILD_APP="$ROOT/build/macos-app/MacMaid.app"
+BUILD_CLI="$ROOT/build/macos-app/cli/$BIN_NAME"
 
-info "Building standalone MacMaid binary with PyInstaller..."
-"$UV" run --python "$PYTHON_VERSION" --with pyinstaller pyinstaller \
-  --noconfirm \
-  --clean \
-  --onedir \
-  --name "$BIN_NAME" \
-  --distpath "$DIST_DIR" \
-  --workpath "$WORK_DIR" \
-  --specpath "$SPEC_DIR" \
-  --paths "$ROOT/src" \
-  --add-data "$ROOT/src/macmaid/WebUI:macmaid/WebUI" \
-  --collect-all textual \
-  "$ENTRYPOINT"
+[ -d "$BUILD_APP" ] || fail "Native application bundle not found at $BUILD_APP"
+[ -x "$BUILD_CLI" ] || fail "CLI binary not found at $BUILD_CLI"
 
-BUNDLE_DIR=$DIST_DIR/$BIN_NAME
-BINARY=$BUNDLE_DIR/$BIN_NAME
-[ -x "$BINARY" ] || fail "PyInstaller did not produce $BINARY"
+mkdir -p "$INSTALL_BIN_DIR" "$INSTALL_APP_DIR"
 
-if command -v codesign >/dev/null 2>&1; then
-  info "Applying ad-hoc code signature..."
-  codesign --force --deep --sign - "$BUNDLE_DIR" >/dev/null 2>&1 || info "Ad-hoc codesign failed; continuing with unsigned binary."
-fi
+info "Installing $BIN_NAME CLI to $INSTALL_BIN_DIR/$BIN_NAME..."
+cp -f "$BUILD_CLI" "$INSTALL_BIN_DIR/$BIN_NAME"
+chmod 755 "$INSTALL_BIN_DIR/$BIN_NAME"
 
-OLD_COMMAND=$(printf '%s%s' deep clean)
-OLD_APP=$(printf '%s%s.app' Deep Clean)
-rm -f "$INSTALL_BIN_DIR/$OLD_COMMAND" 2>/dev/null || true
-rm -rf "$INSTALL_APP_DIR/$OLD_APP" 2>/dev/null || true
-if [ -n "$UV" ]; then "$UV" tool uninstall "$OLD_COMMAND" >/dev/null 2>&1 || true; fi
-
-info "Installing startup-optimized runtime to $INSTALL_RUNTIME_DIR"
-rm -rf "$INSTALL_RUNTIME_DIR"
-mkdir -p "$INSTALL_RUNTIME_DIR"
-cp -R "$BUNDLE_DIR/." "$INSTALL_RUNTIME_DIR/"
-ln -sfn "$INSTALL_RUNTIME_DIR/$BIN_NAME" "$INSTALL_BIN_DIR/$BIN_NAME"
-
-APP_ROOT=$INSTALL_APP_DIR/$APP_NAME.app
-APP_MACOS=$APP_ROOT/Contents/MacOS
-APP_RESOURCES=$APP_ROOT/Contents/Resources
-APP_RUNTIME=$APP_RESOURCES/runtime
-APP_FRAMEWORKS=$APP_ROOT/Contents/Frameworks
-mkdir -p "$APP_MACOS" "$APP_RESOURCES"
-
-if [ -f "$LOGO_PNG" ]; then
-  cp "$LOGO_PNG" "$APP_RESOURCES/MacMaid-Logo.png"
-  if command -v sips >/dev/null 2>&1 && command -v iconutil >/dev/null 2>&1; then
-    rm -rf "$ICONSET"
-    mkdir -p "$ICONSET"
-    sips -z 16 16 "$LOGO_PNG" --out "$ICONSET/icon_16x16.png" >/dev/null
-    sips -z 32 32 "$LOGO_PNG" --out "$ICONSET/icon_16x16@2x.png" >/dev/null
-    sips -z 32 32 "$LOGO_PNG" --out "$ICONSET/icon_32x32.png" >/dev/null
-    sips -z 64 64 "$LOGO_PNG" --out "$ICONSET/icon_32x32@2x.png" >/dev/null
-    sips -z 128 128 "$LOGO_PNG" --out "$ICONSET/icon_128x128.png" >/dev/null
-    sips -z 256 256 "$LOGO_PNG" --out "$ICONSET/icon_128x128@2x.png" >/dev/null
-    sips -z 256 256 "$LOGO_PNG" --out "$ICONSET/icon_256x256.png" >/dev/null
-    sips -z 512 512 "$LOGO_PNG" --out "$ICONSET/icon_256x256@2x.png" >/dev/null
-    sips -z 512 512 "$LOGO_PNG" --out "$ICONSET/icon_512x512.png" >/dev/null
-    sips -z 1024 1024 "$LOGO_PNG" --out "$ICONSET/icon_512x512@2x.png" >/dev/null
-    iconutil -c icns "$ICONSET" -o "$APP_RESOURCES/$ICON_FILE"
-    info "App icon generated from assets/MacMaid-Logo.png"
-  else
-    info "sips/iconutil unavailable; copied PNG logo but skipped .icns generation."
-  fi
-else
-  info "Logo not found at $LOGO_PNG; app icon skipped."
-fi
-
-cat > "$APP_ROOT/Contents/Info.plist" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleExecutable</key><string>$APP_NAME</string>
-  <key>CFBundleIdentifier</key><string>com.macmaid.macmaid</string>
-  <key>CFBundleName</key><string>$APP_NAME</string>
-  <key>CFBundleDisplayName</key><string>$APP_NAME</string>
-  <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleIconFile</key><string>$ICON_FILE</string>
-  <key>CFBundleShortVersionString</key><string>$APP_VERSION</string>
-  <key>CFBundleVersion</key><string>$APP_VERSION</string>
-  <key>LSMinimumSystemVersion</key><string>13.0</string>
-</dict>
-</plist>
-PLIST
-rm -rf "$APP_MACOS/_internal" "$APP_MACOS/_CodeSignature" "$APP_FRAMEWORKS" "$APP_RUNTIME"
-install -m 755 "$BUNDLE_DIR/$BIN_NAME" "$APP_MACOS/macmaid-bin"
-cp -R "$BUNDLE_DIR/_internal" "$APP_RUNTIME"
-ln -s Resources/runtime "$APP_FRAMEWORKS"
-
-SWIFT_APP_SRC="$ROOT/src/macmaid/native/MacMaidApp.swift"
-if command -v swiftc >/dev/null 2>&1 && [ -f "$SWIFT_APP_SRC" ]; then
-  info "Compiling native Cocoa/WebKit window wrapper with swiftc..."
-  swiftc -target "$(uname -m)-apple-macosx$MACOS_DEPLOYMENT_TARGET" \
-    -O -framework Cocoa -framework WebKit "$SWIFT_APP_SRC" -o "$APP_MACOS/$APP_NAME"
-else
-  info "swiftc not found; using fallback shell launcher."
-  cat > "$APP_MACOS/$APP_NAME" <<APP
-#!/bin/sh
-exec "$INSTALL_BIN_DIR/$BIN_NAME" ui "\$@"
-APP
-  chmod 755 "$APP_MACOS/$APP_NAME"
-fi
+APP_DEST="$INSTALL_APP_DIR/$APP_NAME.app"
+info "Installing native macOS application to $APP_DEST..."
+rm -rf "$APP_DEST"
+cp -R "$BUILD_APP" "$APP_DEST"
 
 if command -v xattr >/dev/null 2>&1; then
-  xattr -dr com.apple.quarantine "$INSTALL_BIN_DIR/$BIN_NAME" "$APP_ROOT" >/dev/null 2>&1 || true
+  xattr -dr com.apple.quarantine "$INSTALL_BIN_DIR/$BIN_NAME" "$APP_DEST" >/dev/null 2>&1 || true
 fi
-if command -v codesign >/dev/null 2>&1; then
-  codesign --force --deep --sign - "$APP_ROOT" >/dev/null 2>&1 || info "Ad-hoc app codesign failed; continuing."
-fi
-touch "$APP_ROOT"
 
 "$INSTALL_BIN_DIR/$BIN_NAME" --version >/dev/null || fail "Installed binary smoke test failed."
 
@@ -179,5 +73,5 @@ esac
 
 info "Production install complete:"
 info "  CLI: $INSTALL_BIN_DIR/$BIN_NAME"
-info "  App: $APP_ROOT"
-info "Start Web UI with: open '$APP_ROOT'"
+info "  App: $APP_DEST"
+info "Launch with: open '$APP_DEST'"

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/*]
     paths-ignore:
       - 'README.md'
       - '*.md'
@@ -18,60 +18,48 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Tests
-    runs-on: macos-latest
+  rust-check:
+    name: Rust Quality Gate & Tests
+    runs-on: macos-14
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          enable-cache: true
+          components: clippy, rustfmt
 
-      - name: Verify committed lockfile
-        run: uv lock --check
+      - name: Rustfmt Check
+        run: cargo fmt --all -- --check
 
-      - name: Sync locked dependencies
-        run: uv sync --locked --all-groups
+      - name: Clippy Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Lint Python
-        run: uv run ruff check src/macmaid tests_py
+      - name: Workspace Tests
+        run: cargo test --workspace
 
-      - name: Type-check memory Python
-        run: uv run mypy
+  build-desktop-app:
+    name: Native Desktop & CLI Build
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Compile Python
-        run: uv run python -m compileall -q src/macmaid
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Check Web UI JavaScript
+      - name: Build macOS Application Bundle & CLI
         run: |
-          node --check src/macmaid/WebUI/app.js
-          node --check src/macmaid/WebUI/memory.js
+          chmod +x scripts/build-macos-app.sh scripts/create-dmg.sh
+          ./scripts/build-macos-app.sh
 
-      - name: Run tests
-        run: uv run pytest -q
+      - name: Smoke Test CLI
+        run: |
+          ./build/macos-app/cli/macmaid --version
+          ./build/macos-app/cli/macmaid doctor
 
-  browser-test:
-    name: Memory browser workflow
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Sync locked browser dependencies
-        run: uv sync --locked --group browser
-
-      - name: Install Playwright Chromium
-        run: uv run playwright install chromium
-
-      - name: Run browser tests
-        env:
-          MACMAID_BROWSER_TESTS: "1"
-        run: uv run pytest tests_py/test_memory_browser.py tests_py/test_webui_devcaches_e2e.py -q
+      - name: Smoke Test Desktop App Executable
+        run: |
+          file build/macos-app/MacMaid.app/Contents/MacOS/MacMaid
+          test -f build/macos-app/MacMaid.app/Contents/Info.plist

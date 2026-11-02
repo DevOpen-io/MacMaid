@@ -1,0 +1,23 @@
+pub mod analyzer;
+pub mod apps;
+pub mod browser_storage;
+pub mod cancellation;
+pub mod cleaner;
+pub mod config;
+pub mod developer;
+pub mod doctor;
+pub mod duplicates;
+pub mod fs_ops;
+pub mod i18n;
+pub mod large_files;
+pub mod memory;
+pub mod models;
+pub mod purge;
+pub mod recovery;
+pub mod reporting;
+pub mod safety;
+pub mod scanner;
+pub mod smart_downloads;
+pub mod system;
+
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -1,71 +1,63 @@
 SHELL := /bin/sh
 .SHELLFLAGS := -eu -c
-.DEFAULT_GOAL := install
+.DEFAULT_GOAL := build
 
-UV ?= uv
+CARGO ?= cargo
 ARGS ?=
 
-.PHONY: help sync install prod-install uninstall test check build run doctor status scan-dry scan-developer-dry apps analyze purge-scan developer-caches-dry completion-print ui web clean
+.PHONY: help build build-app dmg install prod-install test check run doctor status scan-dry apps analyze purge-scan ui clean
 
 help: ## Show available commands
-	@printf "MacMaid Python/uv workflow\n\n"
+	@printf "MacMaid Rust & Native Desktop workflow\n\n"
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-24s %s\n", $$1, $$2}'
 
-sync: ## Create/update the uv environment and lock file
-	$(UV) sync --all-groups
+build: ## Build Rust workspace (macmaid-core, macmaid-cli, macmaid-ffi)
+	$(CARGO) build --release --workspace
 
-install: ## Install into the current user's uv tool directory; never uses sudo
-	./install.sh
+build-app: ## Build native macOS desktop application bundle (.app) and CLI
+	./scripts/build-macos-app.sh
 
-prod-install: ## Build and install standalone macOS binary + ~/Applications app wrapper
+dmg: build-app ## Create release DMG and CLI package
+	./scripts/create-dmg.sh build/macos-app/MacMaid.app build/macos-app/MacMaid.dmg
+	tar -C build/macos-app/cli -czf build/macos-app/MacMaid-cli.tar.gz macmaid
+
+install: ## Build and install standalone macOS CLI and Desktop app
 	sh scripts/prod-install.sh
 
-uninstall: ## Remove the uv-managed command
-	./uninstall.sh
+prod-install: install ## Alias for install
 
-test: ## Run Python tests
-	$(UV) run pytest
+test: ## Run Rust test suite
+	$(CARGO) test --workspace
 
-check: test ## Compile, test and smoke-check the package
-	$(UV) run python -m compileall -q src/macmaid
-	$(UV) run macmaid --version
-	$(UV) run macmaid --help >/dev/null
-
-build: ## Build wheel and source distribution
-	$(UV) build
+check: ## Run formatting, clippy quality gates and tests
+	$(CARGO) fmt --all -- --check
+	$(CARGO) clippy --workspace --all-targets -- -D warnings
+	$(CARGO) test --workspace
 
 run: ## Run the CLI; example: make run ARGS="doctor"
-	$(UV) run macmaid $(ARGS)
+	$(CARGO) run -p macmaid-cli -- $(ARGS)
 
 doctor: ## Run diagnostics
-	$(UV) run macmaid doctor
+	$(CARGO) run -p macmaid-cli -- doctor
 
 status: ## Show system status
-	$(UV) run macmaid status
+	$(CARGO) run -p macmaid-cli -- status
 
 scan-dry: ## Safe read-only scan
-	$(UV) run macmaid scan --profile safe --scan-only $(ARGS)
-
-scan-developer-dry: ## Read-only developer-profile scan
-	$(UV) run macmaid scan --profile developer --scan-only $(ARGS)
+	$(CARGO) run -p macmaid-cli -- scan --profile safe --scan-only $(ARGS)
 
 apps: ## Inventory installed applications
-	$(UV) run macmaid apps $(ARGS)
+	$(CARGO) run -p macmaid-cli -- apps $(ARGS)
 
 analyze: ## Analyze a path
-	$(UV) run macmaid analyze $(ARGS)
+	$(CARGO) run -p macmaid-cli -- analyze $(ARGS)
 
 purge-scan: ## Read-only project artifact scan
-	$(UV) run macmaid purge $(ARGS)
+	$(CARGO) run -p macmaid-cli -- purge $(ARGS)
 
-developer-caches-dry: ## Read-only package-manager cache scan
-	$(UV) run macmaid developer-caches --scan-only $(ARGS)
+ui: ## Launch the native macOS Desktop application
+	open build/macos-app/MacMaid.app
 
-completion-print: ## Print shell completion
-	$(UV) run macmaid completion $(or $(SHELL_NAME),zsh) --print
-
-ui web: ## Launch the local Web UI
-	$(UV) run macmaid ui $(ARGS)
-
-clean: ## Remove only local Python build/test artifacts
-	rm -rf build dist .pytest_cache src/macmaid.egg-info
+clean: ## Remove build artifacts
+	$(CARGO) clean
+	rm -rf build dist
