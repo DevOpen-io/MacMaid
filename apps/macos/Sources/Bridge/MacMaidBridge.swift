@@ -122,6 +122,61 @@ public struct AppComponentModel: Identifiable, Codable {
     public var selected: Bool
 }
 
+public struct ReviewItemModel: Identifiable, Codable {
+    public var id: String { key }
+    public var key: String
+    public var label: String
+    public var target: String
+    public var action: String
+    public var risk: String
+    public var reason: String
+    public var estimatedBytes: UInt64
+    public var requiresAppClosed: String?
+    public var userData: Bool
+}
+
+public struct ReviewPlanModel: Codable {
+    public var scope: String
+    public var title: String
+    public var items: [ReviewItemModel]
+    public var impact: String
+    public var estimateNote: String
+    public var totalBytes: UInt64
+    public var requiresExtraOptIn: Bool
+}
+
+public struct StagedPlanModel: Codable {
+    public var token: String
+    public var plan: ReviewPlanModel
+}
+
+public struct SnapshotInfoModel: Identifiable, Codable {
+    public var id: String { name }
+    public var name: String
+    public var date: String
+}
+
+public struct SnapshotThinResultModel: Codable {
+    public var success: Bool
+    public var output: String
+    public var error: String
+    public var requestedReclaimBytes: UInt64
+    public var observedFreeBytesDelta: Int64?
+}
+
+public struct UpdateStatusModel: Codable {
+    public var channel: String
+    public var installed: Bool
+    public var canApply: Bool
+    public var available: Bool
+    public var checked: Bool
+    public var installedVersion: String
+    public var latestVersion: String?
+    public var updateCommand: String?
+    public var updateUrl: String
+    public var reason: String?
+}
+
 public struct ProcessInfoModel: Identifiable, Codable {
     public var id: UInt32 { pid }
     public var pid: UInt32
@@ -133,6 +188,8 @@ public struct ProcessInfoModel: Identifiable, Codable {
     public var category: String
     public var isProtected: Bool
     public var growthBytesPerSec: Double
+    public var startTime: UInt64?
+    public var uid: UInt32?
 }
 
 public struct DeveloperSectionModel: Identifiable, Codable {
@@ -313,12 +370,36 @@ public final class MacMaidBridge {
         return try? jsonDecoder.decode(ScanResultModel.self, from: data)
     }
 
+    // MARK: - Safety Review Plan Staging
+    public func stageReviewPlan(scope: String, payloadJson: String) -> Result<StagedPlanModel, MacMaidError> {
+        let cScope = scope.cString(using: .utf8)!
+        let cPayload = payloadJson.cString(using: .utf8)!
+        guard let cResult = macmaid_stage_review_plan(cScope, cPayload) else {
+            return .failure(MacMaidError("Null response from FFI in stageReviewPlan"))
+        }
+        defer { macmaid_free_string(cResult) }
+        let str = String(cString: cResult)
+        guard let data = str.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return .failure(MacMaidError("Invalid response JSON in stageReviewPlan"))
+        }
+        if let err = json["error"] as? String {
+            return .failure(MacMaidError(err))
+        }
+        if let dataObj = json["data"],
+           let subData = try? JSONSerialization.data(withJSONObject: dataObj),
+           let staged = try? jsonDecoder.decode(StagedPlanModel.self, from: subData) {
+            return .success(staged)
+        }
+        return .failure(MacMaidError("Failed to decode staged review plan"))
+    }
+
     // Execute Clean
     public func executeClean(
         items: [CleanupItemModel],
         apply: Bool,
         allowManual: Bool,
-        token: OpaquePointer?,
+        reviewToken: String?,
         onProgress: @escaping (Int, Int, String, String) -> Void
     ) -> OperationResultModel? {
         class Context {
@@ -344,11 +425,12 @@ public final class MacMaidBridge {
         }
 
         let cItems = jsonStr.cString(using: .utf8)!
+        let cToken = (reviewToken ?? "").cString(using: .utf8)!
         let cResult = macmaid_execute_clean(
             cItems,
             apply,
             allowManual,
-            token,
+            cToken,
             cCallback,
             ctxPtr
         )
@@ -402,9 +484,10 @@ public final class MacMaidBridge {
         return try? jsonDecoder.decode(AnalyzerReportModel.self, from: data)
     }
 
-    public func moveAnalyzerItemToTrash(path: String, estimatedBytes: UInt64) -> Result<String, MacMaidError> {
+    public func moveAnalyzerItemToTrash(path: String, estimatedBytes: UInt64, reviewToken: String) -> Result<String, MacMaidError> {
         let cPath = path.cString(using: .utf8)!
-        guard let cResult = macmaid_move_analyzer_item_to_trash(cPath, estimatedBytes) else {
+        let cToken = reviewToken.cString(using: .utf8)!
+        guard let cResult = macmaid_move_analyzer_item_to_trash(cPath, estimatedBytes, cToken) else {
             return .failure(MacMaidError("Null response from FFI"))
         }
         defer { macmaid_free_string(cResult) }
@@ -440,7 +523,12 @@ public final class MacMaidBridge {
         return (try? jsonDecoder.decode([AppComponentModel].self, from: data)) ?? []
     }
 
-    public func uninstallApplication(app: InstalledAppModel, components: [String]) -> Result<UInt64, MacMaidError> {
+    public func uninstallApplication(
+        app: InstalledAppModel,
+        components: [String],
+        reviewToken: String,
+        allowUserData: Bool
+    ) -> Result<UInt64, MacMaidError> {
         guard let appData = try? jsonEncoder.encode(app),
               let appStr = String(data: appData, encoding: .utf8),
               let compsData = try? jsonEncoder.encode(components),
@@ -449,7 +537,8 @@ public final class MacMaidBridge {
         }
         let cApp = appStr.cString(using: .utf8)!
         let cComps = compsStr.cString(using: .utf8)!
-        guard let cResult = macmaid_uninstall_application(cApp, cComps) else {
+        let cToken = reviewToken.cString(using: .utf8)!
+        guard let cResult = macmaid_uninstall_application(cApp, cComps, cToken, allowUserData) else {
             return .failure(MacMaidError("Null response from FFI"))
         }
         defer { macmaid_free_string(cResult) }
@@ -476,8 +565,14 @@ public final class MacMaidBridge {
         return (try? jsonDecoder.decode([ProcessInfoModel].self, from: data)) ?? []
     }
 
-    public func terminateProcess(pid: UInt32) -> Result<Void, MacMaidError> {
-        guard let cResult = macmaid_terminate_process(pid) else {
+    public func terminateProcess(
+        pid: UInt32,
+        expectedStartTime: UInt64,
+        force: Bool,
+        reviewToken: String
+    ) -> Result<Void, MacMaidError> {
+        let cToken = reviewToken.cString(using: .utf8)!
+        guard let cResult = macmaid_terminate_process(pid, expectedStartTime, force, cToken) else {
             return .failure(MacMaidError("Null response from FFI"))
         }
         defer { macmaid_free_string(cResult) }
@@ -501,13 +596,14 @@ public final class MacMaidBridge {
         return (try? jsonDecoder.decode([DeveloperSectionModel].self, from: data)) ?? []
     }
 
-    public func cleanDeveloperSection(section: DeveloperSectionModel) -> Result<UInt64, MacMaidError> {
+    public func cleanDeveloperSection(section: DeveloperSectionModel, reviewToken: String) -> Result<UInt64, MacMaidError> {
         guard let secData = try? jsonEncoder.encode(section),
               let secStr = String(data: secData, encoding: .utf8) else {
             return .failure(MacMaidError("Failed to encode section"))
         }
         let cSec = secStr.cString(using: .utf8)!
-        guard let cResult = macmaid_developer_clean(cSec) else {
+        let cToken = reviewToken.cString(using: .utf8)!
+        guard let cResult = macmaid_developer_clean(cSec, cToken) else {
             return .failure(MacMaidError("Null response from FFI"))
         }
         defer { macmaid_free_string(cResult) }
@@ -565,6 +661,26 @@ public final class MacMaidBridge {
         return (try? jsonDecoder.decode([DuplicateGroupModel].self, from: data)) ?? []
     }
 
+    public func trashDuplicateItems(paths: [String], estimatedBytes: UInt64, reviewToken: String) -> Result<UInt64, MacMaidError> {
+        let pathsJson = (try? String(data: jsonEncoder.encode(paths), encoding: .utf8)) ?? "[]"
+        let cPaths = pathsJson.cString(using: .utf8)!
+        let cToken = reviewToken.cString(using: .utf8)!
+        guard let cResult = macmaid_trash_duplicate_items(cPaths, estimatedBytes, cToken) else {
+            return .failure(MacMaidError("Null response from FFI"))
+        }
+        defer { macmaid_free_string(cResult) }
+        let str = String(cString: cResult)
+        guard let data = str.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return .failure(MacMaidError("Invalid response JSON"))
+        }
+        if let err = json["error"] as? String {
+            return .failure(MacMaidError(err))
+        }
+        let reclaimed = (json["data"] as? [String: Any])?["reclaimed"] as? UInt64 ?? 0
+        return .success(reclaimed)
+    }
+
     // Large Files
     public func scanLargeFiles(paths: [String], minSize: UInt64, olderThanDays: UInt64, token: OpaquePointer?) -> [LargeOldFileModel] {
         let pathsJson = (try? String(data: jsonEncoder.encode(paths), encoding: .utf8)) ?? "[]"
@@ -576,6 +692,26 @@ public final class MacMaidBridge {
         return (try? jsonDecoder.decode([LargeOldFileModel].self, from: data)) ?? []
     }
 
+    public func trashLargeFiles(paths: [String], estimatedBytes: UInt64, reviewToken: String) -> Result<UInt64, MacMaidError> {
+        let pathsJson = (try? String(data: jsonEncoder.encode(paths), encoding: .utf8)) ?? "[]"
+        let cPaths = pathsJson.cString(using: .utf8)!
+        let cToken = reviewToken.cString(using: .utf8)!
+        guard let cResult = macmaid_trash_large_files(cPaths, estimatedBytes, cToken) else {
+            return .failure(MacMaidError("Null response from FFI"))
+        }
+        defer { macmaid_free_string(cResult) }
+        let str = String(cString: cResult)
+        guard let data = str.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return .failure(MacMaidError("Invalid response JSON"))
+        }
+        if let err = json["error"] as? String {
+            return .failure(MacMaidError(err))
+        }
+        let reclaimed = (json["data"] as? [String: Any])?["reclaimed"] as? UInt64 ?? 0
+        return .success(reclaimed)
+    }
+
     // Smart Downloads
     public func scanSmartDownloads(olderThanDays: UInt64, token: OpaquePointer?) -> SmartDownloadsReportModel? {
         guard let cStr = macmaid_smart_downloads(olderThanDays, token) else { return nil }
@@ -583,6 +719,55 @@ public final class MacMaidBridge {
         let str = String(cString: cStr)
         guard let data = str.data(using: .utf8) else { return nil }
         return try? jsonDecoder.decode(SmartDownloadsReportModel.self, from: data)
+    }
+
+    public func trashDownloadItems(paths: [String], estimatedBytes: UInt64, reviewToken: String) -> Result<UInt64, MacMaidError> {
+        let pathsJson = (try? String(data: jsonEncoder.encode(paths), encoding: .utf8)) ?? "[]"
+        let cPaths = pathsJson.cString(using: .utf8)!
+        let cToken = reviewToken.cString(using: .utf8)!
+        guard let cResult = macmaid_trash_download_items(cPaths, estimatedBytes, cToken) else {
+            return .failure(MacMaidError("Null response from FFI"))
+        }
+        defer { macmaid_free_string(cResult) }
+        let str = String(cString: cResult)
+        guard let data = str.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return .failure(MacMaidError("Invalid response JSON"))
+        }
+        if let err = json["error"] as? String {
+            return .failure(MacMaidError(err))
+        }
+        let reclaimed = (json["data"] as? [String: Any])?["reclaimed"] as? UInt64 ?? 0
+        return .success(reclaimed)
+    }
+
+    // Time Machine Snapshots
+    public func listSnapshots() -> [SnapshotInfoModel] {
+        guard let cStr = macmaid_list_snapshots() else { return [] }
+        defer { macmaid_free_string(cStr) }
+        let str = String(cString: cStr)
+        guard let data = str.data(using: .utf8) else { return [] }
+        return (try? jsonDecoder.decode([SnapshotInfoModel].self, from: data)) ?? []
+    }
+
+    public func thinSnapshots(targetGb: UInt64, reviewToken: String) -> Result<SnapshotThinResultModel, MacMaidError> {
+        let cToken = reviewToken.cString(using: .utf8)!
+        guard let cResult = macmaid_thin_snapshots(targetGb, cToken) else {
+            return .failure(MacMaidError("Null response from FFI"))
+        }
+        defer { macmaid_free_string(cResult) }
+        let str = String(cString: cResult)
+        guard let data = str.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return .failure(MacMaidError("Invalid response JSON"))
+        }
+        if let err = json["error"] as? String {
+            return .failure(MacMaidError(err))
+        }
+        if let res = try? jsonDecoder.decode(SnapshotThinResultModel.self, from: data) {
+            return .success(res)
+        }
+        return .failure(MacMaidError("Failed to parse snapshot thinning result"))
     }
 
     // Project Purge
@@ -596,13 +781,14 @@ public final class MacMaidBridge {
         return (try? jsonDecoder.decode([ProjectArtifactModel].self, from: data)) ?? []
     }
 
-    public func purgeArtifact(artifact: ProjectArtifactModel) -> Result<UInt64, MacMaidError> {
+    public func purgeArtifact(artifact: ProjectArtifactModel, reviewToken: String) -> Result<UInt64, MacMaidError> {
         guard let artData = try? jsonEncoder.encode(artifact),
               let artStr = String(data: artData, encoding: .utf8) else {
             return .failure(MacMaidError("Failed to encode artifact"))
         }
         let cArt = artStr.cString(using: .utf8)!
-        guard let cResult = macmaid_purge_item(cArt) else {
+        let cToken = reviewToken.cString(using: .utf8)!
+        guard let cResult = macmaid_purge_item(cArt, cToken) else {
             return .failure(MacMaidError("Null response from FFI"))
         }
         defer { macmaid_free_string(cResult) }
@@ -708,5 +894,13 @@ public final class MacMaidBridge {
         defer { macmaid_free_string(cResult) }
         let str = String(cString: cResult)
         return str.isEmpty ? key : str
+    }
+
+    public func checkUpdates() -> UpdateStatusModel? {
+        guard let cStr = macmaid_check_updates() else { return nil }
+        defer { macmaid_free_string(cStr) }
+        let str = String(cString: cStr)
+        guard let data = str.data(using: .utf8) else { return nil }
+        return try? jsonDecoder.decode(UpdateStatusModel.self, from: data)
     }
 }

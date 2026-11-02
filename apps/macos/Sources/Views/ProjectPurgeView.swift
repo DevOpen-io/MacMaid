@@ -5,6 +5,9 @@ struct ProjectPurgeView: View {
     @State private var searchPath: String = "~"
     @State private var artifacts: [ProjectArtifactModel] = []
     @State private var isScanning: Bool = false
+    @State private var stagedPlan: StagedPlanModel?
+    @State private var pendingArtifact: ProjectArtifactModel?
+    @State private var showConfirmSheet: Bool = false
     @State private var alertMessage: String?
     @State private var showAlert: Bool = false
     @State private var cancellationToken: OpaquePointer?
@@ -110,8 +113,8 @@ struct ProjectPurgeView: View {
                                 .foregroundColor(.secondary)
                                 .frame(width: 90, alignment: .trailing)
 
-                            Button("Purge to Trash") {
-                                purgeArtifact(art)
+                            Button(state.t("Purge to Trash")) {
+                                preparePurge(art)
                             }
                             .buttonStyle(.bordered)
                             .tint(.red)
@@ -121,8 +124,22 @@ struct ProjectPurgeView: View {
                 }
             }
         }
+        .sheet(isPresented: $showConfirmSheet) {
+            if let staged = stagedPlan, let art = pendingArtifact {
+                ReviewConfirmationSheet(
+                    stagedPlan: staged,
+                    onConfirm: { token, _ in
+                        showConfirmSheet = false
+                        executePurge(artifact: art, reviewToken: token)
+                    },
+                    onCancel: {
+                        showConfirmSheet = false
+                    }
+                )
+            }
+        }
         .alert(isPresented: $showAlert) {
-            Alert(title: Text("Notice"), message: Text(alertMessage ?? ""), dismissButton: .default(Text("OK")))
+            Alert(title: Text(state.t("Notice")), message: Text(alertMessage ?? ""), dismissButton: .default(Text(state.t("OK"))))
         }
     }
 
@@ -143,9 +160,29 @@ struct ProjectPurgeView: View {
         }
     }
 
-    private func purgeArtifact(_ artifact: ProjectArtifactModel) {
+    private func preparePurge(_ artifact: ProjectArtifactModel) {
+        guard let jsonData = try? JSONEncoder().encode([artifact]),
+              let jsonStr = String(data: jsonData, encoding: .utf8) else {
+            alertMessage = "Failed to encode artifact payload"
+            showAlert = true
+            return
+        }
+
+        let res = MacMaidBridge.shared.stageReviewPlan(scope: "purge", payloadJson: jsonStr)
+        switch res {
+        case .success(let staged):
+            self.pendingArtifact = artifact
+            self.stagedPlan = staged
+            self.showConfirmSheet = true
+        case .failure(let err):
+            self.alertMessage = "Purge review staging failed: \(err.message)"
+            self.showAlert = true
+        }
+    }
+
+    private func executePurge(artifact: ProjectArtifactModel, reviewToken: String) {
         DispatchQueue.global(qos: .userInitiated).async {
-            let res = MacMaidBridge.shared.purgeArtifact(artifact: artifact)
+            let res = MacMaidBridge.shared.purgeArtifact(artifact: artifact, reviewToken: reviewToken)
             DispatchQueue.main.async {
                 switch res {
                 case .success(let bytes):
@@ -153,7 +190,7 @@ struct ProjectPurgeView: View {
                     self.showAlert = true
                     self.startScan()
                 case .failure(let err):
-                    self.alertMessage = "Purge failed: \(err)"
+                    self.alertMessage = "Purge failed: \(err.message)"
                     self.showAlert = true
                 }
             }

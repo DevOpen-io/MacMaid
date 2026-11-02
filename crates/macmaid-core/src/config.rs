@@ -173,7 +173,10 @@ impl Config {
         } else {
             rules.join("\n") + "\n"
         };
-        atomic_write(&self.whitelist_path, content.as_bytes())
+        atomic_write(&self.whitelist_path, content.as_bytes())?;
+        crate::review::AUTHORIZATION_MANAGER.bump_generation("clean");
+        crate::review::AUTHORIZATION_MANAGER.bump_generation("whitelist");
+        Ok(())
     }
 
     pub fn add_rule(&self, rule: &str) -> io::Result<()> {
@@ -184,6 +187,8 @@ impl Config {
             rules.push(trimmed);
             let content = rules.join("\n") + "\n";
             atomic_write(&self.whitelist_path, content.as_bytes())?;
+            crate::review::AUTHORIZATION_MANAGER.bump_generation("clean");
+            crate::review::AUTHORIZATION_MANAGER.bump_generation("whitelist");
         }
         Ok(())
     }
@@ -200,6 +205,8 @@ impl Config {
                 rules.join("\n") + "\n"
             };
             atomic_write(&self.whitelist_path, content.as_bytes())?;
+            crate::review::AUTHORIZATION_MANAGER.bump_generation("clean");
+            crate::review::AUTHORIZATION_MANAGER.bump_generation("whitelist");
         }
         Ok(())
     }

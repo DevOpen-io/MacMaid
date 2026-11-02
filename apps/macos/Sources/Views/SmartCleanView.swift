@@ -12,7 +12,10 @@ struct SmartCleanView: View {
     @State private var currentPath: String = ""
     @State private var scanResult: ScanResultModel?
     @State private var selectedItemIds: Set<String> = []
+    @State private var stagedPlan: StagedPlanModel?
     @State private var showConfirmSheet: Bool = false
+    @State private var errorMessage: String?
+    @State private var showError: Bool = false
     @State private var operationResult: OperationResultModel?
     @State private var cancellationToken: OpaquePointer?
 
@@ -29,17 +32,17 @@ struct SmartCleanView: View {
         VStack(spacing: 0) {
             // Header / Controls Bar
             HStack(spacing: 16) {
-                Picker("Profile", selection: $profile) {
-                    Text("Safe").tag("safe")
-                    Text("Deep").tag("deep")
-                    Text("Developer").tag("developer")
-                    Text("Aggressive").tag("aggressive")
+                Picker(state.t("Profile"), selection: $profile) {
+                    Text(state.t("Safe")).tag("safe")
+                    Text(state.t("Deep")).tag("deep")
+                    Text(state.t("Developer")).tag("developer")
+                    Text(state.t("Aggressive")).tag("aggressive")
                 }
                 .pickerStyle(SegmentedPickerStyle())
                 .frame(width: 320)
 
-                Toggle("Include Trash", isOn: $includeTrash)
-                Toggle("System Temp", isOn: $includeTemp)
+                Toggle(state.t("Include Trash"), isOn: $includeTrash)
+                Toggle(state.t("System Temp"), isOn: $includeTemp)
 
                 Spacer()
 
@@ -55,7 +58,7 @@ struct SmartCleanView: View {
                     .buttonStyle(.borderedProminent)
 
                     if let res = scanResult, !res.items.isEmpty {
-                        Button(action: { showConfirmSheet = true }) {
+                        Button(action: prepareClean) {
                             Label(state.t("Clean"), systemImage: "sparkles")
                         }
                         .buttonStyle(.borderedProminent)
@@ -204,15 +207,24 @@ struct SmartCleanView: View {
             }
         }
         .sheet(isPresented: $showConfirmSheet) {
-            CleanConfirmationSheet(
-                items: selectedItems,
-                onConfirm: {
-                    showConfirmSheet = false
-                    executeCleanup()
-                },
-                onCancel: {
-                    showConfirmSheet = false
-                }
+            if let staged = stagedPlan {
+                ReviewConfirmationSheet(
+                    stagedPlan: staged,
+                    onConfirm: { token, extraOptIn in
+                        showConfirmSheet = false
+                        executeCleanup(reviewToken: token, allowManual: extraOptIn)
+                    },
+                    onCancel: {
+                        showConfirmSheet = false
+                    }
+                )
+            }
+        }
+        .alert(isPresented: $showError) {
+            Alert(
+                title: Text(state.t("Notice")),
+                message: Text(errorMessage ?? ""),
+                dismissButton: .default(Text(state.t("OK")))
             )
         }
     }
@@ -261,7 +273,27 @@ struct SmartCleanView: View {
         }
     }
 
-    private func executeCleanup() {
+    private func prepareClean() {
+        guard !selectedItems.isEmpty else { return }
+        guard let jsonData = try? JSONEncoder().encode(selectedItems),
+              let jsonStr = String(data: jsonData, encoding: .utf8) else {
+            errorMessage = "Failed to encode selected items"
+            showError = true
+            return
+        }
+
+        let res = MacMaidBridge.shared.stageReviewPlan(scope: "clean", payloadJson: jsonStr)
+        switch res {
+        case .success(let staged):
+            self.stagedPlan = staged
+            self.showConfirmSheet = true
+        case .failure(let err):
+            self.errorMessage = "Review staging failed: \(err.message)"
+            self.showError = true
+        }
+    }
+
+    private func executeCleanup(reviewToken: String, allowManual: Bool) {
         isCleaning = true
         cancellationToken = macmaid_cancellation_token_new()
 
@@ -269,8 +301,8 @@ struct SmartCleanView: View {
             let res = MacMaidBridge.shared.executeClean(
                 items: selectedItems,
                 apply: true,
-                allowManual: false,
-                token: cancellationToken
+                allowManual: allowManual,
+                reviewToken: reviewToken
             ) { idx, total, label, outcome in
                 DispatchQueue.main.async {
                     self.currentPhase = "Cleaning [\(idx)/\(total)] \(label)"
@@ -296,59 +328,5 @@ struct SmartCleanView: View {
         }
         isScanning = false
         isCleaning = false
-    }
-}
-
-struct CleanConfirmationSheet: View {
-    let items: [CleanupItemModel]
-    let onConfirm: () -> Void
-    let onCancel: () -> Void
-
-    var totalBytes: UInt64 {
-        items.reduce(0) { $0 + $1.estimatedBytes }
-    }
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 44))
-                .foregroundColor(.orange)
-
-            Text("Confirm Cleanup Execution")
-                .font(.title2)
-                .fontWeight(.bold)
-
-            Text("MacMaid will safely clean \(items.count) item(s) reclaiming approximately \(MacMaidBridge.formatBytes(totalBytes)).")
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Pre-condition checks:")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                Text("• Whitelist rules will be revalidated at execution time.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Text("• Root/symlink traversal protection is strictly enforced.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding(10)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(8)
-
-            HStack(spacing: 16) {
-                Button("Cancel", action: onCancel)
-                    .keyboardShortcut(.cancelAction)
-
-                Button("Clean \(MacMaidBridge.formatBytes(totalBytes))", action: onConfirm)
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
-                    .keyboardShortcut(.defaultAction)
-            }
-        }
-        .padding(24)
-        .frame(width: 480)
     }
 }

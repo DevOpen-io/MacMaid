@@ -10,6 +10,7 @@ struct AppUninstallerView: View {
     @State private var searchText: String = ""
     @State private var isLoading: Bool = false
     @State private var isUninstalling: Bool = false
+    @State private var stagedPlan: StagedPlanModel?
     @State private var showConfirmSheet: Bool = false
     @State private var alertMessage: String?
     @State private var showAlert: Bool = false
@@ -116,8 +117,8 @@ struct AppUninstallerView: View {
                                     .foregroundColor(.secondary)
                             }
                             Spacer()
-                            Button(action: { showConfirmSheet = true }) {
-                                Label("Uninstall", systemImage: "trash.fill")
+                            Button(action: prepareUninstall) {
+                                Label(state.t("Uninstall"), systemImage: "trash.fill")
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.red)
@@ -185,38 +186,21 @@ struct AppUninstallerView: View {
             loadComponents()
         }
         .sheet(isPresented: $showConfirmSheet) {
-            if let app = selectedApp {
-                VStack(spacing: 18) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 44))
-                        .foregroundColor(.red)
-
-                    Text("Uninstall \(app.name)?")
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text("This will remove the application bundle and \(selectedComponentPaths.count) selected leftover components, reclaiming \(MacMaidBridge.formatBytes(totalReclaimBytes)).")
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-
-                    HStack(spacing: 16) {
-                        Button("Cancel") {
-                            showConfirmSheet = false
-                        }
-                        .keyboardShortcut(.cancelAction)
-
-                        Button("Uninstall", action: executeUninstall)
-                            .buttonStyle(.borderedProminent)
-                            .tint(.red)
-                            .keyboardShortcut(.defaultAction)
+            if let staged = stagedPlan {
+                ReviewConfirmationSheet(
+                    stagedPlan: staged,
+                    onConfirm: { token, extraOptIn in
+                        showConfirmSheet = false
+                        executeUninstall(reviewToken: token, allowUserData: extraOptIn)
+                    },
+                    onCancel: {
+                        showConfirmSheet = false
                     }
-                }
-                .padding(24)
-                .frame(width: 440)
+                )
             }
         }
         .alert(isPresented: $showAlert) {
-            Alert(title: Text("Notice"), message: Text(alertMessage ?? ""), dismissButton: .default(Text("OK")))
+            Alert(title: Text(state.t("Notice")), message: Text(alertMessage ?? ""), dismissButton: .default(Text(state.t("OK"))))
         }
     }
 
@@ -247,15 +231,43 @@ struct AppUninstallerView: View {
         }
     }
 
-    private func executeUninstall() {
+    private func prepareUninstall() {
         guard let app = selectedApp else { return }
-        showConfirmSheet = false
+        let selectedComps = components.filter { selectedComponentPaths.contains($0.path) }
+
+        struct UninstallPayload: Codable {
+            let app: InstalledAppModel
+            let components: [AppComponentModel]
+        }
+        let payload = UninstallPayload(app: app, components: selectedComps)
+        guard let jsonData = try? JSONEncoder().encode(payload),
+              let jsonStr = String(data: jsonData, encoding: .utf8) else {
+            alertMessage = "Failed to encode uninstall review payload"
+            showAlert = true
+            return
+        }
+
+        let res = MacMaidBridge.shared.stageReviewPlan(scope: "apps", payloadJson: jsonStr)
+        switch res {
+        case .success(let staged):
+            self.stagedPlan = staged
+            self.showConfirmSheet = true
+        case .failure(let err):
+            self.alertMessage = "Uninstall review failed: \(err.message)"
+            self.showAlert = true
+        }
+    }
+
+    private func executeUninstall(reviewToken: String, allowUserData: Bool) {
+        guard let app = selectedApp else { return }
         isUninstalling = true
 
         DispatchQueue.global(qos: .userInitiated).async {
             let res = MacMaidBridge.shared.uninstallApplication(
                 app: app,
-                components: Array(selectedComponentPaths)
+                components: Array(selectedComponentPaths),
+                reviewToken: reviewToken,
+                allowUserData: allowUserData
             )
 
             DispatchQueue.main.async {
@@ -267,7 +279,7 @@ struct AppUninstallerView: View {
                     selectedApp = nil
                     loadApplications()
                 case .failure(let err):
-                    alertMessage = "Uninstall failed: \(err)"
+                    alertMessage = "Uninstall failed: \(err.message)"
                     showAlert = true
                 }
             }

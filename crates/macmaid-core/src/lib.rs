@@ -15,9 +15,12 @@ pub mod models;
 pub mod purge;
 pub mod recovery;
 pub mod reporting;
+pub mod review;
 pub mod safety;
 pub mod scanner;
 pub mod smart_downloads;
+pub mod snapshots;
 pub mod system;
+pub mod update;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -4,6 +4,9 @@ struct DeveloperStorageView: View {
     @ObservedObject var state = AppState.shared
     @State private var sections: [DeveloperSectionModel] = []
     @State private var isLoading: Bool = false
+    @State private var stagedPlan: StagedPlanModel?
+    @State private var pendingSection: DeveloperSectionModel?
+    @State private var showConfirmSheet: Bool = false
     @State private var alertMessage: String?
     @State private var showAlert: Bool = false
 
@@ -73,14 +76,14 @@ struct DeveloperStorageView: View {
                                 HStack {
                                     Spacer()
                                     if sec.cleanable {
-                                        Button("Clean") {
-                                            cleanSection(sec)
+                                        Button(state.t("Clean")) {
+                                            prepareClean(sec)
                                         }
                                         .buttonStyle(.borderedProminent)
                                         .tint(.red)
                                         .disabled(sec.bytes == 0)
                                     } else {
-                                        Text("Managed by tool")
+                                        Text(state.t("Managed tool / runtime"))
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
                                     }
@@ -97,8 +100,22 @@ struct DeveloperStorageView: View {
             }
         }
         .onAppear(perform: loadStorage)
+        .sheet(isPresented: $showConfirmSheet) {
+            if let staged = stagedPlan, let sec = pendingSection {
+                ReviewConfirmationSheet(
+                    stagedPlan: staged,
+                    onConfirm: { token, _ in
+                        showConfirmSheet = false
+                        executeClean(section: sec, reviewToken: token)
+                    },
+                    onCancel: {
+                        showConfirmSheet = false
+                    }
+                )
+            }
+        }
         .alert(isPresented: $showAlert) {
-            Alert(title: Text("Notice"), message: Text(alertMessage ?? ""), dismissButton: .default(Text("OK")))
+            Alert(title: Text(state.t("Notice")), message: Text(alertMessage ?? ""), dismissButton: .default(Text(state.t("OK"))))
         }
     }
 
@@ -113,9 +130,29 @@ struct DeveloperStorageView: View {
         }
     }
 
-    private func cleanSection(_ section: DeveloperSectionModel) {
+    private func prepareClean(_ section: DeveloperSectionModel) {
+        guard let jsonData = try? JSONEncoder().encode(section),
+              let jsonStr = String(data: jsonData, encoding: .utf8) else {
+            alertMessage = "Failed to encode section payload"
+            showAlert = true
+            return
+        }
+
+        let res = MacMaidBridge.shared.stageReviewPlan(scope: "developer", payloadJson: jsonStr)
+        switch res {
+        case .success(let staged):
+            self.pendingSection = section
+            self.stagedPlan = staged
+            self.showConfirmSheet = true
+        case .failure(let err):
+            self.alertMessage = "Developer review staging failed: \(err.message)"
+            self.showAlert = true
+        }
+    }
+
+    private func executeClean(section: DeveloperSectionModel, reviewToken: String) {
         DispatchQueue.global(qos: .userInitiated).async {
-            let res = MacMaidBridge.shared.cleanDeveloperSection(section: section)
+            let res = MacMaidBridge.shared.cleanDeveloperSection(section: section, reviewToken: reviewToken)
             DispatchQueue.main.async {
                 switch res {
                 case .success(let reclaimed):
@@ -123,7 +160,7 @@ struct DeveloperStorageView: View {
                     self.showAlert = true
                     self.loadStorage()
                 case .failure(let err):
-                    self.alertMessage = "Cleaning failed: \(err)"
+                    self.alertMessage = "Cleaning failed: \(err.message)"
                     self.showAlert = true
                 }
             }

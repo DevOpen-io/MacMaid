@@ -18,6 +18,8 @@ pub struct ProcessInfo {
     pub category: String,
     pub is_protected: bool,
     pub growth_bytes_per_sec: f64,
+    pub start_time: u64,
+    pub uid: Option<u32>,
 }
 
 pub struct MemoryService {
@@ -135,6 +137,9 @@ impl MemoryService {
                 "system"
             };
 
+            let start_time = proc_.start_time();
+            let uid = proc_.user_id().map(|u| **u);
+
             results.push(ProcessInfo {
                 pid: raw_pid,
                 ppid,
@@ -145,6 +150,8 @@ impl MemoryService {
                 category: category.into(),
                 is_protected,
                 growth_bytes_per_sec: growth_rate,
+                start_time,
+                uid,
             });
         }
 
@@ -153,22 +160,84 @@ impl MemoryService {
     }
 
     pub fn terminate_process(&self, pid: u32) -> Result<(), String> {
+        self.terminate_process_checked(pid, None, false)
+    }
+
+    pub fn terminate_process_checked(
+        &self,
+        pid: u32,
+        expected_start_time: Option<u64>,
+        force: bool,
+    ) -> Result<(), String> {
         if pid <= 1 {
             return Err("Cannot terminate system root PID 1".into());
         }
 
+        let my_pid = std::process::id();
+        if pid == my_pid {
+            return Err("Cannot terminate MacMaid self process".into());
+        }
+
+        let current_uid = unsafe { libc::getuid() };
+
         {
-            let sys = self.system.lock().unwrap();
+            let mut sys = self.system.lock().unwrap();
+            sys.refresh_processes(ProcessesToUpdate::Some(&[Pid::from_u32(pid)]), true);
             if let Some(proc_) = sys.process(Pid::from_u32(pid)) {
                 let name = proc_.name().to_string_lossy();
-                if self.protected_names.contains(name.as_ref()) {
+                let exe = proc_
+                    .exe()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_default();
+
+                if self.protected_names.contains(name.as_ref())
+                    || exe.contains("/System/Library/")
+                    || exe.contains("/usr/libexec/")
+                {
                     return Err(format!(
                         "Process '{name}' is protected and cannot be terminated"
                     ));
                 }
+
+                // Check process user ownership
+                if current_uid != 0 {
+                    if let Some(proc_uid) = proc_.user_id() {
+                        let proc_uid_u32: u32 = **proc_uid;
+                        if proc_uid_u32 != current_uid {
+                            return Err(format!(
+                                "Process '{name}' (PID {pid}) belongs to UID {proc_uid_u32}, not current user {current_uid}"
+                            ));
+                        }
+                    }
+                }
+
+                // Validate start_time identity to guard against PID reuse
+                if let Some(expected_time) = expected_start_time {
+                    let actual_time = proc_.start_time();
+                    if actual_time != expected_time {
+                        return Err(format!(
+                            "Process identity changed: PID {pid} was recycled (reviewed start {expected_time} != current start {actual_time})"
+                        ));
+                    }
+                }
             } else {
                 return Err(format!("Process with PID {pid} not found"));
             }
+        }
+
+        if force {
+            // Immediate SIGKILL
+            unsafe {
+                if libc::kill(pid as i32, libc::SIGKILL) != 0 {
+                    return Err(format!("Failed to send SIGKILL to PID {pid}"));
+                }
+            }
+            std::thread::sleep(Duration::from_millis(150));
+            let still_alive = unsafe { libc::kill(pid as i32, 0) == 0 };
+            if still_alive {
+                return Err(format!("PID {pid} resisted SIGKILL"));
+            }
+            return Ok(());
         }
 
         // Send SIGTERM

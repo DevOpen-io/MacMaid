@@ -10,6 +10,9 @@ struct DiskAnalyzerView: View {
     @State private var report: AnalyzerReportModel?
     @State private var currentNode: AnalyzerNodeModel?
     @State private var breadcrumbStack: [AnalyzerNodeModel] = []
+    @State private var stagedPlan: StagedPlanModel?
+    @State private var pendingTrashNode: AnalyzerNodeModel?
+    @State private var showConfirmSheet: Bool = false
     @State private var alertMessage: String?
     @State private var showAlert: Bool = false
     @State private var cancellationToken: OpaquePointer?
@@ -140,10 +143,10 @@ struct DiskAnalyzerView: View {
                                         .frame(width: 100, alignment: .trailing)
 
                                     Menu {
-                                        Button("Move to Trash") {
-                                            moveItemToTrash(child)
+                                        Button(state.t("Move to Trash")) {
+                                            prepareTrash(child)
                                         }
-                                        Button("Reveal in Finder") {
+                                        Button(state.t("Reveal in Finder")) {
                                             NSWorkspace.shared.selectFile(child.path, inFileViewerRootedAtPath: "")
                                         }
                                     } label: {
@@ -177,8 +180,22 @@ struct DiskAnalyzerView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .sheet(isPresented: $showConfirmSheet) {
+            if let staged = stagedPlan, let item = pendingTrashNode {
+                ReviewConfirmationSheet(
+                    stagedPlan: staged,
+                    onConfirm: { token, _ in
+                        showConfirmSheet = false
+                        executeTrash(item: item, reviewToken: token)
+                    },
+                    onCancel: {
+                        showConfirmSheet = false
+                    }
+                )
+            }
+        }
         .alert(isPresented: $showAlert) {
-            Alert(title: Text("Notice"), message: Text(alertMessage ?? ""), dismissButton: .default(Text("OK")))
+            Alert(title: Text(state.t("Notice")), message: Text(alertMessage ?? ""), dismissButton: .default(Text(state.t("OK"))))
         }
     }
 
@@ -212,18 +229,47 @@ struct DiskAnalyzerView: View {
         }
     }
 
-    private func moveItemToTrash(_ item: AnalyzerNodeModel) {
+    private func prepareTrash(_ item: AnalyzerNodeModel) {
+        struct AnalyzerTrashPayload: Codable {
+            let paths: [String]
+            let estimatedBytes: UInt64
+        }
+        let payload = AnalyzerTrashPayload(paths: [item.path], estimatedBytes: item.bytes)
+        guard let jsonData = try? JSONEncoder().encode(payload),
+              let jsonStr = String(data: jsonData, encoding: .utf8) else {
+            alertMessage = "Failed to encode trash payload"
+            showAlert = true
+            return
+        }
+
+        let res = MacMaidBridge.shared.stageReviewPlan(scope: "analyzer", payloadJson: jsonStr)
+        switch res {
+        case .success(let staged):
+            self.pendingTrashNode = item
+            self.stagedPlan = staged
+            self.showConfirmSheet = true
+        case .failure(let err):
+            self.alertMessage = "Trash review failed: \(err.message)"
+            self.showAlert = true
+        }
+    }
+
+    private func executeTrash(item: AnalyzerNodeModel, reviewToken: String) {
         DispatchQueue.global(qos: .userInitiated).async {
-            let res = MacMaidBridge.shared.moveAnalyzerItemToTrash(path: item.path, estimatedBytes: item.bytes)
+            let res = MacMaidBridge.shared.moveAnalyzerItemToTrash(
+                path: item.path,
+                estimatedBytes: item.bytes,
+                reviewToken: reviewToken
+            )
             DispatchQueue.main.async {
                 switch res {
                 case .success(let dest):
-                    alertMessage = "Moved to Trash:\n\(dest)"
-                    showAlert = true
-                    startAnalysis()
+                    self.alertMessage = "Moved to Trash:\n\(dest)"
+                    self.showAlert = true
+                    self.startAnalysis()
                 case .failure(let err):
-                    alertMessage = "Cannot move to Trash: \(err)"
-                    showAlert = true
+                    self.alertMessage = "Cannot move to Trash: \(err.message)"
+                    self.showAlert = true
                 }
             }
         }

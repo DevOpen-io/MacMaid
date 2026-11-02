@@ -15,9 +15,11 @@ use macmaid_core::models::{CleanupItem, CleanupProfile};
 use macmaid_core::purge::{ProjectArtifact, ProjectPurgeManager};
 use macmaid_core::recovery::RecoveryCenter;
 use macmaid_core::reporting::AuditLogger;
+use macmaid_core::review::AUTHORIZATION_MANAGER;
 use macmaid_core::safety::dirs_home;
 use macmaid_core::scanner::Scanner;
 use macmaid_core::smart_downloads::SmartDownloadsScanner;
+use macmaid_core::snapshots::SnapshotManager;
 use macmaid_core::system::{macos_permission_report, statvfs_disk_info};
 use serde_json::json;
 use std::ffi::{CStr, CString};
@@ -176,6 +178,149 @@ pub extern "C" fn macmaid_scan(
     }
 }
 
+// ──────────────────────────────────────────────
+// Safety Review & Authorization
+// ──────────────────────────────────────────────
+
+#[no_mangle]
+pub extern "C" fn macmaid_stage_review_plan(
+    scope_str: *const c_char,
+    payload_json: *const c_char,
+) -> *mut c_char {
+    let result = catch_unwind(move || {
+        if scope_str.is_null() || payload_json.is_null() {
+            return error_json("scope and payload cannot be null");
+        }
+        let scope = unsafe { CStr::from_ptr(scope_str).to_str().unwrap_or("") };
+        let payload_raw = unsafe { CStr::from_ptr(payload_json).to_str().unwrap_or("{}") };
+
+        let plan = match scope {
+            "clean" => {
+                let items: Vec<CleanupItem> = match serde_json::from_str(payload_raw) {
+                    Ok(it) => it,
+                    Err(e) => return error_json(&format!("Invalid clean items JSON: {e}")),
+                };
+                macmaid_core::review::cleanup_plan("Smart Clean", &items)
+            }
+            "apps" => {
+                #[derive(serde::Deserialize)]
+                struct AppPayload {
+                    app: InstalledApplication,
+                    #[serde(default)]
+                    components: Vec<macmaid_core::apps::AppComponent>,
+                }
+                let parsed: AppPayload = match serde_json::from_str(payload_raw) {
+                    Ok(p) => p,
+                    Err(e) => return error_json(&format!("Invalid apps payload JSON: {e}")),
+                };
+                macmaid_core::review::application_plan(&parsed.app, &parsed.components)
+            }
+            "purge" => {
+                let artifacts: Vec<ProjectArtifact> = match serde_json::from_str(payload_raw) {
+                    Ok(a) => a,
+                    Err(e) => return error_json(&format!("Invalid purge artifacts JSON: {e}")),
+                };
+                macmaid_core::review::purge_plan(&artifacts)
+            }
+            "developer" => {
+                let section: DeveloperSection = match serde_json::from_str(payload_raw) {
+                    Ok(s) => s,
+                    Err(e) => return error_json(&format!("Invalid developer section JSON: {e}")),
+                };
+                macmaid_core::review::developer_plan(&section)
+            }
+            "memory" => {
+                #[derive(serde::Deserialize)]
+                struct MemoryPayload {
+                    process: macmaid_core::memory::ProcessInfo,
+                    #[serde(default)]
+                    force: bool,
+                }
+                let parsed: MemoryPayload = match serde_json::from_str(payload_raw) {
+                    Ok(m) => m,
+                    Err(e) => return error_json(&format!("Invalid memory payload JSON: {e}")),
+                };
+                macmaid_core::review::process_plan(&parsed.process, parsed.force)
+            }
+            "analyzer" => {
+                #[derive(serde::Deserialize)]
+                struct PathPayload {
+                    paths: Vec<PathBuf>,
+                    #[serde(default)]
+                    estimated_bytes: u64,
+                }
+                let parsed: PathPayload = match serde_json::from_str(payload_raw) {
+                    Ok(p) => p,
+                    Err(e) => return error_json(&format!("Invalid analyzer payload JSON: {e}")),
+                };
+                macmaid_core::review::analyzer_trash_plan(&parsed.paths, parsed.estimated_bytes)
+            }
+            "duplicates" => {
+                #[derive(serde::Deserialize)]
+                struct PathPayload {
+                    paths: Vec<PathBuf>,
+                    #[serde(default)]
+                    estimated_bytes: u64,
+                }
+                let parsed: PathPayload = match serde_json::from_str(payload_raw) {
+                    Ok(p) => p,
+                    Err(e) => return error_json(&format!("Invalid duplicates payload JSON: {e}")),
+                };
+                macmaid_core::review::duplicate_trash_plan(&parsed.paths, parsed.estimated_bytes)
+            }
+            "large-files" => {
+                #[derive(serde::Deserialize)]
+                struct PathPayload {
+                    paths: Vec<PathBuf>,
+                    #[serde(default)]
+                    estimated_bytes: u64,
+                }
+                let parsed: PathPayload = match serde_json::from_str(payload_raw) {
+                    Ok(p) => p,
+                    Err(e) => return error_json(&format!("Invalid large files payload JSON: {e}")),
+                };
+                macmaid_core::review::large_files_trash_plan(&parsed.paths, parsed.estimated_bytes)
+            }
+            "downloads" => {
+                #[derive(serde::Deserialize)]
+                struct PathPayload {
+                    paths: Vec<PathBuf>,
+                    #[serde(default)]
+                    estimated_bytes: u64,
+                }
+                let parsed: PathPayload = match serde_json::from_str(payload_raw) {
+                    Ok(p) => p,
+                    Err(e) => return error_json(&format!("Invalid downloads payload JSON: {e}")),
+                };
+                macmaid_core::review::downloads_trash_plan(&parsed.paths, parsed.estimated_bytes)
+            }
+            "snapshots" => {
+                #[derive(serde::Deserialize)]
+                struct SnapshotPayload {
+                    target_gb: u64,
+                }
+                let parsed: SnapshotPayload = match serde_json::from_str(payload_raw) {
+                    Ok(s) => s,
+                    Err(e) => return error_json(&format!("Invalid snapshot payload JSON: {e}")),
+                };
+                macmaid_core::review::snapshot_plan(parsed.target_gb)
+            }
+            other => return error_json(&format!("Unsupported review scope: {other}")),
+        };
+
+        let token = AUTHORIZATION_MANAGER.issue_token(scope, &plan);
+        success_json(json!({
+            "token": token,
+            "plan": plan,
+        }))
+    });
+
+    match result {
+        Ok(ptr) => ptr,
+        Err(_) => error_json("Panic in macmaid_stage_review_plan"),
+    }
+}
+
 pub type CleanProgressCallback =
     extern "C" fn(usize, usize, *const c_char, *const c_char, *mut c_void);
 
@@ -184,7 +329,7 @@ pub extern "C" fn macmaid_execute_clean(
     items_json: *const c_char,
     apply: bool,
     allow_manual: bool,
-    _token: *mut CancellationToken,
+    token_str: *const c_char,
     callback: Option<CleanProgressCallback>,
     user_data: *mut c_void,
 ) -> *mut c_char {
@@ -197,6 +342,19 @@ pub extern "C" fn macmaid_execute_clean(
             Ok(it) => it,
             Err(e) => return error_json(&format!("Failed to parse items: {e}")),
         };
+
+        if apply {
+            if token_str.is_null() {
+                return error_json("Authorization token is required to apply cleanup");
+            }
+            let token = unsafe { CStr::from_ptr(token_str).to_str().unwrap_or("") };
+            let plan = macmaid_core::review::cleanup_plan("Smart Clean", &items);
+            if let Err(e) =
+                AUTHORIZATION_MANAGER.validate_and_consume("clean", token, &plan, allow_manual)
+            {
+                return error_json(&format!("Authorization denied: {e}"));
+            }
+        }
 
         let cleaner = Cleaner::default();
         match cleaner.execute(&items, apply, allow_manual, |idx, total, item, outcome| {
@@ -282,6 +440,7 @@ pub extern "C" fn macmaid_analyze_directory(
 pub extern "C" fn macmaid_move_analyzer_item_to_trash(
     path_str: *const c_char,
     estimated_bytes: u64,
+    token_str: *const c_char,
 ) -> *mut c_char {
     let result = catch_unwind(move || {
         if path_str.is_null() {
@@ -289,8 +448,18 @@ pub extern "C" fn macmaid_move_analyzer_item_to_trash(
         }
         let raw = unsafe { CStr::from_ptr(path_str).to_str().unwrap_or("") };
         let path = PathBuf::from(raw);
-        let cleaner = Cleaner::default();
 
+        if token_str.is_null() {
+            return error_json("Authorization token is required to trash item");
+        }
+        let token = unsafe { CStr::from_ptr(token_str).to_str().unwrap_or("") };
+        let plan =
+            macmaid_core::review::analyzer_trash_plan(std::slice::from_ref(&path), estimated_bytes);
+        if let Err(e) = AUTHORIZATION_MANAGER.validate_and_consume("analyzer", token, &plan, true) {
+            return error_json(&format!("Authorization denied: {e}"));
+        }
+
+        let cleaner = Cleaner::default();
         match cleaner.move_analyzer_item_to_trash(&path, Some(estimated_bytes)) {
             Ok(dest) => success_json(json!({ "destination": dest.to_string_lossy() })),
             Err(e) => error_json(&e),
@@ -348,6 +517,8 @@ pub extern "C" fn macmaid_scan_app_components(bundle_id_str: *const c_char) -> *
 pub extern "C" fn macmaid_uninstall_application(
     app_json: *const c_char,
     components_json: *const c_char,
+    token_str: *const c_char,
+    allow_user_data: bool,
 ) -> *mut c_char {
     let result = catch_unwind(move || {
         if app_json.is_null() {
@@ -365,6 +536,23 @@ pub extern "C" fn macmaid_uninstall_application(
             let comps_raw = unsafe { CStr::from_ptr(components_json).to_str().unwrap_or("[]") };
             serde_json::from_str(comps_raw).unwrap_or_default()
         };
+
+        if token_str.is_null() {
+            return error_json("Authorization token is required to uninstall application");
+        }
+        let token = unsafe { CStr::from_ptr(token_str).to_str().unwrap_or("") };
+
+        let comp_objs = ApplicationManager::scan_app_components(&app.bundle_id);
+        let selected_comp_objs: Vec<_> = comp_objs
+            .into_iter()
+            .filter(|c| comps.contains(&c.path))
+            .collect();
+        let plan = macmaid_core::review::application_plan(&app, &selected_comp_objs);
+        if let Err(e) =
+            AUTHORIZATION_MANAGER.validate_and_consume("apps", token, &plan, allow_user_data)
+        {
+            return error_json(&format!("Authorization denied: {e}"));
+        }
 
         let cleaner = Cleaner::default();
         match ApplicationManager::uninstall_app(&app, &comps, &cleaner) {
@@ -398,10 +586,48 @@ pub extern "C" fn macmaid_memory_snapshot() -> *mut c_char {
 }
 
 #[no_mangle]
-pub extern "C" fn macmaid_terminate_process(pid: u32) -> *mut c_char {
-    let result = catch_unwind(move || match MEMORY_SERVICE.terminate_process(pid) {
-        Ok(()) => success_json(json!({ "pid": pid })),
-        Err(e) => error_json(&e),
+pub extern "C" fn macmaid_terminate_process(
+    pid: u32,
+    expected_start_time: u64,
+    force: bool,
+    token_str: *const c_char,
+) -> *mut c_char {
+    let result = catch_unwind(move || {
+        if token_str.is_null() {
+            return error_json("Authorization token is required to terminate process");
+        }
+        let token = unsafe { CStr::from_ptr(token_str).to_str().unwrap_or("") };
+
+        let proc = macmaid_core::memory::ProcessInfo {
+            pid,
+            ppid: 0,
+            name: format!("PID {pid}"),
+            executable: String::new(),
+            rss_bytes: 0,
+            cpu_percent: 0.0,
+            category: "applications".into(),
+            is_protected: false,
+            growth_bytes_per_sec: 0.0,
+            start_time: expected_start_time,
+            uid: None,
+        };
+        let plan = macmaid_core::review::process_plan(&proc, force);
+        if let Err(e) = AUTHORIZATION_MANAGER.validate_and_consume("memory", token, &plan, force) {
+            return error_json(&format!("Authorization denied: {e}"));
+        }
+
+        match MEMORY_SERVICE.terminate_process_checked(
+            pid,
+            if expected_start_time > 0 {
+                Some(expected_start_time)
+            } else {
+                None
+            },
+            force,
+        ) {
+            Ok(()) => success_json(json!({ "pid": pid })),
+            Err(e) => error_json(&e),
+        }
     });
 
     match result {
@@ -434,7 +660,10 @@ pub extern "C" fn macmaid_developer_storage(token: *mut CancellationToken) -> *m
 }
 
 #[no_mangle]
-pub extern "C" fn macmaid_developer_clean(section_json: *const c_char) -> *mut c_char {
+pub extern "C" fn macmaid_developer_clean(
+    section_json: *const c_char,
+    token_str: *const c_char,
+) -> *mut c_char {
     let result = catch_unwind(move || {
         if section_json.is_null() {
             return error_json("section_json is null");
@@ -444,6 +673,16 @@ pub extern "C" fn macmaid_developer_clean(section_json: *const c_char) -> *mut c
             Ok(s) => s,
             Err(e) => return error_json(&format!("Invalid section JSON: {e}")),
         };
+
+        if token_str.is_null() {
+            return error_json("Authorization token is required to clean developer section");
+        }
+        let token = unsafe { CStr::from_ptr(token_str).to_str().unwrap_or("") };
+        let plan = macmaid_core::review::developer_plan(&section);
+        if let Err(e) = AUTHORIZATION_MANAGER.validate_and_consume("developer", token, &plan, false)
+        {
+            return error_json(&format!("Authorization denied: {e}"));
+        }
 
         let cleaner = Cleaner::default();
         match DeveloperStorageCenter::clean_section(&section, &cleaner) {
@@ -573,6 +812,150 @@ pub extern "C" fn macmaid_smart_downloads(
     }
 }
 
+fn execute_trash_paths_with_auth(
+    paths_json: *const c_char,
+    estimated_bytes: u64,
+    token_str: *const c_char,
+    scope: &str,
+) -> *mut c_char {
+    if paths_json.is_null() || token_str.is_null() {
+        return error_json("paths_json and token cannot be null");
+    }
+    let raw_paths = unsafe { CStr::from_ptr(paths_json).to_str().unwrap_or("[]") };
+    let token = unsafe { CStr::from_ptr(token_str).to_str().unwrap_or("") };
+    let path_strings: Vec<String> = match serde_json::from_str(raw_paths) {
+        Ok(p) => p,
+        Err(e) => return error_json(&format!("Failed to parse paths JSON: {e}")),
+    };
+    let paths: Vec<PathBuf> = path_strings.into_iter().map(PathBuf::from).collect();
+
+    let plan = match scope {
+        "duplicates" => macmaid_core::review::duplicate_trash_plan(&paths, estimated_bytes),
+        "large-files" => macmaid_core::review::large_files_trash_plan(&paths, estimated_bytes),
+        "downloads" => macmaid_core::review::downloads_trash_plan(&paths, estimated_bytes),
+        _ => return error_json("Unsupported trash scope"),
+    };
+
+    if let Err(e) = AUTHORIZATION_MANAGER.validate_and_consume(scope, token, &plan, false) {
+        return error_json(&format!("Authorization denied: {e}"));
+    }
+
+    let cleaner = Cleaner::default();
+    let mut total_reclaimed = 0u64;
+    let mut errors = Vec::new();
+
+    for p in &paths {
+        match cleaner.move_analyzer_item_to_trash(p, None) {
+            Ok(_) => {
+                total_reclaimed += macmaid_core::system::size_of(p, None);
+            }
+            Err(e) => {
+                errors.push(format!("{}: {e}", p.display()));
+            }
+        }
+    }
+
+    if !errors.is_empty() && total_reclaimed == 0 {
+        error_json(&errors.join("; "))
+    } else {
+        success_json(json!({
+            "reclaimed": total_reclaimed,
+            "count": paths.len() - errors.len(),
+            "errors": errors,
+        }))
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn macmaid_trash_duplicate_items(
+    paths_json: *const c_char,
+    estimated_bytes: u64,
+    token_str: *const c_char,
+) -> *mut c_char {
+    let result = catch_unwind(move || {
+        execute_trash_paths_with_auth(paths_json, estimated_bytes, token_str, "duplicates")
+    });
+    match result {
+        Ok(ptr) => ptr,
+        Err(_) => error_json("Panic in macmaid_trash_duplicate_items"),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn macmaid_trash_large_files(
+    paths_json: *const c_char,
+    estimated_bytes: u64,
+    token_str: *const c_char,
+) -> *mut c_char {
+    let result = catch_unwind(move || {
+        execute_trash_paths_with_auth(paths_json, estimated_bytes, token_str, "large-files")
+    });
+    match result {
+        Ok(ptr) => ptr,
+        Err(_) => error_json("Panic in macmaid_trash_large_files"),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn macmaid_trash_download_items(
+    paths_json: *const c_char,
+    estimated_bytes: u64,
+    token_str: *const c_char,
+) -> *mut c_char {
+    let result = catch_unwind(move || {
+        execute_trash_paths_with_auth(paths_json, estimated_bytes, token_str, "downloads")
+    });
+    match result {
+        Ok(ptr) => ptr,
+        Err(_) => error_json("Panic in macmaid_trash_download_items"),
+    }
+}
+
+// ──────────────────────────────────────────────
+// Time Machine Snapshots
+// ──────────────────────────────────────────────
+
+#[no_mangle]
+pub extern "C" fn macmaid_list_snapshots() -> *mut c_char {
+    let result = catch_unwind(|| {
+        let snaps = SnapshotManager::list_snapshots();
+        serde_json::to_string(&snaps)
+            .unwrap_or_else(|e| json!({"error": e.to_string()}).to_string())
+    });
+
+    match result {
+        Ok(json_str) => to_c_string(json_str),
+        Err(_) => error_json("Panic in macmaid_list_snapshots"),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn macmaid_thin_snapshots(target_gb: u64, token_str: *const c_char) -> *mut c_char {
+    let result = catch_unwind(move || {
+        if token_str.is_null() {
+            return error_json("Authorization token is required to thin snapshots");
+        }
+        let token = unsafe { CStr::from_ptr(token_str).to_str().unwrap_or("") };
+        let plan = macmaid_core::review::snapshot_plan(target_gb);
+        if let Err(e) = AUTHORIZATION_MANAGER.validate_and_consume("snapshots", token, &plan, true)
+        {
+            return error_json(&format!("Authorization denied: {e}"));
+        }
+
+        let cleaner = Cleaner::default();
+        let target_bytes = target_gb * 1024 * 1024 * 1024;
+        match SnapshotManager::thin_snapshots(target_bytes, &cleaner) {
+            Ok(res) => to_c_string(serde_json::to_string(&res).unwrap()),
+            Err(e) => error_json(&e),
+        }
+    });
+
+    match result {
+        Ok(ptr) => ptr,
+        Err(_) => error_json("Panic in macmaid_thin_snapshots"),
+    }
+}
+
 // ──────────────────────────────────────────────
 // Project Purge
 // ──────────────────────────────────────────────
@@ -613,7 +996,10 @@ pub extern "C" fn macmaid_purge_scan(
 }
 
 #[no_mangle]
-pub extern "C" fn macmaid_purge_item(artifact_json: *const c_char) -> *mut c_char {
+pub extern "C" fn macmaid_purge_item(
+    artifact_json: *const c_char,
+    token_str: *const c_char,
+) -> *mut c_char {
     let result = catch_unwind(move || {
         if artifact_json.is_null() {
             return error_json("artifact_json is null");
@@ -623,6 +1009,15 @@ pub extern "C" fn macmaid_purge_item(artifact_json: *const c_char) -> *mut c_cha
             Ok(a) => a,
             Err(e) => return error_json(&format!("Invalid artifact JSON: {e}")),
         };
+
+        if token_str.is_null() {
+            return error_json("Authorization token is required to purge artifact");
+        }
+        let token = unsafe { CStr::from_ptr(token_str).to_str().unwrap_or("") };
+        let plan = macmaid_core::review::purge_plan(std::slice::from_ref(&artifact));
+        if let Err(e) = AUTHORIZATION_MANAGER.validate_and_consume("purge", token, &plan, false) {
+            return error_json(&format!("Authorization denied: {e}"));
+        }
 
         let cleaner = Cleaner::default();
         match ProjectPurgeManager::purge_artifact(&artifact, &cleaner) {
@@ -820,5 +1215,19 @@ pub extern "C" fn macmaid_translate(
     match result {
         Ok(s) => to_c_string(s),
         Err(_) => to_c_string(""),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn macmaid_check_updates() -> *mut c_char {
+    let result = catch_unwind(|| {
+        let status = macmaid_core::update::check_update_status();
+        serde_json::to_string(&status)
+            .unwrap_or_else(|e| json!({"error": e.to_string()}).to_string())
+    });
+
+    match result {
+        Ok(json_str) => to_c_string(json_str),
+        Err(_) => error_json("Panic in macmaid_check_updates"),
     }
 }
