@@ -4,6 +4,7 @@ members = [
     "crates/macmaid-core",
     "crates/macmaid-cli",
     "crates/macmaid-ffi",
+    "crates/macmaid-tui",
 ]
 
 [workspace.package]
@@ -16,6 +17,7 @@ repository = "https://github.com/DevOpen-io/MacMaid"
 
 [workspace.dependencies]
 macmaid-core = { path = "crates/macmaid-core" }
+macmaid-tui = { path = "crates/macmaid-tui" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 libc = "0.2"

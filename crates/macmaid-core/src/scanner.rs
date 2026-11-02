@@ -250,7 +250,7 @@ impl Scanner {
         }
     }
 
-    fn scan_browser_caches(
+    pub fn scan_browser_caches(
         &self,
         home: &Path,
         items: &mut Vec<CleanupItem>,
@@ -453,5 +453,64 @@ pub fn scan_installers(older_than_days: u64) -> Vec<CleanupItem> {
             }
         }
     }
+    items
+}
+
+pub fn scan_leftovers(older_than_days: u64, include_data: bool) -> Vec<CleanupItem> {
+    let mut items = Vec::new();
+    let home = match dirs_home() {
+        Some(h) => h,
+        None => return items,
+    };
+
+    let apps = crate::apps::ApplicationManager::scan_applications(None);
+    let mut installed_ids = std::collections::HashSet::new();
+    for app in apps {
+        installed_ids.insert(app.bundle_id.to_lowercase());
+    }
+
+    let cutoff = SystemTime::now() - Duration::from_secs(older_than_days * 86400);
+
+    let mut roots = vec![
+        home.join("Library/Caches"),
+        home.join("Library/Logs"),
+        home.join("Library/Saved Application State"),
+    ];
+    if include_data {
+        roots.push(home.join("Library/Application Support"));
+    }
+
+    for root in roots {
+        if !root.exists() {
+            continue;
+        }
+        if let Ok(entries) = fs::read_dir(&root) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                let lower = name.to_lowercase();
+                let parts: Vec<&str> = lower.split('.').collect();
+                if parts.len() >= 2 && !installed_ids.contains(&lower) {
+                    if let Ok(meta) = entry.metadata() {
+                        if let Ok(mtime) = meta.modified() {
+                            if mtime <= cutoff {
+                                let path = entry.path();
+                                let size = size_of(&path, None);
+                                items.push(CleanupItem::new(
+                                    CleanupCategory::Leftovers,
+                                    format!("Leftover: {name}"),
+                                    Some(path),
+                                    size,
+                                    RiskLevel::Moderate,
+                                    "Leftover data from uninstalled application",
+                                    CleanupAction::move_to_trash(),
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     items
 }

@@ -195,7 +195,7 @@ impl Cleaner {
         Ok(result)
     }
 
-    fn execute_item(
+    pub fn execute_item(
         &self,
         item: &CleanupItem,
         allow_manual_fallback: bool,

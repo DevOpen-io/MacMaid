@@ -166,6 +166,16 @@ impl Config {
         Ok(())
     }
 
+    pub fn save_whitelist(&self, rules: &[String]) -> io::Result<()> {
+        self.ensure_config_dir()?;
+        let content = if rules.is_empty() {
+            String::new()
+        } else {
+            rules.join("\n") + "\n"
+        };
+        atomic_write(&self.whitelist_path, content.as_bytes())
+    }
+
     pub fn add_rule(&self, rule: &str) -> io::Result<()> {
         self.ensure_config_dir()?;
         let mut rules = self.patterns(false).unwrap_or_default();

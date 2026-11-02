@@ -87,6 +87,8 @@ enum Commands {
     /// Open the native MacMaid desktop application
     #[command(alias = "web", alias = "gui", alias = "dashboard", alias = "app")]
     Ui(UiArgs),
+    /// Launch the interactive terminal user interface (TUI)
+    Tui,
 }
 
 #[derive(Args)]
@@ -335,9 +337,11 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        None => {
-            println!("MacMaid v{}", macmaid_core::VERSION);
-            println!("Run `macmaid --help` to view available commands.");
+        None | Some(Commands::Tui) => {
+            if let Err(e) = macmaid_tui::run() {
+                eprintln!("Error launching MacMaid TUI: {e}");
+                std::process::exit(1);
+            }
         }
         Some(Commands::Doctor) => {
             let checks = Doctor::run_diagnostics();
