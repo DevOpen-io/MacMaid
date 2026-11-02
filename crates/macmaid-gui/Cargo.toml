@@ -6,6 +6,10 @@ authors.workspace = true
 license.workspace = true
 description = "Pure Rust native desktop GUI for MacMaid using eframe/egui"
 
+[lib]
+name = "macmaid_gui"
+path = "src/lib.rs"
+
 [[bin]]
 name = "macmaid-gui"
 path = "src/main.rs"

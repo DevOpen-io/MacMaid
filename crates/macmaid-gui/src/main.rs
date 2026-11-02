@@ -1,11 +1,5 @@
-mod app;
-mod modals;
-mod theme;
-mod treemap_layout;
-mod views;
-
-use app::MacMaidGuiApp;
 use eframe::egui;
+use macmaid_gui::MacMaidGuiApp;
 
 fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {

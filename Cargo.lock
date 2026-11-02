@@ -2162,7 +2162,7 @@ dependencies = [
 
 [[package]]
 name = "macmaid-cli"
-version = "0.15.35"
+version = "0.15.36"
 dependencies = [
  "clap",
  "macmaid-core",
@@ -2172,7 +2172,7 @@ dependencies = [
 
 [[package]]
 name = "macmaid-core"
-version = "0.15.35"
+version = "0.15.36"
 dependencies = [
  "chrono",
  "glob",
@@ -2189,7 +2189,7 @@ dependencies = [
 
 [[package]]
 name = "macmaid-gui"
-version = "0.15.35"
+version = "0.15.36"
 dependencies = [
  "chrono",
  "eframe",
@@ -2201,7 +2201,7 @@ dependencies = [
 
 [[package]]
 name = "macmaid-tui"
-version = "0.15.35"
+version = "0.15.36"
 dependencies = [
  "chrono",
  "crossterm",

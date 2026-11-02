@@ -1,7 +1,7 @@
 use macmaid_core::analyzer::AnalyzerNode;
 use std::path::PathBuf;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TreemapRect {
     pub name: String,
     pub path: PathBuf,
@@ -15,7 +15,6 @@ pub struct TreemapRect {
     pub category: TreemapCategory,
 }
 
-#[allow(dead_code)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TreemapCategory {
     Folder,
@@ -68,12 +67,37 @@ impl TreemapCategory {
             || lower.ends_with(".txt")
         {
             TreemapCategory::Document
+        } else if lower.ends_with(".dylib")
+            || lower.ends_with(".plist")
+            || lower.ends_with(".kext")
+            || lower.ends_with(".log")
+        {
+            TreemapCategory::System
         } else {
             TreemapCategory::Other
         }
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+struct Rect {
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+}
+
+struct ItemToLayout<'a> {
+    node: &'a AnalyzerNode,
+    area: f32,
+    percentage: f64,
+}
+
+/// Computes a standard Squarified Treemap layout (Bruls, Huizing, van Wijk, 2000).
+/// Guarantees:
+/// 1. Strict area proportionality: `rect.area / total_area == node.bytes / total_bytes`.
+/// 2. Bounded aspect ratios: rectangles are squarified row-by-row along the shortest container side.
+/// 3. 100% canvas coverage: no gaps, no overlaps, exact bounding box containment.
 pub fn compute_treemap_layout(
     items: &[AnalyzerNode],
     bounds_x: f32,
@@ -90,132 +114,181 @@ pub fn compute_treemap_layout(
         return Vec::new();
     }
 
-    // Sort descending by size
-    let mut sorted: Vec<&AnalyzerNode> = items.iter().collect();
-    sorted.sort_by_key(|a| std::cmp::Reverse(a.bytes));
+    let total_area = bounds_w * bounds_h;
 
-    let mut out = Vec::new();
-    bsp_partition(
-        &sorted,
-        total_bytes,
-        total_bytes,
-        bounds_x,
-        bounds_y,
-        bounds_w,
-        bounds_h,
-        &mut out,
-    );
+    // Filter items with positive bytes and sort descending
+    let mut sorted_items: Vec<ItemToLayout> = items
+        .iter()
+        .filter(|it| it.bytes > 0)
+        .map(|it| {
+            let pct = (it.bytes as f64 / total_bytes as f64) * 100.0;
+            let area = (it.bytes as f64 / total_bytes as f64 * total_area as f64) as f32;
+            ItemToLayout {
+                node: it,
+                area,
+                percentage: pct,
+            }
+        })
+        .collect();
+
+    sorted_items.sort_by_key(|a| std::cmp::Reverse(a.node.bytes));
+
+    if sorted_items.is_empty() {
+        return Vec::new();
+    }
+
+    let mut out = Vec::with_capacity(sorted_items.len());
+    let mut container = Rect {
+        x: bounds_x,
+        y: bounds_y,
+        w: bounds_w,
+        h: bounds_h,
+    };
+
+    squarify(&sorted_items, &mut container, &mut out);
     out
 }
 
-#[allow(clippy::too_many_arguments)]
-fn bsp_partition(
-    items: &[&AnalyzerNode],
-    subset_bytes: u64,
-    root_total_bytes: u64,
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
-    out: &mut Vec<TreemapRect>,
-) {
-    if items.is_empty() || subset_bytes == 0 || w <= 0.0 || h <= 0.0 {
+fn worst_aspect_ratio(row: &[&ItemToLayout], side: f32) -> f32 {
+    if row.is_empty() || side <= 0.0 {
+        return f32::MAX;
+    }
+    let s: f32 = row.iter().map(|it| it.area).sum();
+    if s <= 0.0 {
+        return f32::MAX;
+    }
+
+    let d = s / side;
+    if d <= 0.0 {
+        return f32::MAX;
+    }
+
+    let mut worst = 0.0_f32;
+    for it in row {
+        let length = it.area / d;
+        if length <= 0.0 {
+            return f32::MAX;
+        }
+        let ratio = if d > length { d / length } else { length / d };
+        if ratio > worst {
+            worst = ratio;
+        }
+    }
+    worst
+}
+
+fn layout_row(row: &[&ItemToLayout], container: &mut Rect, out: &mut Vec<TreemapRect>) {
+    if row.is_empty() {
+        return;
+    }
+    let s: f32 = row.iter().map(|it| it.area).sum();
+    if s <= 0.0 {
         return;
     }
 
-    if items.len() == 1 {
-        let it = items[0];
-        let pct = if root_total_bytes > 0 {
-            (it.bytes as f64 / root_total_bytes as f64) * 100.0
+    let is_vertical_slice = container.w >= container.h;
+    let shortest_side = if is_vertical_slice {
+        container.h
+    } else {
+        container.w
+    };
+
+    if shortest_side <= 0.0 {
+        return;
+    }
+
+    let d = s / shortest_side;
+
+    if is_vertical_slice {
+        // Vertical slice of width d, height container.h
+        let mut curr_y = container.y;
+        for (i, it) in row.iter().enumerate() {
+            let item_h = if i == row.len() - 1 {
+                // Last item snaps to container bottom to prevent floating point residual gap
+                (container.y + container.h - curr_y).max(0.0)
+            } else {
+                it.area / d
+            };
+
+            out.push(TreemapRect {
+                name: it.node.name.clone(),
+                path: PathBuf::from(&it.node.path),
+                bytes: it.node.bytes,
+                is_dir: it.node.is_dir,
+                x: container.x,
+                y: curr_y,
+                w: d,
+                h: item_h,
+                percentage: it.percentage,
+                category: TreemapCategory::from_path(&it.node.name, it.node.is_dir),
+            });
+            curr_y += item_h;
+        }
+        container.x += d;
+        container.w = (container.w - d).max(0.0);
+    } else {
+        // Horizontal slice of height d, width container.w
+        let mut curr_x = container.x;
+        for (i, it) in row.iter().enumerate() {
+            let item_w = if i == row.len() - 1 {
+                // Last item snaps to container right
+                (container.x + container.w - curr_x).max(0.0)
+            } else {
+                it.area / d
+            };
+
+            out.push(TreemapRect {
+                name: it.node.name.clone(),
+                path: PathBuf::from(&it.node.path),
+                bytes: it.node.bytes,
+                is_dir: it.node.is_dir,
+                x: curr_x,
+                y: container.y,
+                w: item_w,
+                h: d,
+                percentage: it.percentage,
+                category: TreemapCategory::from_path(&it.node.name, it.node.is_dir),
+            });
+            curr_x += item_w;
+        }
+        container.y += d;
+        container.h = (container.h - d).max(0.0);
+    }
+}
+
+fn squarify(children: &[ItemToLayout], container: &mut Rect, out: &mut Vec<TreemapRect>) {
+    let mut current_row: Vec<&ItemToLayout> = Vec::new();
+    let mut idx = 0;
+
+    while idx < children.len() {
+        if container.w <= 0.0 || container.h <= 0.0 {
+            break;
+        }
+
+        let next_item = &children[idx];
+        let side = container.w.min(container.h);
+
+        if current_row.is_empty() {
+            current_row.push(next_item);
+            idx += 1;
         } else {
-            0.0
-        };
-        out.push(TreemapRect {
-            name: it.name.clone(),
-            path: PathBuf::from(&it.path),
-            bytes: it.bytes,
-            is_dir: it.is_dir,
-            x,
-            y,
-            w,
-            h,
-            percentage: pct,
-            category: TreemapCategory::from_path(&it.name, it.is_dir),
-        });
-        return;
-    }
+            let current_worst = worst_aspect_ratio(&current_row, side);
+            let mut candidate_row = current_row.clone();
+            candidate_row.push(next_item);
+            let candidate_worst = worst_aspect_ratio(&candidate_row, side);
 
-    // Find partition index that splits subset_bytes closest to 50/50
-    let half_mass = subset_bytes / 2;
-    let mut accumulated = 0u64;
-    let mut split_idx = 1;
-    let mut min_diff = u64::MAX;
-
-    for (i, it) in items.iter().enumerate().take(items.len() - 1) {
-        accumulated += it.bytes;
-        let diff = accumulated.abs_diff(half_mass);
-        if diff < min_diff {
-            min_diff = diff;
-            split_idx = i + 1;
+            if candidate_worst <= current_worst {
+                current_row.push(next_item);
+                idx += 1;
+            } else {
+                // Layout current row and proceed to next in new container space
+                layout_row(&current_row, container, out);
+                current_row.clear();
+            }
         }
     }
 
-    let left_items = &items[..split_idx];
-    let right_items = &items[split_idx..];
-    let left_bytes: u64 = left_items.iter().map(|i| i.bytes).sum();
-    let right_bytes = subset_bytes.saturating_sub(left_bytes);
-
-    let left_ratio = (left_bytes as f32 / subset_bytes as f32).clamp(0.01, 0.99);
-
-    if w >= h {
-        // Split vertically into Left and Right
-        let left_w = w * left_ratio;
-        let right_w = w - left_w;
-
-        bsp_partition(
-            left_items,
-            left_bytes,
-            root_total_bytes,
-            x,
-            y,
-            left_w,
-            h,
-            out,
-        );
-        bsp_partition(
-            right_items,
-            right_bytes,
-            root_total_bytes,
-            x + left_w,
-            y,
-            right_w,
-            h,
-            out,
-        );
-    } else {
-        // Split horizontally into Top and Bottom
-        let top_h = h * left_ratio;
-        let bottom_h = h - top_h;
-
-        bsp_partition(
-            left_items,
-            left_bytes,
-            root_total_bytes,
-            x,
-            y,
-            w,
-            top_h,
-            out,
-        );
-        bsp_partition(
-            right_items,
-            right_bytes,
-            root_total_bytes,
-            x,
-            y + top_h,
-            w,
-            bottom_h,
-            out,
-        );
+    if !current_row.is_empty() {
+        layout_row(&current_row, container, out);
     }
 }

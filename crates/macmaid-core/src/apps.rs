@@ -239,6 +239,53 @@ impl ApplicationManager {
         components
     }
 
+    pub fn validate_app_bundle(
+        raw: &Path,
+        app: &InstalledApplication,
+    ) -> Result<PathBuf, crate::safety::PathSafetyError> {
+        let path = crate::safety::PathSafety::lexical(raw)?;
+        let home = dirs_home().ok_or_else(|| {
+            crate::safety::PathSafetyError::EmptyOrSuspicious("no home directory".into())
+        })?;
+        let roots = [PathBuf::from("/Applications"), home.join("Applications")];
+        if !roots.iter().any(|r| path.starts_with(r)) || !path.to_string_lossy().ends_with(".app") {
+            return Err(crate::safety::PathSafetyError::OutsideCleanupRoots(path));
+        }
+        if app.bundle_id.starts_with("com.apple.") {
+            return Err(crate::safety::PathSafetyError::EmptyOrSuspicious(
+                "Apple system applications cannot be removed".into(),
+            ));
+        }
+        crate::safety::PathSafety::reject_symlink_ancestors(&path)?;
+        Ok(path)
+    }
+
+    pub fn validate_app_component(raw: &Path) -> Result<PathBuf, crate::safety::PathSafetyError> {
+        let path = crate::safety::PathSafety::lexical(raw)?;
+        let home = dirs_home().ok_or_else(|| {
+            crate::safety::PathSafetyError::EmptyOrSuspicious("no home directory".into())
+        })?;
+        let library = home.join("Library");
+        let allowed_subdirs = [
+            library.join("Caches"),
+            library.join("Application Support"),
+            library.join("Containers"),
+            library.join("WebKit"),
+            library.join("Preferences"),
+            library.join("Saved Application State"),
+            library.join("HTTPStorages"),
+            library.join("Logs"),
+        ];
+        if !allowed_subdirs
+            .iter()
+            .any(|sub| path.starts_with(sub) && path != *sub)
+        {
+            return Err(crate::safety::PathSafetyError::OutsideCleanupRoots(path));
+        }
+        crate::safety::PathSafety::reject_symlink_ancestors(&path)?;
+        Ok(path)
+    }
+
     pub fn uninstall_app(
         app: &InstalledApplication,
         components_to_remove: &[String],
@@ -251,6 +298,7 @@ impl ApplicationManager {
         }
 
         let mut total_reclaimed: u64 = 0;
+        let mut bundle_removed = false;
 
         // If Homebrew Cask: try brew uninstall --cask first
         if let Some(cask) = &app.brew_cask {
@@ -263,28 +311,49 @@ impl ApplicationManager {
                 );
                 if res.succeeded() {
                     total_reclaimed += app.bytes;
+                    bundle_removed = true;
                 } else {
                     return Err(format!("Homebrew cask uninstall failed: {}", res.stderr));
                 }
             }
-        } else {
-            // Native move .app bundle to trash
-            let _ = cleaner.move_analyzer_item_to_trash(&app_path, Some(app.bytes))?;
+        }
+
+        if !bundle_removed && app_path.exists() {
+            // Native move .app bundle to trash with proper app bundle validator
+            cleaner.move_reviewed_item_to_trash(
+                &app_path,
+                |p| Self::validate_app_bundle(p, app),
+                Some(app.bytes),
+            )?;
             total_reclaimed += app.bytes;
+            bundle_removed = true;
         }
 
         // Remove selected leftover components
+        let mut leftovers_removed = 0;
         for comp_path_str in components_to_remove {
             let comp_path = PathBuf::from(comp_path_str);
             if comp_path.exists() {
                 let size = size_of(&comp_path, None);
                 if cleaner
-                    .move_analyzer_item_to_trash(&comp_path, Some(size))
+                    .move_reviewed_item_to_trash(
+                        &comp_path,
+                        Self::validate_app_component,
+                        Some(size),
+                    )
                     .is_ok()
                 {
                     total_reclaimed += size;
+                    leftovers_removed += 1;
                 }
             }
+        }
+
+        if !bundle_removed && leftovers_removed == 0 {
+            return Err(format!(
+                "No components of {} could be uninstalled; verify path permissions.",
+                app.name
+            ));
         }
 
         Ok(total_reclaimed)

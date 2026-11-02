@@ -11,6 +11,7 @@ use crate::views::downloads::{
     render_smart_downloads_view, SmartDownloadsAction, SmartDownloadsViewState,
 };
 use crate::views::duplicates::{render_duplicates_view, DuplicateAction, DuplicateFinderViewState};
+use crate::views::history::{render_history_view, HistoryAction, HistoryViewState};
 use crate::views::large_files::{render_large_files_view, LargeFilesAction, LargeFilesViewState};
 use crate::views::memory::{render_memory_view, MemoryAction, MemoryViewState};
 use crate::views::project_purge::{
@@ -44,6 +45,14 @@ use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 
+type HistoryResult = Result<
+    (
+        Vec<macmaid_core::reporting::OperationRecord>,
+        Vec<macmaid_core::recovery::RestorableItem>,
+    ),
+    String,
+>;
+
 pub struct MacMaidGuiApp {
     pub theme_mode: ThemeMode,
     pub current_tab: NavTab,
@@ -60,6 +69,7 @@ pub struct MacMaidGuiApp {
     pub large_files_state: LargeFilesViewState,
     pub downloads_state: SmartDownloadsViewState,
     pub doctor_state: DoctorViewState,
+    pub history_state: HistoryViewState,
     pub settings_state: SettingsViewState,
 
     // Safety Review Modal State
@@ -111,6 +121,9 @@ pub struct MacMaidGuiApp {
 
     pub update_check_tx: Sender<macmaid_core::update::UpdateStatus>,
     pub update_check_rx: Receiver<macmaid_core::update::UpdateStatus>,
+
+    pub history_tx: Sender<HistoryResult>,
+    pub history_rx: Receiver<HistoryResult>,
 }
 
 impl Default for MacMaidGuiApp {
@@ -127,6 +140,7 @@ impl Default for MacMaidGuiApp {
         let (downloads_scan_tx, downloads_scan_rx) = channel();
         let (doctor_scan_tx, doctor_scan_rx) = channel();
         let (update_check_tx, update_check_rx) = channel();
+        let (history_tx, history_rx) = channel();
 
         Self {
             theme_mode: ThemeMode::Dark,
@@ -143,6 +157,7 @@ impl Default for MacMaidGuiApp {
             large_files_state: LargeFilesViewState::default(),
             downloads_state: SmartDownloadsViewState::default(),
             doctor_state: DoctorViewState::default(),
+            history_state: HistoryViewState::default(),
             settings_state: SettingsViewState::default(),
 
             review_modal: ReviewModalState::default(),
@@ -172,6 +187,8 @@ impl Default for MacMaidGuiApp {
             doctor_scan_rx,
             update_check_tx,
             update_check_rx,
+            history_tx,
+            history_rx,
         }
     }
 }
@@ -240,6 +257,7 @@ impl eframe::App for MacMaidGuiApp {
                             ui,
                             &self.theme_mode,
                             &mut self.smart_clean_state,
+                            self.is_turkish,
                         );
                         self.handle_smart_clean_action(action, ctx);
                     }
@@ -248,6 +266,7 @@ impl eframe::App for MacMaidGuiApp {
                             ui,
                             &self.theme_mode,
                             &mut self.app_uninstaller_state,
+                            self.is_turkish,
                         );
                         self.handle_app_uninstaller_action(action, ctx);
                     }
@@ -264,6 +283,7 @@ impl eframe::App for MacMaidGuiApp {
                             ui,
                             &self.theme_mode,
                             &mut self.developer_state,
+                            self.is_turkish,
                         );
                         self.handle_developer_action(action, ctx);
                     }
@@ -306,6 +326,21 @@ impl eframe::App for MacMaidGuiApp {
                             render_doctor_view(ui, &self.theme_mode, &mut self.doctor_state);
                         self.handle_doctor_action(action, ctx);
                     }
+                    NavTab::History => {
+                        if self.history_state.operations.is_empty()
+                            && self.history_state.restorable.is_empty()
+                            && !self.history_state.is_loading
+                        {
+                            self.handle_history_action(HistoryAction::Refresh, ctx);
+                        }
+                        let action = render_history_view(
+                            ui,
+                            &self.theme_mode,
+                            &mut self.history_state,
+                            self.is_turkish,
+                        );
+                        self.handle_history_action(action, ctx);
+                    }
                     NavTab::Settings => {
                         let action = render_settings_view(
                             ui,
@@ -319,7 +354,12 @@ impl eframe::App for MacMaidGuiApp {
             });
 
         // Review Confirmation Sheet Modal (P0 Safety Barrier)
-        let modal_action = render_review_modal(ctx, &self.theme_mode, &mut self.review_modal);
+        let modal_action = render_review_modal(
+            ctx,
+            &self.theme_mode,
+            &mut self.review_modal,
+            self.is_turkish,
+        );
         self.handle_modal_action(modal_action, ctx);
     }
 }
@@ -421,6 +461,20 @@ impl MacMaidGuiApp {
             self.settings_state.update_status = Some(status);
             ctx.request_repaint();
         }
+
+        if let Ok(res) = self.history_rx.try_recv() {
+            self.history_state.is_loading = false;
+            match res {
+                Ok((ops, restorable)) => {
+                    self.history_state.operations = ops;
+                    self.history_state.restorable = restorable;
+                }
+                Err(e) => {
+                    self.global_status = Some((e, true));
+                }
+            }
+            ctx.request_repaint();
+        }
     }
 
     fn handle_smart_clean_action(&mut self, action: SmartCleanAction, ctx: &egui::Context) {
@@ -456,6 +510,9 @@ impl MacMaidGuiApp {
                     plan,
                     token,
                     ttl_seconds: 300,
+                    cleanup_items: items,
+                    app_target: None,
+                    dev_target: None,
                 });
                 self.review_modal.is_open = true;
                 self.review_modal.allow_extra_opt_in = false;
@@ -485,6 +542,9 @@ impl MacMaidGuiApp {
                     plan,
                     token,
                     ttl_seconds: 300,
+                    cleanup_items: Vec::new(),
+                    app_target: Some(app),
+                    dev_target: None,
                 });
                 self.review_modal.is_open = true;
                 self.review_modal.allow_extra_opt_in = false;
@@ -515,6 +575,9 @@ impl MacMaidGuiApp {
                     plan,
                     token,
                     ttl_seconds: 300,
+                    cleanup_items: Vec::new(),
+                    app_target: None,
+                    dev_target: None,
                 });
                 self.review_modal.is_open = true;
                 self.review_modal.allow_extra_opt_in = false;
@@ -545,6 +608,9 @@ impl MacMaidGuiApp {
                     plan,
                     token,
                     ttl_seconds: 300,
+                    cleanup_items: Vec::new(),
+                    app_target: None,
+                    dev_target: Some(section),
                 });
                 self.review_modal.is_open = true;
                 self.review_modal.allow_extra_opt_in = false;
@@ -575,6 +641,9 @@ impl MacMaidGuiApp {
                     plan,
                     token,
                     ttl_seconds: 300,
+                    cleanup_items: Vec::new(),
+                    app_target: None,
+                    dev_target: None,
                 });
                 self.review_modal.is_open = true;
                 self.review_modal.allow_extra_opt_in = false;
@@ -612,6 +681,9 @@ impl MacMaidGuiApp {
                     plan,
                     token,
                     ttl_seconds: 300,
+                    cleanup_items: Vec::new(),
+                    app_target: None,
+                    dev_target: None,
                 });
                 self.review_modal.is_open = true;
                 self.review_modal.allow_extra_opt_in = false;
@@ -643,6 +715,9 @@ impl MacMaidGuiApp {
                     plan,
                     token,
                     ttl_seconds: 300,
+                    cleanup_items: Vec::new(),
+                    app_target: None,
+                    dev_target: None,
                 });
                 self.review_modal.is_open = true;
                 self.review_modal.allow_extra_opt_in = false;
@@ -683,6 +758,9 @@ impl MacMaidGuiApp {
                     plan,
                     token,
                     ttl_seconds: 300,
+                    cleanup_items: Vec::new(),
+                    app_target: None,
+                    dev_target: None,
                 });
                 self.review_modal.is_open = true;
                 self.review_modal.allow_extra_opt_in = false;
@@ -713,6 +791,9 @@ impl MacMaidGuiApp {
                     plan,
                     token,
                     ttl_seconds: 300,
+                    cleanup_items: Vec::new(),
+                    app_target: None,
+                    dev_target: None,
                 });
                 self.review_modal.is_open = true;
                 self.review_modal.allow_extra_opt_in = false;
@@ -743,10 +824,62 @@ impl MacMaidGuiApp {
                     plan,
                     token,
                     ttl_seconds: 300,
+                    cleanup_items: Vec::new(),
+                    app_target: None,
+                    dev_target: None,
                 });
                 self.review_modal.is_open = true;
                 self.review_modal.allow_extra_opt_in = true;
                 self.review_modal.error_msg = None;
+            }
+        }
+    }
+
+    fn handle_history_action(&mut self, action: HistoryAction, ctx: &egui::Context) {
+        match action {
+            HistoryAction::None => {}
+            HistoryAction::Refresh => {
+                self.history_state.is_loading = true;
+                let tx = self.history_tx.clone();
+                let ctx_clone = ctx.clone();
+                thread::spawn(move || {
+                    let logger = macmaid_core::reporting::AuditLogger::default();
+                    let ops = logger.read_history(100);
+                    let restorable = macmaid_core::recovery::RecoveryCenter::list_restorable(100);
+                    let _ = tx.send(Ok((ops, restorable)));
+                    ctx_clone.request_repaint();
+                });
+            }
+            HistoryAction::Restore {
+                trash_path,
+                original_path,
+            } => {
+                let tx = self.action_tx.clone();
+                let hist_tx = self.history_tx.clone();
+                let ctx_clone = ctx.clone();
+                thread::spawn(move || {
+                    match macmaid_core::recovery::RecoveryCenter::restore(
+                        &trash_path,
+                        &original_path,
+                        false,
+                    ) {
+                        Ok(_) => {
+                            let _ = tx.send(Ok(format!(
+                                "Successfully restored {}",
+                                original_path.display()
+                            )));
+                            let logger = macmaid_core::reporting::AuditLogger::default();
+                            let ops = logger.read_history(100);
+                            let restorable =
+                                macmaid_core::recovery::RecoveryCenter::list_restorable(100);
+                            let _ = hist_tx.send(Ok((ops, restorable)));
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Err(format!("Restore failed: {e}")));
+                        }
+                    }
+                    ctx_clone.request_repaint();
+                });
             }
         }
     }
@@ -792,56 +925,29 @@ impl MacMaidGuiApp {
                 token,
                 allow_extra,
             } => {
-                if let Some(ref staged) = self.review_modal.staged {
+                if let Some(staged) = self.review_modal.staged.take() {
                     let plan = staged.plan.clone();
                     self.review_modal.is_open = false;
-                    self.review_modal.staged = None;
 
                     // Execute with Authorization Token Validation
                     let tx = self.action_tx.clone();
                     let ctx_clone = ctx.clone();
                     thread::spawn(move || {
-                        if let Err(e) = AUTHORIZATION_MANAGER.validate_and_consume(
-                            &scope,
-                            &token,
-                            &plan,
-                            allow_extra,
-                        ) {
-                            let _ = tx.send(Err(format!("Authorization denied: {e}")));
-                            ctx_clone.request_repaint();
-                            return;
-                        }
-
-                        // Dispatched execution based on scope
                         let cleaner = Cleaner::default();
                         match scope.as_str() {
                             "clean" => {
-                                let opt_items: Vec<macmaid_core::models::CleanupItem> = plan
-                                    .items
-                                    .iter()
-                                    .map(|it| {
-                                        macmaid_core::models::CleanupItem::new(
-                                            macmaid_core::models::CleanupCategory::UserCaches,
-                                            &it.label,
-                                            Some(PathBuf::from(&it.target)),
-                                            it.estimated_bytes,
-                                            macmaid_core::models::RiskLevel::Safe,
-                                            &it.reason,
-                                            macmaid_core::models::CleanupAction::remove_path(),
-                                        )
-                                    })
-                                    .collect();
-
-                                match cleaner.execute(
-                                    &opt_items,
-                                    true,
+                                match cleaner.execute_authorized(
+                                    &scope,
+                                    &token,
+                                    &plan,
+                                    &staged.cleanup_items,
                                     allow_extra,
                                     |_, _, _, _| {},
                                 ) {
                                     Ok(res) => {
                                         let _ = tx.send(Ok(format!(
                                             "Cleaned {} items ({} reclaimed).",
-                                            opt_items.len(),
+                                            staged.cleanup_items.len(),
                                             macmaid_core::system::human_bytes(res.freed)
                                         )));
                                     }
@@ -851,70 +957,156 @@ impl MacMaidGuiApp {
                                 }
                             }
                             "apps" => {
-                                let mut uninstalled_count = 0;
-                                for it in &plan.items {
-                                    let target_path = PathBuf::from(&it.target);
-                                    if it.user_data && !allow_extra {
-                                        continue;
-                                    }
-                                    if cleaner
-                                        .move_analyzer_item_to_trash(
-                                            &target_path,
-                                            Some(it.estimated_bytes),
-                                        )
-                                        .is_ok()
-                                    {
-                                        uninstalled_count += 1;
-                                    }
+                                if let Err(e) = AUTHORIZATION_MANAGER.validate_and_consume(
+                                    &scope,
+                                    &token,
+                                    &plan,
+                                    allow_extra,
+                                ) {
+                                    let _ = tx.send(Err(format!("Authorization denied: {e}")));
+                                    ctx_clone.request_repaint();
+                                    return;
                                 }
-                                let _ = tx.send(Ok(format!(
-                                    "Uninstalled application components ({uninstalled_count} removed)."
-                                )));
-                            }
-                            "purge" => {
-                                let mut purged = 0;
-                                for it in &plan.items {
-                                    let p = PathBuf::from(&it.target);
-                                    if cleaner
-                                        .move_analyzer_item_to_trash(&p, Some(it.estimated_bytes))
-                                        .is_ok()
-                                    {
-                                        purged += 1;
+
+                                if let Some(ref app) = staged.app_target {
+                                    let comp_paths: Vec<String> = plan
+                                        .items
+                                        .iter()
+                                        .filter(|it| !it.user_data || allow_extra)
+                                        .map(|it| it.target.clone())
+                                        .collect();
+
+                                    match ApplicationManager::uninstall_app(
+                                        app,
+                                        &comp_paths,
+                                        &cleaner,
+                                    ) {
+                                        Ok(count) => {
+                                            let _ = tx.send(Ok(format!(
+                                                "Successfully uninstalled {} ({} components removed).",
+                                                app.name, count
+                                            )));
+                                        }
+                                        Err(e) => {
+                                            let _ = tx.send(Err(format!("Uninstall error: {e}")));
+                                        }
                                     }
+                                } else {
+                                    let _ = tx.send(Err(
+                                        "No application target found for uninstallation".into(),
+                                    ));
                                 }
-                                let _ = tx.send(Ok(format!(
-                                    "Purged {purged} project artifacts to ~/.Trash."
-                                )));
                             }
                             "developer" => {
-                                let mut cleaned_count = 0;
+                                if let Err(e) = AUTHORIZATION_MANAGER.validate_and_consume(
+                                    &scope,
+                                    &token,
+                                    &plan,
+                                    allow_extra,
+                                ) {
+                                    let _ = tx.send(Err(format!("Authorization denied: {e}")));
+                                    ctx_clone.request_repaint();
+                                    return;
+                                }
+
+                                if let Some(ref sec) = staged.dev_target {
+                                    match DeveloperStorageCenter::clean_section(sec, &cleaner) {
+                                        Ok(count) => {
+                                            let _ = tx.send(Ok(format!(
+                                                "Successfully cleaned {} ({} items removed).",
+                                                sec.name, count
+                                            )));
+                                        }
+                                        Err(e) => {
+                                            let _ =
+                                                tx.send(Err(format!("Developer clean error: {e}")));
+                                        }
+                                    }
+                                } else {
+                                    let _ =
+                                        tx.send(Err("No developer target section found".into()));
+                                }
+                            }
+                            "purge" => {
+                                if let Err(e) = AUTHORIZATION_MANAGER.validate_and_consume(
+                                    &scope,
+                                    &token,
+                                    &plan,
+                                    allow_extra,
+                                ) {
+                                    let _ = tx.send(Err(format!("Authorization denied: {e}")));
+                                    ctx_clone.request_repaint();
+                                    return;
+                                }
+
+                                let mut purged = 0;
+                                let mut last_err = None;
                                 for it in &plan.items {
                                     let p = PathBuf::from(&it.target);
-                                    if cleaner
-                                        .move_analyzer_item_to_trash(&p, Some(it.estimated_bytes))
-                                        .is_ok()
-                                    {
-                                        cleaned_count += 1;
+                                    match cleaner.move_reviewed_item_to_trash(
+                                        &p,
+                                        ProjectPurgeManager::validate_project_artifact,
+                                        Some(it.estimated_bytes),
+                                    ) {
+                                        Ok(_) => purged += 1,
+                                        Err(e) => last_err = Some(e),
                                     }
                                 }
-                                let _ = tx.send(Ok(format!(
-                                    "Developer storage cleaned ({cleaned_count} items)."
-                                )));
+                                if purged > 0 || last_err.is_none() {
+                                    let _ = tx.send(Ok(format!(
+                                        "Purged {purged} project artifacts to ~/.Trash."
+                                    )));
+                                } else {
+                                    let _ = tx.send(Err(format!(
+                                        "Failed to purge artifacts: {}",
+                                        last_err.unwrap_or_else(|| "Unknown error".into())
+                                    )));
+                                }
                             }
                             "analyzer" | "duplicates" | "large-files" | "downloads" => {
+                                if let Err(e) = AUTHORIZATION_MANAGER.validate_and_consume(
+                                    &scope,
+                                    &token,
+                                    &plan,
+                                    allow_extra,
+                                ) {
+                                    let _ = tx.send(Err(format!("Authorization denied: {e}")));
+                                    ctx_clone.request_repaint();
+                                    return;
+                                }
+
                                 let mut trashed = 0;
+                                let mut last_err = None;
                                 for it in &plan.items {
                                     let p = PathBuf::from(&it.target);
-                                    if cleaner
+                                    match cleaner
                                         .move_analyzer_item_to_trash(&p, Some(it.estimated_bytes))
-                                        .is_ok()
                                     {
-                                        trashed += 1;
+                                        Ok(_) => trashed += 1,
+                                        Err(e) => last_err = Some(e),
                                     }
                                 }
-                                let _ = tx.send(Ok(format!("Moved {trashed} items to Trash.")));
+                                if trashed > 0 || last_err.is_none() {
+                                    let _ = tx.send(Ok(format!("Moved {trashed} items to Trash.")));
+                                } else {
+                                    let _ = tx.send(Err(format!(
+                                        "Failed to move items to Trash: {}",
+                                        last_err.unwrap_or_else(|| "Unknown error".into())
+                                    )));
+                                }
                             }
                             "memory" => {
+                                if let Err(e) = AUTHORIZATION_MANAGER.validate_and_consume(
+                                    &scope,
+                                    &token,
+                                    &plan,
+                                    allow_extra,
+                                ) {
+                                    let _ = tx.send(Err(format!("Authorization denied: {e}")));
+                                    ctx_clone.request_repaint();
+                                    return;
+                                }
+
                                 if let Some(item) = plan.items.first() {
                                     let pid: u32 = item
                                         .key
@@ -943,6 +1135,17 @@ impl MacMaidGuiApp {
                                 }
                             }
                             "snapshots" => {
+                                if let Err(e) = AUTHORIZATION_MANAGER.validate_and_consume(
+                                    &scope,
+                                    &token,
+                                    &plan,
+                                    allow_extra,
+                                ) {
+                                    let _ = tx.send(Err(format!("Authorization denied: {e}")));
+                                    ctx_clone.request_repaint();
+                                    return;
+                                }
+
                                 let target_bytes = plan.total_bytes;
                                 match SnapshotManager::thin_snapshots(target_bytes, &cleaner) {
                                     Ok(res) => {

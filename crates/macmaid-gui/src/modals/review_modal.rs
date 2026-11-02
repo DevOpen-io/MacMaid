@@ -8,6 +8,9 @@ pub struct StagedPlan {
     pub plan: ReviewPlan,
     pub token: String,
     pub ttl_seconds: u64,
+    pub cleanup_items: Vec<macmaid_core::models::CleanupItem>,
+    pub app_target: Option<macmaid_core::apps::InstalledApplication>,
+    pub dev_target: Option<macmaid_core::developer::DeveloperSection>,
 }
 
 #[derive(Default)]
@@ -32,6 +35,7 @@ pub fn render_review_modal(
     ctx: &egui::Context,
     theme: &ThemeMode,
     state: &mut ReviewModalState,
+    is_turkish: bool,
 ) -> ModalAction {
     if !state.is_open || state.staged.is_none() {
         return ModalAction::None;
@@ -41,7 +45,13 @@ pub fn render_review_modal(
     let plan = &staged.plan;
     let mut action = ModalAction::None;
 
-    egui::Window::new(format!("🔒 {}", plan.title))
+    let window_title = if is_turkish {
+        format!("🔒 Güvenlik İncelemesi: {}", plan.title)
+    } else {
+        format!("🔒 Safety Review: {}", plan.title)
+    };
+
+    egui::Window::new(window_title)
         .collapsible(false)
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
@@ -52,8 +62,13 @@ pub fn render_review_modal(
 
             ui.add_space(6.0);
             ui.horizontal(|ui| {
+                let badge_text = if is_turkish {
+                    "SİSTEM GÜVENLİK PROTOKOLÜ"
+                } else {
+                    "SYSTEM SAFETY GUARANTEE"
+                };
                 ui.label(
-                    RichText::new("SYSTEM SAFETY GUARANTEE")
+                    RichText::new(badge_text)
                         .size(11.0)
                         .color(theme.accent())
                         .strong(),
@@ -76,14 +91,24 @@ pub fn render_review_modal(
 
             ui.add_space(8.0);
             ui.horizontal(|ui| {
-                ui.label(RichText::new("Total Size:").strong());
+                let size_label = if is_turkish {
+                    "Toplam Boyut:"
+                } else {
+                    "Total Size:"
+                };
+                ui.label(RichText::new(size_label).strong());
                 ui.label(
                     RichText::new(human_bytes(plan.total_bytes))
                         .color(theme.accent())
                         .strong(),
                 );
                 ui.add_space(16.0);
-                ui.label(RichText::new("Items:").strong());
+                let items_label = if is_turkish {
+                    "Öğe Sayısı:"
+                } else {
+                    "Items:"
+                };
+                ui.label(RichText::new(items_label).strong());
                 ui.label(format!("{}", plan.items.len()));
             });
 
@@ -100,7 +125,12 @@ pub fn render_review_modal(
             ui.separator();
             ui.add_space(4.0);
 
-            ui.label(RichText::new("Review Candidate Items:").strong());
+            let review_label = if is_turkish {
+                "İncelenecek Aday Öğeler:"
+            } else {
+                "Review Candidate Items:"
+            };
+            ui.label(RichText::new(review_label).strong());
 
             // Scrollable list of items
             egui::ScrollArea::vertical()
@@ -127,6 +157,12 @@ pub fn render_review_modal(
                                         badge_color.b(),
                                         35,
                                     );
+                                    let risk_text = match (is_turkish, item.risk.as_str()) {
+                                        (true, "SAFE") => "GÜVENLİ",
+                                        (true, "MODERATE") => "ORTA",
+                                        (true, "AGGRESSIVE") => "AGRESİF",
+                                        _ => &item.risk,
+                                    };
                                     egui::Frame::NONE
                                         .fill(badge_fill)
                                         .stroke(badge_stroke)
@@ -134,7 +170,7 @@ pub fn render_review_modal(
                                         .inner_margin(egui::Margin::symmetric(4, 2))
                                         .show(ui, |ui| {
                                             ui.label(
-                                                RichText::new(&item.risk)
+                                                RichText::new(risk_text)
                                                     .size(9.5)
                                                     .color(badge_color)
                                                     .strong(),
@@ -164,14 +200,17 @@ pub fn render_review_modal(
                     .corner_radius(theme.corner_radius_sm())
                     .inner_margin(8.0)
                     .show(ui, |ui| {
+                        let opt_in_text = if is_turkish {
+                            "Kullanıcı verilerinin, ayarların ve durumun temizlenmesini açıkça yetkilendiriyorum"
+                        } else {
+                            "I explicitly authorize purging user data, preferences, and state"
+                        };
                         ui.checkbox(
                             &mut state.allow_extra_opt_in,
-                            RichText::new(
-                                "I explicitly authorize purging user data, preferences, and state",
-                            )
-                            .color(theme.danger())
-                            .strong()
-                            .size(11.5),
+                            RichText::new(opt_in_text)
+                                .color(theme.danger())
+                                .strong()
+                                .size(11.5),
                         );
                     });
             }
@@ -187,14 +226,20 @@ pub fn render_review_modal(
 
             // Action Buttons (Explicit Cursor Click - NO Default Key Shortcut)
             ui.horizontal(|ui| {
-                if ui.button("Cancel").clicked() {
+                let cancel_label = if is_turkish { "İptal" } else { "Cancel" };
+                if ui.button(cancel_label).clicked() {
                     action = ModalAction::Cancel;
                 }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let can_confirm = !plan.requires_extra_opt_in || state.allow_extra_opt_in;
+                    let confirm_label = if is_turkish {
+                        "Yetkilendir ve Çalıştır"
+                    } else {
+                        "Authorize & Execute"
+                    };
                     let confirm_btn = egui::Button::new(
-                        RichText::new("Authorize & Execute")
+                        RichText::new(confirm_label)
                             .color(Color32::WHITE)
                             .strong(),
                     )

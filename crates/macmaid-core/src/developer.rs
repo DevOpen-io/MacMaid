@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::cancellation::CancellationToken;
 use crate::cleaner::Cleaner;
@@ -209,6 +209,18 @@ impl DeveloperStorageCenter {
         sections
     }
 
+    pub fn validate_developer_path(raw: &Path) -> Result<PathBuf, crate::safety::PathSafetyError> {
+        let path = crate::safety::PathSafety::lexical(raw)?;
+        let home = dirs_home().ok_or_else(|| {
+            crate::safety::PathSafetyError::EmptyOrSuspicious("no home directory".into())
+        })?;
+        if path == home || !path.starts_with(&home) {
+            return Err(crate::safety::PathSafetyError::OutsideCleanupRoots(path));
+        }
+        crate::safety::PathSafety::reject_symlink_ancestors(&path)?;
+        Ok(path)
+    }
+
     pub fn clean_section(section: &DeveloperSection, cleaner: &Cleaner) -> Result<u64, String> {
         if let Some(path_str) = &section.path {
             let path = PathBuf::from(path_str);
@@ -220,7 +232,11 @@ impl DeveloperStorageCenter {
                     Ok(before.saturating_sub(after))
                 }
                 "trash" => {
-                    let _ = cleaner.move_analyzer_item_to_trash(&path, Some(before))?;
+                    let _ = cleaner.move_reviewed_item_to_trash(
+                        &path,
+                        Self::validate_developer_path,
+                        Some(before),
+                    )?;
                     Ok(before)
                 }
                 _ => Err(format!(

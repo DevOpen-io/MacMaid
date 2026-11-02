@@ -2,6 +2,7 @@ use crate::theme::ThemeMode;
 use eframe::egui::{self, RichText};
 use egui_extras::{Column, TableBuilder};
 use macmaid_core::large_files::LargeOldFile;
+use macmaid_core::review::AUTHORIZATION_MANAGER;
 use macmaid_core::system::human_bytes;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -167,11 +168,13 @@ pub fn render_large_files_view(
                         }
 
                         if ui.button("Select All").clicked() {
+                            AUTHORIZATION_MANAGER.bump_generation("large-files");
                             state.selected_paths =
                                 state.files.iter().map(|f| f.path.clone()).collect();
                         }
 
                         if ui.button("Deselect All").clicked() {
+                            AUTHORIZATION_MANAGER.bump_generation("large-files");
                             state.selected_paths.clear();
                         }
                     });
@@ -233,6 +236,7 @@ pub fn render_large_files_view(
 
                     row.col(|ui| {
                         if ui.checkbox(&mut is_checked, "").changed() {
+                            AUTHORIZATION_MANAGER.bump_generation("large-files");
                             if is_checked {
                                 state.selected_paths.insert(file.path.clone());
                             } else {

@@ -1,6 +1,7 @@
 use crate::theme::ThemeMode;
 use eframe::egui::{self, RichText};
 use macmaid_core::duplicates::DuplicateGroup;
+use macmaid_core::review::AUTHORIZATION_MANAGER;
 use macmaid_core::system::human_bytes;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -172,6 +173,7 @@ pub fn render_duplicates_view(
                         }
 
                         if ui.button("Select Duplicates (Auto)").clicked() {
+                            AUTHORIZATION_MANAGER.bump_generation("duplicates");
                             state.selected_paths.clear();
                             for g in &state.groups {
                                 // Skip first copy (original), select all subsequent copies
@@ -182,6 +184,7 @@ pub fn render_duplicates_view(
                         }
 
                         if ui.button("Deselect All").clicked() {
+                            AUTHORIZATION_MANAGER.bump_generation("duplicates");
                             state.selected_paths.clear();
                         }
                     });
@@ -253,6 +256,7 @@ pub fn render_duplicates_view(
 
                                 ui.horizontal(|ui| {
                                     if ui.checkbox(&mut is_checked, "").changed() {
+                                        AUTHORIZATION_MANAGER.bump_generation("duplicates");
                                         if is_checked {
                                             state.selected_paths.insert(file.clone());
                                         } else {

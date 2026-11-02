@@ -126,10 +126,35 @@ impl ProjectPurgeManager {
         None
     }
 
+    pub fn validate_project_artifact(
+        raw: &Path,
+    ) -> Result<PathBuf, crate::safety::PathSafetyError> {
+        let path = crate::safety::PathSafety::lexical(raw)?;
+        let home = crate::safety::dirs_home()
+            .ok_or_else(|| crate::safety::PathSafetyError::EmptyOrSuspicious("no home".into()))?;
+        if path == home || !path.starts_with(&home) {
+            return Err(crate::safety::PathSafetyError::OutsideCleanupRoots(path));
+        }
+        let protected_anchors = [
+            "Library",
+            "Applications",
+            "Desktop",
+            "Documents",
+            "Downloads",
+        ];
+        for anchor in protected_anchors {
+            if path == home.join(anchor) {
+                return Err(crate::safety::PathSafetyError::ProtectedHomeAnchor(path));
+            }
+        }
+        crate::safety::PathSafety::reject_symlink_ancestors(&path)?;
+        Ok(path)
+    }
+
     pub fn purge_artifact(artifact: &ProjectArtifact, cleaner: &Cleaner) -> Result<u64, String> {
         let path = PathBuf::from(&artifact.path);
         let bytes = size_of(&path, None);
-        cleaner.move_analyzer_item_to_trash(&path, Some(bytes))?;
+        cleaner.move_reviewed_item_to_trash(&path, Self::validate_project_artifact, Some(bytes))?;
         Ok(bytes)
     }
 }

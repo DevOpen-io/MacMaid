@@ -37,6 +37,7 @@ pub fn render_settings_view(
     state: &mut SettingsViewState,
 ) -> SettingsAction {
     let mut action = SettingsAction::None;
+    let tr = *is_turkish;
 
     egui::ScrollArea::vertical().show(ui, |ui| {
         // Section 1: General Preferences (Language & Theme)
@@ -46,11 +47,17 @@ pub fn render_settings_view(
             .corner_radius(theme.corner_radius_md())
             .inner_margin(12.0)
             .show(ui, |ui| {
-                ui.label(RichText::new("⚙️ General Preferences").strong().size(14.0));
+                let title = if tr {
+                    "⚙️ Genel Tercihler"
+                } else {
+                    "⚙️ General Preferences"
+                };
+                ui.label(RichText::new(title).strong().size(14.0));
                 ui.add_space(8.0);
 
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("Language:").strong());
+                    let lang_label = if tr { "Dil:" } else { "Language:" };
+                    ui.label(RichText::new(lang_label).strong());
                     if ui.selectable_label(!*is_turkish, "English").clicked() {
                         *is_turkish = false;
                     }
@@ -60,15 +67,18 @@ pub fn render_settings_view(
 
                     ui.separator();
 
-                    ui.label(RichText::new("Appearance:").strong());
+                    let appearance_label = if tr { "Görünüm:" } else { "Appearance:" };
+                    ui.label(RichText::new(appearance_label).strong());
+                    let dark_label = if tr { "🌙 Koyu" } else { "🌙 Dark" };
                     if ui
-                        .selectable_label(*theme == ThemeMode::Dark, "🌙 Dark")
+                        .selectable_label(*theme == ThemeMode::Dark, dark_label)
                         .clicked()
                     {
                         *theme = ThemeMode::Dark;
                     }
+                    let light_label = if tr { "☀️ Açık" } else { "☀️ Light" };
                     if ui
-                        .selectable_label(*theme == ThemeMode::Light, "☀️ Light")
+                        .selectable_label(*theme == ThemeMode::Light, light_label)
                         .clicked()
                     {
                         *theme = ThemeMode::Light;
@@ -86,10 +96,20 @@ pub fn render_settings_view(
             .inner_margin(12.0)
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("🚀 Software Updates").strong().size(14.0));
+                    let update_title = if tr {
+                        "🚀 Yazılım Güncellemeleri"
+                    } else {
+                        "🚀 Software Updates"
+                    };
+                    ui.label(RichText::new(update_title).strong().size(14.0));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let check_text = if tr {
+                            "Güncellemeleri Denetle"
+                        } else {
+                            "Check for Updates"
+                        };
                         let check_btn = egui::Button::new(
-                            RichText::new("Check for Updates")
+                            RichText::new(check_text)
                                 .color(eframe::egui::Color32::WHITE)
                                 .strong(),
                         )
@@ -108,35 +128,49 @@ pub fn render_settings_view(
 
                 if let Some(ref status) = state.update_status {
                     ui.horizontal(|ui| {
-                        ui.label(format!("Channel: {}", status.channel));
-                        ui.label(format!("Installed: v{}", status.installed_version));
+                        let channel_label = if tr { "Kanal" } else { "Channel" };
+                        let installed_label = if tr { "Yüklü" } else { "Installed" };
+                        ui.label(format!("{channel_label}: {}", status.channel));
+                        ui.label(format!("{installed_label}: v{}", status.installed_version));
                         if status.available {
-                            ui.label(
-                                RichText::new(format!(
+                            let avail_text = if tr {
+                                format!(
+                                    "✨ Yeni Sürüm Mevcut: v{}",
+                                    status.latest_version.as_deref().unwrap_or("?")
+                                )
+                            } else {
+                                format!(
                                     "✨ Update Available: v{}",
                                     status.latest_version.as_deref().unwrap_or("?")
-                                ))
-                                .color(theme.success())
-                                .strong(),
-                            );
+                                )
+                            };
+                            ui.label(RichText::new(avail_text).color(theme.success()).strong());
                         } else {
-                            ui.label(
-                                RichText::new("✓ You are running the latest version.")
-                                    .color(theme.success()),
-                            );
+                            let latest_text = if tr {
+                                "✓ En güncel sürümü kullanıyorsunuz."
+                            } else {
+                                "✓ You are running the latest version."
+                            };
+                            ui.label(RichText::new(latest_text).color(theme.success()));
                         }
                     });
                 } else if state.is_checking_update {
                     ui.horizontal(|ui| {
                         ui.spinner();
-                        ui.label("Checking release channel...");
+                        let checking_text = if tr {
+                            "Yayın kanalı kontrol ediliyor..."
+                        } else {
+                            "Checking release channel..."
+                        };
+                        ui.label(checking_text);
                     });
                 } else {
-                    ui.label(
-                        RichText::new("Click 'Check for Updates' to verify software version.")
-                            .color(theme.text_secondary())
-                            .size(11.5),
-                    );
+                    let hint = if tr {
+                        "Sürümü doğrulamak için 'Güncellemeleri Denetle' düğmesine tıklayın."
+                    } else {
+                        "Click 'Check for Updates' to verify software version."
+                    };
+                    ui.label(RichText::new(hint).color(theme.text_secondary()).size(11.5));
                 }
             });
 
@@ -150,13 +184,19 @@ pub fn render_settings_view(
             .inner_margin(12.0)
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
+                    let rules_title = if tr {
+                        "🛡️ Güvenli Beyaz Liste Kuralları"
+                    } else {
+                        "🛡️ Safety Whitelist Rules"
+                    };
+                    ui.label(RichText::new(rules_title).strong().size(14.0));
+                    let rules_desc = if tr {
+                        "(Tüm taramalardan hariç tutulan korumalı yollar)"
+                    } else {
+                        "(Protected patterns excluded from all scans)"
+                    };
                     ui.label(
-                        RichText::new("🛡️ Safety Whitelist Rules")
-                            .strong()
-                            .size(14.0),
-                    );
-                    ui.label(
-                        RichText::new("(Protected patterns excluded from all scans)")
+                        RichText::new(rules_desc)
                             .color(theme.text_secondary())
                             .size(11.0),
                     );
@@ -166,7 +206,8 @@ pub fn render_settings_view(
 
                 ui.horizontal(|ui| {
                     ui.text_edit_singleline(&mut state.new_rule_pattern);
-                    let add_btn = egui::Button::new("Add Rule").fill(theme.accent());
+                    let add_label = if tr { "Kural Ekle" } else { "Add Rule" };
+                    let add_btn = egui::Button::new(add_label).fill(theme.accent());
                     if ui
                         .add_enabled(!state.new_rule_pattern.trim().is_empty(), add_btn)
                         .clicked()
@@ -180,7 +221,12 @@ pub fn render_settings_view(
                 ui.add_space(8.0);
 
                 if state.whitelist_rules.is_empty() {
-                    ui.label("No custom whitelist rules configured.");
+                    let empty_rules = if tr {
+                        "Özel beyaz liste kuralı eklenmemiş."
+                    } else {
+                        "No custom whitelist rules configured."
+                    };
+                    ui.label(empty_rules);
                 } else {
                     for rule in &state.whitelist_rules {
                         ui.horizontal(|ui| {
@@ -189,9 +235,10 @@ pub fn render_settings_view(
                             ui.with_layout(
                                 egui::Layout::right_to_left(egui::Align::Center),
                                 |ui| {
+                                    let remove_text = if tr { "Kaldır" } else { "Remove" };
                                     if ui
                                         .button(
-                                            RichText::new("Remove")
+                                            RichText::new(remove_text)
                                                 .color(theme.danger())
                                                 .size(11.0),
                                         )

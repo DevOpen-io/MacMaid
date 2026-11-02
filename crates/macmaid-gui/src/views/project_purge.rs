@@ -1,6 +1,7 @@
 use crate::theme::ThemeMode;
 use eframe::egui::{self, RichText};
 use macmaid_core::purge::ProjectArtifact;
+use macmaid_core::review::AUTHORIZATION_MANAGER;
 use macmaid_core::system::human_bytes;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -141,11 +142,13 @@ pub fn render_project_purge_view(
                         }
 
                         if ui.button("Select All").clicked() {
+                            AUTHORIZATION_MANAGER.bump_generation("purge");
                             state.selected_paths =
                                 state.artifacts.iter().map(|a| a.path.clone()).collect();
                         }
 
                         if ui.button("Deselect All").clicked() {
+                            AUTHORIZATION_MANAGER.bump_generation("purge");
                             state.selected_paths.clear();
                         }
                     });
@@ -190,6 +193,7 @@ pub fn render_project_purge_view(
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             if ui.checkbox(&mut is_checked, "").changed() {
+                                AUTHORIZATION_MANAGER.bump_generation("purge");
                                 if is_checked {
                                     state.selected_paths.insert(artifact.path.clone());
                                 } else {

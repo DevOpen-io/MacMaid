@@ -3,6 +3,7 @@ pub mod developer;
 pub mod doctor;
 pub mod downloads;
 pub mod duplicates;
+pub mod history;
 pub mod large_files;
 pub mod memory;
 pub mod project_purge;

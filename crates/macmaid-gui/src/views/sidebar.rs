@@ -13,6 +13,7 @@ pub enum NavTab {
     LargeFiles,
     SmartDownloads,
     HealthDoctor,
+    History,
     Settings,
 }
 
@@ -29,6 +30,7 @@ impl NavTab {
             Self::LargeFiles => "Large & Old Files",
             Self::SmartDownloads => "Smart Downloads",
             Self::HealthDoctor => "Health & Doctor",
+            Self::History => "History & Recovery",
             Self::Settings => "Settings",
         }
     }
@@ -45,6 +47,7 @@ impl NavTab {
             Self::LargeFiles => "Büyük ve Eski Dosyalar",
             Self::SmartDownloads => "Akıllı İndirmeler",
             Self::HealthDoctor => "Sistem Sağlığı",
+            Self::History => "İşlem Geçmişi",
             Self::Settings => "Ayarlar",
         }
     }
@@ -61,6 +64,7 @@ impl NavTab {
             Self::LargeFiles => "📁",
             Self::SmartDownloads => "📥",
             Self::HealthDoctor => "🩺",
+            Self::History => "📜",
             Self::Settings => "⚙️",
         }
     }
@@ -107,6 +111,7 @@ pub fn render_sidebar(
         NavTab::LargeFiles,
         NavTab::SmartDownloads,
         NavTab::HealthDoctor,
+        NavTab::History,
         NavTab::Settings,
     ];
 

@@ -195,6 +195,25 @@ impl Cleaner {
         Ok(result)
     }
 
+    pub fn execute_authorized<F>(
+        &self,
+        scope: &str,
+        token: &str,
+        plan: &crate::review::ReviewPlan,
+        items: &[CleanupItem],
+        extra_opt_in: bool,
+        progress: F,
+    ) -> Result<OperationResult, String>
+    where
+        F: FnMut(usize, usize, &CleanupItem, &str),
+    {
+        crate::review::AUTHORIZATION_MANAGER
+            .validate_and_consume(scope, token, plan, extra_opt_in)
+            .map_err(|e| format!("Core authorization rejected: {e}"))?;
+
+        self.execute(items, true, extra_opt_in, progress)
+    }
+
     pub fn execute_item(
         &self,
         item: &CleanupItem,
@@ -370,11 +389,15 @@ impl Cleaner {
         Ok(destination)
     }
 
-    pub fn move_analyzer_item_to_trash(
+    pub fn move_reviewed_item_to_trash<V>(
         &self,
         raw: &Path,
+        validate: V,
         estimated_bytes: Option<u64>,
-    ) -> Result<PathBuf, String> {
+    ) -> Result<PathBuf, String>
+    where
+        V: Fn(&Path) -> Result<PathBuf, PathSafetyError>,
+    {
         let euid = unsafe { libc::geteuid() };
         let uid = unsafe { libc::getuid() };
         if euid == 0 || uid == 0 {
@@ -384,7 +407,7 @@ impl Cleaner {
         self.logger.ensure_audit_safe().map_err(|e| e.to_string())?;
 
         let authorize = || -> Result<(), PathSafetyError> {
-            let path = PathSafety::validate_analyzer_candidate(raw)?;
+            let path = validate(raw)?;
             if std::fs::symlink_metadata(&path)
                 .map(|m| m.file_type().is_symlink())
                 .unwrap_or(false)
@@ -430,6 +453,18 @@ impl Cleaner {
         );
 
         Ok(destination)
+    }
+
+    pub fn move_analyzer_item_to_trash(
+        &self,
+        raw: &Path,
+        estimated_bytes: Option<u64>,
+    ) -> Result<PathBuf, String> {
+        self.move_reviewed_item_to_trash(
+            raw,
+            |p| PathSafety::validate_analyzer_candidate(p),
+            estimated_bytes,
+        )
     }
 
     fn require_owned_directory(
