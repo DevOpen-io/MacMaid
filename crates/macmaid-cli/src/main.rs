@@ -912,6 +912,18 @@ fn main() {
             println!("Uninstall complete.");
         }
         Some(Commands::Ui(_args)) => {
+            // Check adjacent binary first (e.g. in same directory or target/release)
+            if let Ok(exe) = std::env::current_exe() {
+                if let Some(parent) = exe.parent() {
+                    let direct_gui = parent.join("macmaid-gui");
+                    if direct_gui.exists() {
+                        println!("Launching MacMaid GUI: {}...", direct_gui.display());
+                        let _ = std::process::Command::new(&direct_gui).spawn();
+                        return;
+                    }
+                }
+            }
+
             // Check if native MacMaid.app is installed or present in build directory
             let app_paths = [
                 PathBuf::from("/Applications/MacMaid.app"),
@@ -937,10 +949,10 @@ fn main() {
                 }
             }
 
-            println!("MacMaid is now a genuine native macOS desktop application!");
+            println!("MacMaid is a pure Rust native macOS desktop application.");
             println!("To launch the UI, install the app via Homebrew Cask:");
             println!("  brew install --cask macmaid");
-            println!("Or run the native app bundle from /Applications/MacMaid.app");
+            println!("Or run `cargo run -p macmaid-gui`.");
         }
     }
 }

@@ -11,7 +11,7 @@ help: ## Show available commands
 	@printf "MacMaid Rust & Native Desktop workflow\n\n"
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-24s %s\n", $$1, $$2}'
 
-build: ## Build Rust workspace (macmaid-core, macmaid-cli, macmaid-ffi)
+build: ## Build Rust workspace (macmaid-core, macmaid-cli, macmaid-gui, macmaid-tui)
 	$(CARGO) build --release --workspace
 
 build-app: ## Build native macOS desktop application bundle (.app) and CLI

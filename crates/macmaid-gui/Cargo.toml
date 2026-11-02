@@ -1,0 +1,19 @@
+[package]
+name = "macmaid-gui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Pure Rust native desktop GUI for MacMaid using eframe/egui"
+
+[[bin]]
+name = "macmaid-gui"
+path = "src/main.rs"
+
+[dependencies]
+macmaid-core = { workspace = true }
+eframe = { version = "0.31", default-features = false, features = ["default_fonts", "wgpu", "accesskit"] }
+egui_extras = { version = "0.31", default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }

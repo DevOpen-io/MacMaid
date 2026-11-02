@@ -1,0 +1,12 @@
+pub mod app_uninstaller;
+pub mod developer;
+pub mod doctor;
+pub mod downloads;
+pub mod duplicates;
+pub mod large_files;
+pub mod memory;
+pub mod project_purge;
+pub mod settings;
+pub mod sidebar;
+pub mod smart_clean;
+pub mod treemap;

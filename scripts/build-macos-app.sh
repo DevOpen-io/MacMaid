@@ -28,11 +28,10 @@ info "Building MacMaid Rust release workspace ($VERSION)..."
 cargo build --release --workspace
 
 CLI_SRC="$ROOT/target/release/macmaid"
-FFI_LIB="$ROOT/target/release/libmacmaid_ffi.a"
-FFI_INC="$ROOT/crates/macmaid-ffi/include"
+GUI_SRC="$ROOT/target/release/macmaid-gui"
 
 [ -f "$CLI_SRC" ] || fail "Rust CLI binary not found at $CLI_SRC"
-[ -f "$FFI_LIB" ] || fail "Rust FFI static library not found at $FFI_LIB"
+[ -f "$GUI_SRC" ] || fail "Rust GUI binary not found at $GUI_SRC"
 
 rm -rf "$APP_ROOT" "$CLI_DIR"
 mkdir -p "$BUILD_DIR" "$APP_MACOS" "$APP_RESOURCES" "$CLI_DIR"
@@ -40,21 +39,14 @@ mkdir -p "$BUILD_DIR" "$APP_MACOS" "$APP_RESOURCES" "$CLI_DIR"
 # Stage standalone CLI binary
 cp "$CLI_SRC" "$CLI_DIR/$BIN_NAME"
 chmod 755 "$CLI_DIR/$BIN_NAME"
-cp "$CLI_SRC" "$APP_MACOS/$BIN_NAME"
-chmod 755 "$APP_MACOS/$BIN_NAME"
 
-# Build native SwiftUI desktop application
-info "Compiling native macOS SwiftUI desktop interface with swiftc..."
-SWIFT_FILES=$(find "$ROOT/apps/macos/Sources" -name '*.swift' | sort)
-
-swiftc -target "$(uname -m)-apple-macosx$MACOS_DEPLOYMENT_TARGET" \
-  -O -parse-as-library \
-  -import-objc-header "$FFI_INC/macmaid_ffi.h" \
-  -I "$FFI_INC" \
-  -L "$ROOT/target/release" \
-  -lmacmaid_ffi \
-  $SWIFT_FILES \
-  -o "$APP_MACOS/$APP_NAME"
+# Stage native pure Rust desktop application
+info "Staging native pure Rust macOS desktop interface..."
+cp "$GUI_SRC" "$APP_MACOS/$APP_NAME"
+chmod 755 "$APP_MACOS/$APP_NAME"
+if command -v strip >/dev/null 2>&1; then
+  strip "$APP_MACOS/$APP_NAME" || true
+fi
 
 # Generate application icon
 if [ -f "$LOGO_PNG" ]; then

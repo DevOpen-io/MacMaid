@@ -3,8 +3,8 @@ resolver = "2"
 members = [
     "crates/macmaid-core",
     "crates/macmaid-cli",
-    "crates/macmaid-ffi",
     "crates/macmaid-tui",
+    "crates/macmaid-gui",
 ]
 
 [workspace.package]
